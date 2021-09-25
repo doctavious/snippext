@@ -23,6 +23,7 @@ fn main() {
         ).unwrap();
 
         for snippet in snippets {
+            // TODO: support custom template
             // TODO: include filename
             let output_path = Path::new(opt.output_dir.as_str())
                 .join(snippet.identifier)
@@ -59,10 +60,20 @@ fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {
-    #[structopt(short, long, help = "flag to mark beginning of a snippet")]
+    #[structopt(
+        short,
+        long,
+        default_value = "snippet"
+        help = "flag to mark beginning of a snippet"
+    )]
     begin: String,
 
-    #[structopt(short, long, help = "flag to mark ending of a snippet")]
+    #[structopt(
+        short,
+        long,
+        default_value = "end"
+        help = "flag to mark ending of a snippet"
+    )]
     end: String,
 
     #[structopt(
@@ -82,8 +93,19 @@ struct Opt {
     extension: String,
 
     // default to current directory
-    sources: Vec<String>
+    sources: Vec<String>,
 
-    // excludes
-    // includes
+    // TODO: excludes
+    // TODO: includes
+
+    // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
+    // comment prefix
+    #[structopt(
+        short,
+        long,
+        default_value = "#"
+        help = ""
+    )]
+    comment_prefix: String,
+
 }

@@ -11,13 +11,16 @@ use std::error::Error;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
+    // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
     pub text: String,
     pub closed: bool,
+    // TODO: support tags?
 }
 
 impl Snippet {
 
+    // TODO: sanitize identifier
     pub fn new(identifier: String) -> Snippet {
         Snippet {
             identifier,
