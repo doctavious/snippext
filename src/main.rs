@@ -59,16 +59,26 @@ fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {
-    // flag to mark beginning of a snippet
+    #[structopt(short, long, help = "flag to mark beginning of a snippet")]
     begin: String,
 
-    // flag to mark ending of a snippet
+    #[structopt(short, long, help = "flag to mark ending of a snippet")]
     end: String,
-    //
-    // defaults to ./snippets/
+
+    #[structopt(
+        short,
+        long,
+        default_value = "./snippets/",
+        help = "directory in which the files will be generated"
+    )]
     output_dir: String,
-    // extension for generated files
-    // defaults to .md / .mdx / .adoc ?
+
+    #[structopt(
+        short = "ext",
+        long,
+        default_value = ".md",
+        help = "extension for generated files"
+    )]
     extension: String,
 
     // default to current directory
