@@ -1,0 +1,26 @@
+[package]
+name = "snippext"
+version = "0.1.0"
+edition = "2018"
+repository = "https://github.com/doctavious/snippext"
+keywords = ["snippet"]
+categories = ["documentation"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "snippext"
+path = "src/lib.rs"
+
+[[bin]]
+name = "snippext-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = "2.33.3"
+serde = { version = "1.0", features = ["derive"] }
+structopt = "0.3"
+walkdir = "2.3.1"
+
+[dev-dependencies]
+tempfile = "3.2.0"
