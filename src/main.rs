@@ -1,5 +1,8 @@
 use std::{fs, io};
 use structopt::StructOpt;
+use snippext::extract_snippets;
+use std::path::{PathBuf, Path};
+use walkdir::WalkDir;
 
 fn main() {
     let opt = Opt::from_args();
@@ -10,13 +13,39 @@ fn main() {
     //     env_logger::init();
     // }
 
+    let filenames = get_filenames(opt.sources);
+    for filename in filenames {
+        let snippets = extract_snippets(opt.begin, opt.end, filename)
+        // snippets := extractSnippets(opts.begin, opts.end, filename)
 
+    }
 
+}
+
+// if an entry is a directory all files from directory will be listed.
+fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+
+    for source in sources {
+        let path = Path::new(&source);
+        if !path.is_dir() {
+            out.push(path.to_path_buf())
+        }
+
+        for entry in WalkDir::new(&source)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| !e.file_type().is_dir()) {
+            out.push(entry.path().to_path_buf());
+        }
+    }
+
+    out
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
-pub(crate) struct Opt {
+struct Opt {
     // flag to mark beginning of a snippet
     begin: String,
 
@@ -30,7 +59,7 @@ pub(crate) struct Opt {
     extension: String,
 
     // default to current directory
-    source_dir: String
+    sources: Vec<String>
 
     // excludes
     // includes

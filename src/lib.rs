@@ -28,9 +28,11 @@ impl Snippet {
 
 }
 
-
-
-pub fn extract_snippets(begin_pattern: String, end_pattern: String, filename: String) -> Result<Vec<Snippet>, Box<dyn Error>> {
+pub fn extract_snippets(
+    begin_pattern: String,
+    end_pattern: String,
+    filename: PathBuf) -> Result<Vec<Snippet>, Box<dyn Error>>
+{
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
 
@@ -75,27 +77,6 @@ fn matches(s: &String, prefix: &String) -> String {
 	return String::from("");
 }
 
-
-// if an entry is a directory all files from directory will be listed.
-fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
-    let mut out: Vec<PathBuf> = Vec::new();
-
-    for source in sources {
-        let path = Path::new(&source);
-        if !path.is_dir() {
-            out.push(path.to_path_buf())
-        }
-
-        for entry in WalkDir::new(&source)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| !e.file_type().is_dir()) {
-                out.push(entry.path().to_path_buf());
-        }
-    }
-
-    out
-}
 
 
 #[cfg(test)]
