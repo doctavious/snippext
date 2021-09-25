@@ -11,9 +11,9 @@ use std::error::Error;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
-    identifier: String,
-    text: String,
-    closed: bool,
+    pub identifier: String,
+    pub text: String,
+    pub closed: bool,
 }
 
 impl Snippet {
