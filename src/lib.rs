@@ -1,7 +1,6 @@
 mod sanitize;
 
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -11,6 +10,7 @@ use walkdir::WalkDir;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use sanitize::sanitize;
+use std::fs;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -24,9 +24,39 @@ pub struct Snippet {
 impl Snippet {
     pub fn new(identifier: String) -> Snippet {
         Snippet {
-            identifier: sanitize(identifier),
+            identifier,
             text: "".to_string(),
             closed: false,
+        }
+    }
+}
+
+pub fn extract(
+    comment_prefix: String,
+    begin: String,
+    end: String,
+    output_dir: String,
+    extension: String,
+    sources: Vec<String>)
+{
+    let filenames = get_filenames(sources);
+    for filename in filenames {
+        let snippets = extract_snippets(
+            comment_prefix.to_owned(),
+            begin.to_owned(),
+            end.to_owned(),
+            filename.as_path()
+        ).unwrap();
+
+        for snippet in snippets {
+            let output_path = Path::new(output_dir.as_str())
+                .join(sanitize(&filename.as_path().to_string_lossy()))
+                .join(snippet.identifier)
+                .with_extension(extension.as_str());
+
+            // TODO: support custom template
+            // TODO: should we include a comment that the file is generated?
+            fs::write(output_path, snippet.text).unwrap();
         }
     }
 }
@@ -35,7 +65,7 @@ pub fn extract_snippets(
     comment_prefix: String,
     begin_pattern: String,
     end_pattern: String,
-    filename: PathBuf,
+    filename: &Path,
 ) -> Result<Vec<Snippet>, Box<dyn Error>> {
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
@@ -70,6 +100,28 @@ pub fn extract_snippets(
     }
 
     Ok(snippets)
+}
+
+// if an entry is a directory all files from directory will be listed.
+fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+
+    for source in sources {
+        let path = Path::new(&source);
+        if !path.is_dir() {
+            out.push(path.to_path_buf())
+        }
+
+        for entry in WalkDir::new(&source)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| !e.file_type().is_dir())
+        {
+            out.push(entry.path().to_path_buf());
+        }
+    }
+
+    out
 }
 
 fn matches(s: &String, prefix: String) -> String {
