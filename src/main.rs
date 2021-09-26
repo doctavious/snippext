@@ -1,4 +1,4 @@
-use snippext::{extract};
+use snippext::extract;
 use structopt::StructOpt;
 
 fn main() {
@@ -19,7 +19,6 @@ fn main() {
         opt.sources
     )
 }
-
 
 
 #[derive(StructOpt, Debug)]

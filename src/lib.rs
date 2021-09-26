@@ -1,16 +1,15 @@
 mod sanitize;
-
-use std::path::{Path, PathBuf};
-
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufReader;
-use walkdir::WalkDir;
-
+use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use sanitize::sanitize;
+use std::fs::File;
 use std::fs;
+use std::io::prelude::*;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
+use std::collections::HashMap;
+
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -18,7 +17,7 @@ pub struct Snippet {
     pub identifier: String,
     pub text: String,
     pub closed: bool,
-    // TODO: support tags?
+    pub attributes: HashMap<String, String>,
 }
 
 impl Snippet {
@@ -27,17 +26,20 @@ impl Snippet {
             identifier,
             text: "".to_string(),
             closed: false,
+            attributes: HashMap::new(),
         }
     }
 }
 
+// TODO: return result
 pub fn extract(
     comment_prefix: String,
     begin: String,
     end: String,
     output_dir: String,
     extension: String,
-    sources: Vec<String>)
+    sources: Vec<String>
+)
 {
     let filenames = get_filenames(sources);
     for filename in filenames {
@@ -49,13 +51,20 @@ pub fn extract(
         ).unwrap();
 
         for snippet in snippets {
+
+            let x: &[_] = &['.', '/'];
             let output_path = Path::new(output_dir.as_str())
-                .join(sanitize(&filename.as_path().to_string_lossy()))
-                .join(snippet.identifier)
+                .join(filename.as_path().to_string_lossy().trim_start_matches(x))
+                .join(sanitize(snippet.identifier))
                 .with_extension(extension.as_str());
+
+            println!("{:?}", output_path);
+
+            fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
             // TODO: support custom template
             // TODO: should we include a comment that the file is generated?
+
             fs::write(output_path, snippet.text).unwrap();
         }
     }
@@ -91,10 +100,10 @@ pub fn extract_snippets(
             continue;
         }
         for snippet in snippets.iter_mut() {
-            // snippet := &snippets[i]
             if snippet.closed {
                 continue;
             }
+            // TODO: unindent
             snippet.text = String::from(snippet.text.as_str()) + l.as_str() + "\n"
         }
     }
@@ -120,7 +129,6 @@ fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
             out.push(entry.path().to_path_buf());
         }
     }
-
     out
 }
 
@@ -128,15 +136,8 @@ fn matches(s: &String, prefix: String) -> String {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
     if trimmed.starts_with(&prefix) {
-        return s[prefix.len() + len_diff..].to_string();
+        // don't include attributes, starting with '['
+        return s[prefix.len() + len_diff..].chars().take_while(|&c| c != '[').collect();
     }
     return String::from("");
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }
