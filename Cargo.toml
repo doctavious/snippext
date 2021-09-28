@@ -8,13 +8,13 @@ categories = ["documentation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-name = "snippext"
-path = "src/lib.rs"
-
-[[bin]]
-name = "snippext-cli"
-path = "src/main.rs"
+#[lib]
+#name = "snippext"
+#path = "src/lib.rs"
+#
+#[[bin]]
+#name = "snippext-cli"
+#path = "src/main.rs"
 
 [dependencies]
 clap = "2.33.3"

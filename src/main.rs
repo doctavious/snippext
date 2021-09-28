@@ -24,6 +24,7 @@ fn main() {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {
+
     #[structopt(
         short,
         long,
@@ -33,7 +34,7 @@ struct Opt {
     begin: String,
 
     #[structopt(
-        short,
+        short = "end",
         long,
         default_value = "end::",
         help = "flag to mark ending of a snippet"
@@ -49,7 +50,7 @@ struct Opt {
     output_dir: String,
 
     #[structopt(
-        short = "ext",
+        short = "x",
         long,
         default_value = ".md",
         help = "extension for generated files"
@@ -62,8 +63,15 @@ struct Opt {
     // TODO: excludes
     // TODO: includes
 
+
+    // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
     // comment prefix
-    #[structopt(short, long, default_value = "// ", help = "")]
+    #[structopt(
+        short,
+        long,
+        default_value = "// ",
+        help = ""
+    )]
     comment_prefix: String,
 }
