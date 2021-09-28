@@ -40,7 +40,7 @@ Assuming that the above example lives in `src/main.rs` two files will be created
 
 ### Advanced
 
-### Custom Template
+#### Custom Template
 
 snippext by default writes out the content of the snippet within the boundaries of the snippet/end directives. 
 You can alter the output by providing a custom template.
