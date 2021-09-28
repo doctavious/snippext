@@ -34,9 +34,15 @@ fn main() {
 **Important**
 The snippet::[] and end::[] directives should be placed after a line comment as defined by the language of the source file. 
 
+**Important: Indentation** Snippext will also attempt to remove any unnecessary indentation from snippets.
+
+**Tip** It is not mandatory to terminate a snippet, the extractor will simply add line until EOF.
+
 Assuming that the above example lives in `src/main.rs` two files will be created
 1. src/main.rs/main.md
 2. src/main.rs/nested.md
+
+
 
 ### Advanced
 
@@ -58,8 +64,6 @@ which would produce the following
         println!("printing...")
     }
     ```
-
-Extract snippets from relative files into output_dir. It is not mandatory to terminate a snippet, the extractor will simply add line until EOF. When a directory is passed as an argument, all files from directory will be parsed.
 
 ## CLI Usage
 
