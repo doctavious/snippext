@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 use std::fs;
 use std::path::Path;
 
-// begin / end cnt be empty
+//TODO: begin / end cant be empty
 
 #[test]
 fn test() {
@@ -36,7 +36,7 @@ fn test() {
 
     let main_nested_content_actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md")).unwrap();
-    assert_eq!("    println!(\"printing...\")\n", main_nested_content_actual);
+    assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.md")).unwrap();

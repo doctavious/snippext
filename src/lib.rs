@@ -1,4 +1,6 @@
 mod sanitize;
+mod unindent;
+
 use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -9,7 +11,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use std::collections::HashMap;
-
+use unindent::unindent;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -58,14 +60,12 @@ pub fn extract(
                 .join(sanitize(snippet.identifier))
                 .with_extension(extension.as_str());
 
-            println!("{:?}", output_path);
-
             fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
             // TODO: support custom template
             // TODO: should we include a comment that the file is generated?
 
-            fs::write(output_path, snippet.text).unwrap();
+            fs::write(output_path, unindent(snippet.text.as_str())).unwrap();
         }
     }
 }
@@ -103,7 +103,6 @@ pub fn extract_snippets(
             if snippet.closed {
                 continue;
             }
-            // TODO: unindent
             snippet.text = String::from(snippet.text.as_str()) + l.as_str() + "\n"
         }
     }
@@ -141,3 +140,5 @@ fn matches(s: &String, prefix: String) -> String {
     }
     return String::from("");
 }
+
+

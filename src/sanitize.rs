@@ -1,4 +1,4 @@
-// from https://github.com/kardeiz/sanitize-filename
+// from https://github.com/kardeiz/sanitize-filename with some minor modifications
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
