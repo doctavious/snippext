@@ -1,7 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/snippext")]
 #![doc(issue_tracker_base_url = "https://github.com/doctavious/snippext/issues/")]
 #![warn(missing_docs)]
-#![cfg_attr(docsrs, deny(broken_intra_doc_links))]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 
 //! TODO: add docs for snippext lib
@@ -25,6 +25,7 @@ use walkdir::WalkDir;
 use std::collections::HashMap;
 use unindent::unindent;
 use tera::{Context, Tera};
+use regex::Regex;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -36,12 +37,12 @@ pub struct Snippet {
 }
 
 impl Snippet {
-    pub fn new(identifier: String) -> Snippet {
+    pub fn new(identifier: String, attributes: HashMap<String, String>) -> Snippet {
         Snippet {
             identifier,
             text: "".to_string(),
             closed: false,
-            attributes: HashMap::new(),
+            attributes
         }
     }
 }
@@ -76,13 +77,13 @@ pub fn extract(
 
             fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
-            // TODO: support custom template
-            // TODO: should we include a comment that the file is generated?
-
             let mut context = Context::new();
             context.insert("snippet", unindent(snippet.text.as_str()).as_str());
-            let result = Tera::one_off(template.as_str(), &context, false).unwrap();
+            for attribute in snippet.attributes {
+                context.insert(&attribute.0.to_string(), &attribute.1.to_string());
+            }
 
+            let result = Tera::one_off(template.as_str(), &context, false).unwrap();
             fs::write(output_path, result).unwrap();
         }
     }
@@ -103,8 +104,33 @@ pub fn extract_snippets(
 
         let begin_ident = matches(&l, String::from(comment_prefix.as_str()) + &begin_pattern);
         if !begin_ident.is_empty() {
-            let snippet = Snippet::new(begin_ident);
-            snippets.push(snippet);
+            // TODO: I feel like this is the long hard way to do this...
+            let mut attributes = HashMap::new();
+            let last_square_bracket_pos = begin_ident.rfind('[');
+            if let Some(last_square_bracket_pos) = last_square_bracket_pos {
+                let identifier = &begin_ident.as_str()[..last_square_bracket_pos];
+                let re = Regex::new("\\[([^]]+)\\]").unwrap();
+                let captured_kv = re.captures(begin_ident.as_str());
+                if captured_kv.is_some() {
+                    for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
+                        let parts: Vec<&str> = kv.split("=").collect();
+                        if parts.len() == 2 {
+
+                            attributes.insert(
+                                parts.get(0).unwrap().to_string(),
+                                parts.get(1).unwrap().to_string()
+                            );
+                        }
+                    }
+                }
+                println!("attributes [{:?}]", attributes);
+                let snippet = Snippet::new(identifier.to_string(), attributes);
+                snippets.push(snippet);
+            } else {
+                let snippet = Snippet::new(begin_ident, attributes);
+                snippets.push(snippet);
+            }
+
             continue;
         }
 
@@ -153,8 +179,7 @@ fn matches(s: &str, prefix: String) -> String {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
     if trimmed.starts_with(&prefix) {
-        // don't include attributes, starting with '['
-        return s[prefix.len() + len_diff..].chars().take_while(|&c| c != '[').collect();
+        return s[prefix.len() + len_diff..].to_string();
     }
     String::from("")
 }

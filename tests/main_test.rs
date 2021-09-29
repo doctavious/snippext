@@ -11,8 +11,6 @@ use std::path::Path;
 
 #[test]
 fn test() {
-
-    // Create a directory inside of `std::env::temp_dir()`.
     let dir = tempdir().unwrap();
 
     extract(
@@ -79,3 +77,35 @@ fn test_custom_prefix() {
 
     dir.close().unwrap();
 }
+
+#[test]
+fn test_custom_template() {
+    let dir = tempdir().unwrap();
+
+    extract(
+        String::from("// "),
+        String::from("snippet::"),
+        String::from("end::"),
+        dir.path().to_string_lossy().to_string(),
+        String::from("md"),
+        String::from("```{{lang | default(value=\"\")}}\n{{snippet}}```\n"),
+        vec![String::from("./tests/samples/main.rs")]
+    );
+
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+    let expected = r#"```rust
+fn main() {
+
+    println!("printing...")
+}
+```
+"#;
+    assert_eq!(expected, actual);
+
+    dir.close().unwrap();
+}
+
+// TODO: add test where var is not in context
+
+// TODO: add test where no snippets found
