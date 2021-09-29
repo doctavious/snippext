@@ -16,6 +16,7 @@ fn main() {
         opt.end.to_owned(),
         opt.output_dir.to_owned(),
         opt.extension.to_owned(),
+        opt.template,
         opt.sources
     )
 }
@@ -57,12 +58,8 @@ struct Opt {
     )]
     extension: String,
 
-    // default to current directory
-    sources: Vec<String>,
-
     // TODO: excludes
     // TODO: includes
-
 
     // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
@@ -74,4 +71,16 @@ struct Opt {
         help = ""
     )]
     comment_prefix: String,
+
+    #[structopt(
+    short,
+    long,
+    default_value = "{{snippet}}",
+    help = ""
+    )]
+    template: String,
+
+    // default to current directory
+    sources: Vec<String>,
+
 }

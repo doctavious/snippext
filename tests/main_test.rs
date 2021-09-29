@@ -21,7 +21,8 @@ fn test() {
         String::from("end::"),
         dir.path().to_string_lossy().to_string(),
         String::from("md"),
-        vec![String::from("./tests/samples")]
+        String::from("{{snippet}}"),
+        vec![String::from("./tests/samples")],
     );
 
     let main_content_actual =
@@ -67,6 +68,7 @@ fn test_custom_prefix() {
         String::from("end::"),
         dir.path().to_string_lossy().to_string(),
         String::from("md"),
+        String::from("{{snippet}}"),
         vec![String::from("./tests/samples/custom_prefix.rb")]
     );
 

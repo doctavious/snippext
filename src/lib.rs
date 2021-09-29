@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use std::collections::HashMap;
 use unindent::unindent;
+use tera::{Context, Tera};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -52,6 +53,7 @@ pub fn extract(
     end: String,
     output_dir: String,
     extension: String,
+    template: String,
     sources: Vec<String>
 )
 {
@@ -77,7 +79,11 @@ pub fn extract(
             // TODO: support custom template
             // TODO: should we include a comment that the file is generated?
 
-            fs::write(output_path, unindent(snippet.text.as_str())).unwrap();
+            let mut context = Context::new();
+            context.insert("snippet", unindent(snippet.text.as_str()).as_str());
+            let result = Tera::one_off(template.as_str(), &context, false).unwrap();
+
+            fs::write(output_path, result).unwrap();
         }
     }
 }
