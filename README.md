@@ -1,11 +1,15 @@
 # snippext
+[![crates.io](https://img.shields.io/crates/v/snippext.svg)](https://crates.io/crates/snippext)
+[![Released API docs](https://docs.rs/snippext/badge.svg)](https://docs.rs/snippext)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/doctavious/snippext/workflows/CI/badge.svg)](https://github.com/doctavious/snippext/actions?query=workflow%3ACI)
 
 Extract snippets from files.
 
 ## Snippets
 
 Snippets are useful when you want to identify specific regions of a file to extract and include the context in other files. 
-Extracted snippets will be output to specified output directory keeping the directory layout.
+Extracted snippets will be output to specified output directory keeping the source directory layout.
 
 Snippets have the following start/end formats
 
@@ -41,8 +45,6 @@ The snippet::[] and end::[] directives should be placed after a line comment as 
 Assuming that the above example lives in `src/main.rs` two files will be created
 1. src/main.rs/main.md
 2. src/main.rs/nested.md
-
-
 
 ### Advanced
 

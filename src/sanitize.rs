@@ -34,7 +34,7 @@ pub(crate) fn sanitize<S: AsRef<str>>(name: S) -> String {
 fn sanitize_with_options<S: AsRef<str>>(name: S, options: Options) -> String {
 
     let name = name.as_ref();
-    let name = ILLEGAL_RE.replace_all(&name, "");
+    let name = ILLEGAL_RE.replace_all(name, "");
     let name = CONTROL_RE.replace_all(&name, "");
     let name = RESERVED_RE.replace(&name, "");
 

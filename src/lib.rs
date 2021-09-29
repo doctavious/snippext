@@ -1,3 +1,15 @@
+#![doc(html_root_url = "https://docs.rs/snippext")]
+#![doc(issue_tracker_base_url = "https://github.com/doctavious/snippext/issues/")]
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, deny(broken_intra_doc_links))]
+
+
+//! TODO: add docs for snippext lib
+//! [short sentence explaining what it is]
+//! [more detailed explanation]
+//! [at least one code example that users can copy/paste to try it]
+//! [even more advanced explanations if necessary]
+
 mod sanitize;
 mod unindent;
 
@@ -84,14 +96,14 @@ pub fn extract_snippets(
         let l = line?;
 
         let begin_ident = matches(&l, String::from(comment_prefix.as_str()) + &begin_pattern);
-        if begin_ident != "" {
+        if !begin_ident.is_empty() {
             let snippet = Snippet::new(begin_ident);
             snippets.push(snippet);
             continue;
         }
 
         let end_ident = matches(&l, String::from(comment_prefix.as_str()) + &end_pattern);
-        if end_ident != "" {
+        if !end_ident.is_empty() {
             for snippet in snippets.iter_mut() {
                 if snippet.identifier == end_ident {
                     snippet.closed = true
@@ -131,14 +143,14 @@ fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
     out
 }
 
-fn matches(s: &String, prefix: String) -> String {
+fn matches(s: &str, prefix: String) -> String {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
     if trimmed.starts_with(&prefix) {
         // don't include attributes, starting with '['
         return s[prefix.len() + len_diff..].chars().take_while(|&c| c != '[').collect();
     }
-    return String::from("");
+    String::from("")
 }
 
 
