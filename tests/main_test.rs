@@ -1,9 +1,8 @@
-use snippext::extract;
+use snippext::{run, SnippetSettings};
 
 use tempfile::tempdir;
 use std::fs::File;
 use std::io::{self, Write};
-use walkdir::WalkDir;
 use std::fs;
 use std::path::Path;
 
@@ -13,14 +12,14 @@ use std::path::Path;
 fn test() {
     let dir = tempdir().unwrap();
 
-    extract(
-        String::from("// "),
+    run(SnippetSettings::new(
+        vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
-        dir.path().to_string_lossy().to_string(),
+        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![String::from("./tests/samples")],
+        vec![String::from("./tests/samples/*")])
     );
 
     let main_content_actual =
@@ -60,14 +59,14 @@ fn test() {
 fn test_custom_prefix() {
     let dir = tempdir().unwrap();
 
-    extract(
-        String::from("# "),
+    run(SnippetSettings::new(
+        vec![String::from("# ")],
         String::from("snippet::"),
         String::from("end::"),
-        dir.path().to_string_lossy().to_string(),
+        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![String::from("./tests/samples/custom_prefix.rb")]
+        vec![String::from("./tests/samples/custom_prefix.rb")])
     );
 
     let content =
@@ -82,14 +81,14 @@ fn test_custom_prefix() {
 fn test_custom_template() {
     let dir = tempdir().unwrap();
 
-    extract(
-        String::from("// "),
+    run(SnippetSettings::new(
+        vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
-        dir.path().to_string_lossy().to_string(),
+        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("```{{lang | default(value=\"\")}}\n{{snippet}}```\n"),
-        vec![String::from("./tests/samples/main.rs")]
+        vec![String::from("./tests/samples/main.rs")])
     );
 
     let actual =
@@ -109,3 +108,9 @@ fn main() {
 // TODO: add test where var is not in context
 
 // TODO: add test where no snippets found
+
+// TODO: add test for invalid glob
+
+// TODO: add test for glob that returns no files
+
+// TODO: test required args/flags

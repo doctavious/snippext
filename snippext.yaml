@@ -1,0 +1,26 @@
+begin: <>
+end: <>
+extension: <>
+comment_prefixes:
+- "// "
+- "<!-- "
+template: <>
+sources:
+# clone from remote git repo to extract snipppets
+- repository: <git url>
+  directory: <The name of a new directory to clone into>
+  branch: <optional>
+  starting_point: <optional The name of a commit at which to start the new branch. maybe name it commit>
+  files:
+  - <glob pattern of files to extract snippets from>
+  - <glob pattern of files to extract snippets from>
+# extract from local files
+- files:
+  - <glob pattern of files to extract snippets from>
+  - <glob pattern of files to extract snippets from>
+output_dir: <>
+targets:
+- <glob pattern of local files to be spliced with the code snippets.>
+- <glob pattern of local files to be spliced with the code snippets.>
+
+

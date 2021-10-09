@@ -13,19 +13,20 @@
 mod sanitize;
 mod unindent;
 
+use glob::glob;
+use git2::{build::CheckoutBuilder, Cred, Error as GitError, RemoteCallbacks, Repository};
+use regex::Regex;
 use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::File;
-use std::fs;
+use std::{fs, env};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 use std::collections::HashMap;
-use unindent::unindent;
 use tera::{Context, Tera};
-use regex::Regex;
+use unindent::unindent;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -47,33 +48,114 @@ impl Snippet {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct SnippetSettings {
+    pub begin: String,
+    pub end: String,
+    pub extension: String,
+    pub comment_prefixes: Vec<String>,
+    pub template: String,
+    pub sources: SnippetSource,
+    pub output_dir: Option<String>,
+    pub targets: Option<Vec<String>>,
+}
+
+impl SnippetSettings {
+
+    // TODO: add default
+    pub fn default() -> Self {
+        Self {
+            begin: String::from(""),
+            end: String::from(""),
+            extension: String::from(""),
+            comment_prefixes: vec![],
+            template: String::from(""),
+            sources: SnippetSource::new_local(vec![]),
+            output_dir: None,
+            targets: None,
+        }
+    }
+
+    pub fn new (
+        comment_prefixes: Vec<String>,
+        begin: String,
+        end: String,
+        output_dir: Option<String>,
+        extension: String,
+        template: String,
+        sources: Vec<String>
+    ) -> Self {
+        Self {
+            begin,
+            end,
+            extension,
+            comment_prefixes,
+            template,
+            sources: SnippetSource::new_local(sources),
+            output_dir,
+            targets: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct SnippetSource {
+    pub repository: Option<String>,
+    pub branch: Option<String>,
+    // TODO: rename commit....
+    pub starting_point: Option<String>,
+    pub directory: Option<String>, // default to "."
+    pub files: Vec<String>,
+}
+
+impl SnippetSource {
+    pub fn new_local(sources: Vec<String>) -> Self {
+        Self {
+            repository: None,
+            branch: None,
+            starting_point: None,
+            directory: None,
+            files: sources
+        }
+    }
+
+    pub fn new_remote(
+        repository: String,
+        branch: String,
+        starting_point: Option<String>,
+        directory: Option<String>,
+        files: Vec<String>,
+    ) -> Self {
+        Self {
+            repository: Some(repository),
+            branch: Some(branch),
+            starting_point,
+            directory,
+            files
+        }
+    }
+}
+
 // TODO: return result
-pub fn extract(
-    comment_prefix: String,
-    begin: String,
-    end: String,
-    output_dir: String,
-    extension: String,
-    template: String,
-    sources: Vec<String>
-)
+pub fn run(snippet_settings: SnippetSettings)
 {
-    let filenames = get_filenames(sources);
+    let filenames = get_filenames(snippet_settings.sources.files);
     for filename in filenames {
         let snippets = extract_snippets(
-            comment_prefix.to_owned(),
-            begin.to_owned(),
-            end.to_owned(),
+            &snippet_settings.comment_prefixes,
+            snippet_settings.begin.to_owned(),
+            snippet_settings.end.to_owned(),
             filename.as_path()
         ).unwrap();
 
+        // TODO: output_dir optional
+        let output_dir = snippet_settings.output_dir.as_ref().unwrap();
         for snippet in snippets {
-
             let x: &[_] = &['.', '/'];
             let output_path = Path::new(output_dir.as_str())
                 .join(filename.as_path().to_string_lossy().trim_start_matches(x))
                 .join(sanitize(snippet.identifier))
-                .with_extension(extension.as_str());
+                .with_extension(snippet_settings.extension.as_str());
 
             fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
@@ -83,14 +165,15 @@ pub fn extract(
                 context.insert(&attribute.0.to_string(), &attribute.1.to_string());
             }
 
-            let result = Tera::one_off(template.as_str(), &context, false).unwrap();
+            let result = Tera::one_off(snippet_settings.template.as_str(), &context, false).unwrap();
             fs::write(output_path, result).unwrap();
         }
     }
 }
 
+
 pub fn extract_snippets(
-    comment_prefix: String,
+    comment_prefixes: &Vec<String>,
     begin_pattern: String,
     end_pattern: String,
     filename: &Path,
@@ -102,14 +185,14 @@ pub fn extract_snippets(
     for line in reader.lines() {
         let l = line?;
 
-        let begin_ident = matches(&l, String::from(comment_prefix.as_str()) + &begin_pattern);
+        let begin_ident = matches(&l, &comment_prefixes, &begin_pattern);
         if !begin_ident.is_empty() {
             // TODO: I feel like this is the long hard way to do this...
             let mut attributes = HashMap::new();
             let last_square_bracket_pos = begin_ident.rfind('[');
             if let Some(last_square_bracket_pos) = last_square_bracket_pos {
                 let identifier = &begin_ident.as_str()[..last_square_bracket_pos];
-                let re = Regex::new("\\[([^]]+)\\]").unwrap();
+                let re = Regex::new("\\[([^]]+)]").unwrap();
                 let captured_kv = re.captures(begin_ident.as_str());
                 if captured_kv.is_some() {
                     for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
@@ -123,7 +206,7 @@ pub fn extract_snippets(
                         }
                     }
                 }
-                println!("attributes [{:?}]", attributes);
+
                 let snippet = Snippet::new(identifier.to_string(), attributes);
                 snippets.push(snippet);
             } else {
@@ -134,7 +217,7 @@ pub fn extract_snippets(
             continue;
         }
 
-        let end_ident = matches(&l, String::from(comment_prefix.as_str()) + &end_pattern);
+        let end_ident = matches(&l, &comment_prefixes, &end_pattern);
         if !end_ident.is_empty() {
             for snippet in snippets.iter_mut() {
                 if snippet.identifier == end_ident {
@@ -159,29 +242,65 @@ fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
 
     for source in sources {
-        let path = Path::new(&source);
-        if !path.is_dir() {
-            out.push(path.to_path_buf())
-        }
-
-        for entry in WalkDir::new(&source)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| !e.file_type().is_dir())
-        {
-            out.push(entry.path().to_path_buf());
+        // TODO: do we want to print failures and continue rather than unwrap?
+        for entry in glob(&source).unwrap() {
+            let path = entry.unwrap();
+            if !path.is_dir() {
+                out.push(path);
+            }
         }
     }
     out
 }
 
-fn matches(s: &str, prefix: String) -> String {
+fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> String {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
-    if trimmed.starts_with(&prefix) {
-        return s[prefix.len() + len_diff..].to_string();
+    for comment_prefix in comment_prefixes {
+        let prefix = String::from(comment_prefix.as_str()) + pattern;
+        if trimmed.starts_with(&prefix) {
+            return s[prefix.len() + len_diff..].to_string();
+        }
     }
     String::from("")
 }
 
+// TODO: Do we need to allow users to specify path to clone to and path of ssh creds?
+// sparse clone / depth 1?
+// git2-rs doesnt appear to support sparse checkout, yet, because lib2git doesnt
+fn git_clone(remote: &str) {
+    // HTTP clone
+    let repo = match Repository::clone(remote, "/path/to/a/repo") {
+        Ok(repo) => repo,
+        Err(e) => panic!("failed to clone: {}", e),
+    };
+
+    // SSH clone
+    // Prepare callbacks.
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        Cred::ssh_key(
+            username_from_url.unwrap(),
+            None,
+            std::path::Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
+            None,
+        )
+    });
+
+    // Prepare fetch options.
+    let mut fo = git2::FetchOptions::new();
+    fo.remote_callbacks(callbacks);
+
+    // Prepare builder.
+    let mut builder = git2::build::RepoBuilder::new();
+    builder.fetch_options(fo);
+
+    // let mut checkout_builder = CheckoutBuilder::new()
+
+    // Clone the project.
+    builder.clone(
+        "git@github.com:rust-lang/git2-rs.git",
+        Path::new("/tmp/git2-rs"),
+    );
+}
 

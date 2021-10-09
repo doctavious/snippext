@@ -114,3 +114,13 @@ impl<'a> Iterator for Lines<'a> {
         self.split.next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn remove_unnecessary_indents() {
+
+    }
+
+}

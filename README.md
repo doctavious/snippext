@@ -67,6 +67,17 @@ which would produce the following
     }
     ```
 
+## Configuration File
+
+Example 
+
+```yaml 
+```
+
+### Parameters
+
+
+
 ## CLI Usage
 
 ### Command Line Arguments
