@@ -17,6 +17,7 @@ mod git;
 
 use glob::glob;
 use git2::{build::CheckoutBuilder, Cred, Error as GitError, RemoteCallbacks, Repository};
+use lazy_static::lazy_static;
 use regex::Regex;
 use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
@@ -31,10 +32,23 @@ use tera::{Context, Tera};
 use unindent::unindent;
 use handlebars::{Handlebars, no_escape};
 
+const DEFAULT_CONFIG: &'static str = "snippext";
 const DEFAULT_COMMENT_PREFIXES: &'static [&str] = &["# ", "<!-- "];
 const DEFAULT_BEGIN: &'static str = "snippet::";
 const DEFAULT_END: &'static str = "end::";
 const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
+const DEFAULT_FILE_EXTENSION: &'static str = "md";
+// const DEFAULT_OUTPUT_DIR: &'static str = ".";
+lazy_static! {
+    static ref DEFAULT_CONFIG_MAP: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        // m.insert(0, "foo");
+        // m.insert(1, "bar");
+        // m.insert(2, "baz");
+        m
+    };
+}
+
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -169,7 +183,7 @@ pub fn run(snippet_settings: SnippetSettings)
 
             let mut hbs = Handlebars::new();
             hbs.register_escape_fn(no_escape);
-            let mut data = HashMap::new();
+            let mut data = BTreeMap::new();
             data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
             for attribute in snippet.attributes {
                 data.insert(attribute.0, attribute.1);
@@ -217,7 +231,6 @@ pub fn extract_snippets(
                     for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
                         let parts: Vec<&str> = kv.split("=").collect();
                         if parts.len() == 2 {
-
                             attributes.insert(
                                 parts.get(0).unwrap().to_string(),
                                 parts.get(1).unwrap().to_string()
