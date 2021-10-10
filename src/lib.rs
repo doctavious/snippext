@@ -12,6 +12,8 @@
 
 mod sanitize;
 mod unindent;
+mod error;
+mod git;
 
 use glob::glob;
 use git2::{build::CheckoutBuilder, Cred, Error as GitError, RemoteCallbacks, Repository};
@@ -24,9 +26,15 @@ use std::{fs, env};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use tera::{Context, Tera};
 use unindent::unindent;
+use handlebars::{Handlebars, no_escape};
+
+const DEFAULT_COMMENT_PREFIXES: &'static [&str] = &["# ", "<!-- "];
+const DEFAULT_BEGIN: &'static str = "snippet::";
+const DEFAULT_END: &'static str = "end::";
+const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -159,13 +167,24 @@ pub fn run(snippet_settings: SnippetSettings)
 
             fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
-            let mut context = Context::new();
-            context.insert("snippet", unindent(snippet.text.as_str()).as_str());
+            let mut hbs = Handlebars::new();
+            hbs.register_escape_fn(no_escape);
+            let mut data = HashMap::new();
+            data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
             for attribute in snippet.attributes {
-                context.insert(&attribute.0.to_string(), &attribute.1.to_string());
+                data.insert(attribute.0, attribute.1);
             }
+            let result = hbs.render_template(snippet_settings.template.as_str(), &data).unwrap();
 
-            let result = Tera::one_off(snippet_settings.template.as_str(), &context, false).unwrap();
+
+
+            // let mut context = Context::new();
+            // context.insert("snippet", unindent(snippet.text.as_str()).as_str());
+            // for attribute in snippet.attributes {
+            //     context.insert(&attribute.0.to_string(), &attribute.1.to_string());
+            // }
+            //
+            // let result = Tera::one_off(snippet_settings.template.as_str(), &context, false).unwrap();
             fs::write(output_path, result).unwrap();
         }
     }
