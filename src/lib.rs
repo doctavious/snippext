@@ -28,7 +28,6 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, BTreeMap};
-use tera::{Context, Tera};
 use unindent::unindent;
 use handlebars::{Handlebars, no_escape};
 
@@ -189,16 +188,6 @@ pub fn run(snippet_settings: SnippetSettings)
                 data.insert(attribute.0, attribute.1);
             }
             let result = hbs.render_template(snippet_settings.template.as_str(), &data).unwrap();
-
-
-
-            // let mut context = Context::new();
-            // context.insert("snippet", unindent(snippet.text.as_str()).as_str());
-            // for attribute in snippet.attributes {
-            //     context.insert(&attribute.0.to_string(), &attribute.1.to_string());
-            // }
-            //
-            // let result = Tera::one_off(snippet_settings.template.as_str(), &context, false).unwrap();
             fs::write(output_path, result).unwrap();
         }
     }

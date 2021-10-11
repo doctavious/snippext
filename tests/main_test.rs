@@ -87,7 +87,7 @@ fn test_custom_template() {
         String::from("end::"),
         Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
-        String::from("```{{lang | default(value=\"\")}}\n{{snippet}}```\n"),
+        String::from("```{{lang}}\n{{snippet}}```\n"),
         vec![String::from("./tests/samples/main.rs")])
     );
 
