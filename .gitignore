@@ -40,6 +40,12 @@ cmake-build-*/
 # IntelliJ
 out/
 
+# ---- Sonar
+.sonar
+
+# Sonarlint plugin
+.idea/sonarlint/**
+
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
