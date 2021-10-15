@@ -31,6 +31,10 @@ use std::collections::{HashMap, BTreeMap};
 use unindent::unindent;
 use handlebars::{Handlebars, no_escape};
 use config::{Source, Value, ConfigError};
+use crate::error::SnippextError;
+
+// TODO: move this to lib?
+pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
 
 // TODO: this might not be needed
 const DEFAULT_CONFIG: &'static str = "snippext";
@@ -190,8 +194,11 @@ impl Source for SnippetSource {
 }
 
 // TODO: return result. should validate settings
-pub fn run(snippet_settings: SnippetSettings)
+pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
 {
+    // TODO: should be in lib?
+    validate_settings(&snippet_settings)?;
+
     let filenames = get_filenames(snippet_settings.sources);
     for filename in filenames {
         let snippets = extract_snippets(
@@ -224,6 +231,8 @@ pub fn run(snippet_settings: SnippetSettings)
             fs::write(output_path, result).unwrap();
         }
     }
+
+    Ok(())
 }
 
 
@@ -360,3 +369,32 @@ fn git_clone(remote: &str) {
     );
 }
 
+/// returns a list of validation failures
+fn validate_settings(settings: &SnippetSettings) -> Result<(), SnippextError> {
+    let mut failures = Vec::new();
+
+    if settings.comment_prefixes.is_empty() {
+        failures.push(String::from("comment_prefixes must not be empty"));
+    }
+
+    if settings.sources.is_empty() {
+        failures.push(String::from("sources must not be empty"));
+    } else {
+        for (i, source) in settings.sources.iter().enumerate() {
+            if source.files.is_empty() {
+                failures.push(format!("sources[{}].files must not be empty", i));
+            }
+        }
+    }
+
+    // TODO: should we output to stdout instead?
+    if settings.output_dir.is_none() && settings.targets.is_none() {
+        failures.push(String::from("output_dir or targets is required"));
+    }
+
+    return if !failures.is_empty() {
+        Err(SnippextError::ValidationError(failures))
+    } else {
+        Ok(())
+    }
+}

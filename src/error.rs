@@ -15,6 +15,3 @@ pub enum SnippextError {
     #[error("Settings error: `{0:?}`")]
     ValidationError(Vec<String>)
 }
-
-// TODO: move this to lib?
-pub type Result<T> = core::result::Result<T, SnippextError>;

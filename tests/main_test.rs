@@ -12,7 +12,7 @@ use std::path::Path;
 fn test() {
     let dir = tempdir().unwrap();
 
-    run(SnippetSettings::new(
+    let result = run(SnippetSettings::new(
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
@@ -20,7 +20,7 @@ fn test() {
         String::from("md"),
         String::from("{{snippet}}"),
         vec![String::from("./tests/samples/*")])
-    );
+    ).unwrap();
 
     let main_content_actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
@@ -67,7 +67,7 @@ fn test_custom_prefix() {
         String::from("md"),
         String::from("{{snippet}}"),
         vec![String::from("./tests/samples/custom_prefix.rb")])
-    );
+    ).unwrap();
 
     let content =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md")).unwrap();
@@ -89,7 +89,7 @@ fn test_custom_template() {
         String::from("md"),
         String::from("```{{lang}}\n{{snippet}}```\n"),
         vec![String::from("./tests/samples/main.rs")])
-    );
+    ).unwrap();
 
     let actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
