@@ -131,7 +131,7 @@ pub struct SnippetSource {
     pub repository: Option<String>,
     pub branch: Option<String>,
     // TODO: rename commit....
-    pub starting_point: Option<String>,
+    pub commit: Option<String>,
     pub directory: Option<String>, // default to "."
     pub files: Vec<String>,
 }
@@ -141,7 +141,7 @@ impl SnippetSource {
         Self {
             repository: None,
             branch: None,
-            starting_point: None,
+            commit: None,
             directory: None,
             files
         }
@@ -150,14 +150,14 @@ impl SnippetSource {
     pub fn new_remote(
         repository: String,
         branch: String,
-        starting_point: Option<String>,
+        commit: Option<String>,
         directory: Option<String>,
         files: Vec<String>,
     ) -> Self {
         Self {
             repository: Some(repository),
             branch: Some(branch),
-            starting_point,
+            commit,
             directory,
             files
         }

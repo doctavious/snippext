@@ -51,10 +51,6 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
     // TODO: this can probably come from structopt?
     s.merge(Environment::with_prefix("snippext")).unwrap();
 
-    // TODO: add any command line args
-    // TODO: test that this works
-    // s.merge(opt).unwrap();
-
     if let Some(begin) = opt.begin {
         s.set("begin", begin);
     }
@@ -84,6 +80,7 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
     }
 
     let mut settings: SnippetSettings = s.try_into()?;
+
     let snippet_source= if let Some(repo_url) = opt.repository_url {
         SnippetSource::new_remote(
             repo_url.to_string(),
@@ -96,6 +93,7 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
         SnippetSource::new_local(opt.sources.unwrap_or(Vec::new()))
     };
 
+    // TODO: should this override or merge?
     settings.sources.push(snippet_source);
 
     return Ok(settings);
@@ -272,7 +270,7 @@ mod tests {
         let source = settings.sources.get(1).unwrap();
         assert_eq!(Some(String::from("https://github.com/doctavious/snippext.git")), source.repository);
         assert_eq!(Some(String::from("main")), source.branch);
-        assert_eq!(Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")), source.starting_point);
+        assert_eq!(Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")), source.commit);
         assert_eq!(Some(String::from("docs")), source.directory);
         assert_eq!(vec![String::from("**/*.rs")], source.files);
     }
@@ -304,5 +302,5 @@ mod tests {
         assert_eq!("txt", settings.extension);
     }
 
-    // TODO: test valiations
+    // TODO: test validations
 }
