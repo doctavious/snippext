@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSettings, SnippetSource, error::SnippextError};
+use snippext::{run, SnippetSettings, SnippetSource, error::SnippextError, SnippextResult};
 use structopt::StructOpt;
 use config::{ConfigError, Config, File, Environment, Source, Value, FileFormat};
 use std::env;
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 // use constants that can also be used as defaults
 // https://github.com/TeXitoi/structopt/issues/226
 
-fn main() {
+fn main() -> SnippextResult<()> {
     let opt: Opt = Opt::from_args();
 
     // TODO: add debug
@@ -33,17 +33,13 @@ fn main() {
     // value from either the corresponding environment variable or a profile in the configuration file.
 
 
-    let settings = build_settings(opt);
+    let settings = build_settings(opt)?;
 
-    run(settings);
-
+    return run(settings);
 }
 
-fn build_settings(opt: Opt) -> SnippetSettings {
+fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
     let mut s = Config::default();
-    // Start off by merging in the "default" configurations
-    // s.merge(File::with_name("config/default"))?;
-    // TODO: add defaults
 
     if let Some(config) = opt.config {
         s.merge(File::from(config)).unwrap();
@@ -54,7 +50,6 @@ fn build_settings(opt: Opt) -> SnippetSettings {
 
     // TODO: this can probably come from structopt?
     s.merge(Environment::with_prefix("snippext")).unwrap();
-
 
     // TODO: add any command line args
     // TODO: test that this works
@@ -88,7 +83,7 @@ fn build_settings(opt: Opt) -> SnippetSettings {
         s.set("targets", targets);
     }
 
-    let mut settings: SnippetSettings = s.try_into().unwrap();
+    let mut settings: SnippetSettings = s.try_into()?;
     let snippet_source= if let Some(repo_url) = opt.repository_url {
         SnippetSource::new_remote(
             repo_url.to_string(),
@@ -103,8 +98,7 @@ fn build_settings(opt: Opt) -> SnippetSettings {
 
     settings.sources.push(snippet_source);
 
-    return settings;
-
+    return Ok(settings);
 }
 
 // TODO: environment variable fallback
@@ -242,7 +236,7 @@ mod tests {
             sources: Some(vec![])
         };
 
-        let settings = super::build_settings(opt);
+        let settings = super::build_settings(opt).unwrap();
         println!("{:?}", settings);
     }
 
@@ -264,7 +258,7 @@ mod tests {
             targets: Some(vec![String::from("README.md")]),
         };
 
-        let settings = super::build_settings(opt);
+        let settings = super::build_settings(opt).unwrap();
 
         assert_eq!("snippext::", settings.begin);
         assert_eq!("finish::", settings.end);
@@ -303,7 +297,7 @@ mod tests {
             sources: None
         };
 
-        let settings = super::build_settings(opt);
+        let settings = super::build_settings(opt).unwrap();
         // env overrides config
         assert_eq!(Some(String::from("./generated-snippets/")), settings.output_dir);
         // cli arg overrides env

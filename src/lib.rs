@@ -33,7 +33,6 @@ use handlebars::{Handlebars, no_escape};
 use config::{Source, Value, ConfigError};
 use crate::error::SnippextError;
 
-// TODO: move this to lib?
 pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
 
 // TODO: this might not be needed
@@ -89,6 +88,7 @@ pub struct SnippetSettings {
 
 impl SnippetSettings {
 
+    // TODO: do we need / want this?
     // TODO: add default
     pub fn default() -> Self {
         Self {
@@ -103,6 +103,7 @@ impl SnippetSettings {
         }
     }
 
+    // TODO: <S: Into<String>>
     pub fn new (
         comment_prefixes: Vec<String>,
         begin: String,
@@ -110,7 +111,7 @@ impl SnippetSettings {
         output_dir: Option<String>,
         extension: String,
         template: String,
-        sources: Vec<String>
+        sources: Vec<SnippetSource>
     ) -> Self {
         Self {
             begin,
@@ -118,7 +119,7 @@ impl SnippetSettings {
             extension,
             comment_prefixes,
             template,
-            sources: vec![SnippetSource::new_local(sources)],
+            sources,
             output_dir,
             targets: None,
         }
@@ -136,13 +137,13 @@ pub struct SnippetSource {
 }
 
 impl SnippetSource {
-    pub fn new_local(sources: Vec<String>) -> Self {
+    pub fn new_local(files: Vec<String>) -> Self {
         Self {
             repository: None,
             branch: None,
             starting_point: None,
             directory: None,
-            files: sources
+            files
         }
     }
 
@@ -163,35 +164,35 @@ impl SnippetSource {
     }
 }
 
-impl Source for SnippetSource {
-    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-        Box::new((*self).clone())
-    }
-
-    fn collect(&self) -> Result<HashMap<String, Value>, ConfigError> {
-        let mut m = HashMap::new();
-        let uri: String = "command line".into();
-
-        if let Some(repo) = &self.repository {
-            m.insert(String::from("repository"), Value::new(Some(&uri), repo.to_string()));
-        }
-
-        if let Some(branch) = &self.branch {
-            m.insert(String::from("branch"), Value::new(Some(&uri), branch.to_string()));
-        }
-
-        if let Some(starting_point) = &self.starting_point {
-            m.insert(String::from("starting_point"), Value::new(Some(&uri), starting_point.to_string()));
-        }
-
-        if let Some(directory) = &self.directory {
-            m.insert(String::from("directory"), Value::new(Some(&uri), directory.to_string()));
-        }
-
-
-        Ok(m)
-    }
-}
+// impl Source for SnippetSource {
+//     fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+//         Box::new((*self).clone())
+//     }
+//
+//     fn collect(&self) -> Result<HashMap<String, Value>, ConfigError> {
+//         let mut m = HashMap::new();
+//         let uri: String = "command line".into();
+//
+//         if let Some(repo) = &self.repository {
+//             m.insert(String::from("repository"), Value::new(Some(&uri), repo.to_string()));
+//         }
+//
+//         if let Some(branch) = &self.branch {
+//             m.insert(String::from("branch"), Value::new(Some(&uri), branch.to_string()));
+//         }
+//
+//         if let Some(starting_point) = &self.starting_point {
+//             m.insert(String::from("starting_point"), Value::new(Some(&uri), starting_point.to_string()));
+//         }
+//
+//         if let Some(directory) = &self.directory {
+//             m.insert(String::from("directory"), Value::new(Some(&uri), directory.to_string()));
+//         }
+//
+//
+//         Ok(m)
+//     }
+// }
 
 // TODO: return result. should validate settings
 pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
@@ -241,7 +242,7 @@ pub fn extract_snippets(
     begin_pattern: String,
     end_pattern: String,
     filename: &Path,
-) -> Result<Vec<Snippet>, Box<dyn Error>> {
+) -> SnippextResult<Vec<Snippet>> {
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
 
@@ -300,6 +301,7 @@ pub fn extract_snippets(
     Ok(snippets)
 }
 
+// TODO: return result
 // if an entry is a directory all files from directory will be listed.
 fn get_filenames(sources: Vec<SnippetSource>) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
@@ -370,7 +372,7 @@ fn git_clone(remote: &str) {
 }
 
 /// returns a list of validation failures
-fn validate_settings(settings: &SnippetSettings) -> Result<(), SnippextError> {
+fn validate_settings(settings: &SnippetSettings) -> SnippextResult<()> {
     let mut failures = Vec::new();
 
     if settings.comment_prefixes.is_empty() {

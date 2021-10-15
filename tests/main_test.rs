@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSettings};
+use snippext::{run, SnippetSettings, SnippetSource};
 
 use tempfile::tempdir;
 use std::fs::File;
@@ -19,7 +19,7 @@ fn test() {
         Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![String::from("./tests/samples/*")])
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/*")])])
     ).unwrap();
 
     let main_content_actual =
@@ -66,7 +66,7 @@ fn test_custom_prefix() {
         Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![String::from("./tests/samples/custom_prefix.rb")])
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/custom_prefix.rb")])])
     ).unwrap();
 
     let content =
@@ -88,7 +88,7 @@ fn test_custom_template() {
         Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("```{{lang}}\n{{snippet}}```\n"),
-        vec![String::from("./tests/samples/main.rs")])
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/main.rs")])])
     ).unwrap();
 
     let actual =
