@@ -10,6 +10,10 @@ pub enum SnippextError {
     /// Error variant that represents errors coming out of libgit2.
     #[error("Git error: `{0}`")]
     GitError(#[from] git2::Error),
+
+    /// Settings validation errors
+    #[error("Settings error: `{0:?}`")]
+    ValidationError(Vec<String>)
 }
 
 // TODO: move this to lib?

@@ -1,12 +1,11 @@
 begin: "snippet::"
 end: "end::"
-extension: "md"
+extension: "adoc"
 comment_prefixes:
 - "// "
-- "<!-- "
 template: "{{snippet}}"
 sources:
 # extract from local files
 - files:
-    - "**"
-output_dir: "./generated-snippets/"
+  - "**"
+output_dir: "./snippets/"

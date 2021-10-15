@@ -12,7 +12,7 @@
 
 mod sanitize;
 mod unindent;
-mod error;
+pub mod error;
 mod git;
 
 use glob::glob;
@@ -30,7 +30,9 @@ use std::path::{Path, PathBuf};
 use std::collections::{HashMap, BTreeMap};
 use unindent::unindent;
 use handlebars::{Handlebars, no_escape};
+use config::{Source, Value, ConfigError};
 
+// TODO: this might not be needed
 const DEFAULT_CONFIG: &'static str = "snippext";
 const DEFAULT_COMMENT_PREFIXES: &'static [&str] = &["# ", "<!-- "];
 const DEFAULT_BEGIN: &'static str = "snippet::";
@@ -76,7 +78,7 @@ pub struct SnippetSettings {
     pub extension: String,
     pub comment_prefixes: Vec<String>,
     pub template: String,
-    pub sources: SnippetSource,
+    pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
     pub targets: Option<Vec<String>>,
 }
@@ -91,7 +93,7 @@ impl SnippetSettings {
             extension: String::from(""),
             comment_prefixes: vec![],
             template: String::from(""),
-            sources: SnippetSource::new_local(vec![]),
+            sources: vec![SnippetSource::new_local(vec![])],
             output_dir: None,
             targets: None,
         }
@@ -112,7 +114,7 @@ impl SnippetSettings {
             extension,
             comment_prefixes,
             template,
-            sources: SnippetSource::new_local(sources),
+            sources: vec![SnippetSource::new_local(sources)],
             output_dir,
             targets: None,
         }
@@ -157,10 +159,40 @@ impl SnippetSource {
     }
 }
 
-// TODO: return result
+impl Source for SnippetSource {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new((*self).clone())
+    }
+
+    fn collect(&self) -> Result<HashMap<String, Value>, ConfigError> {
+        let mut m = HashMap::new();
+        let uri: String = "command line".into();
+
+        if let Some(repo) = &self.repository {
+            m.insert(String::from("repository"), Value::new(Some(&uri), repo.to_string()));
+        }
+
+        if let Some(branch) = &self.branch {
+            m.insert(String::from("branch"), Value::new(Some(&uri), branch.to_string()));
+        }
+
+        if let Some(starting_point) = &self.starting_point {
+            m.insert(String::from("starting_point"), Value::new(Some(&uri), starting_point.to_string()));
+        }
+
+        if let Some(directory) = &self.directory {
+            m.insert(String::from("directory"), Value::new(Some(&uri), directory.to_string()));
+        }
+
+
+        Ok(m)
+    }
+}
+
+// TODO: return result. should validate settings
 pub fn run(snippet_settings: SnippetSettings)
 {
-    let filenames = get_filenames(snippet_settings.sources.files);
+    let filenames = get_filenames(snippet_settings.sources);
     for filename in filenames {
         let snippets = extract_snippets(
             &snippet_settings.comment_prefixes,
@@ -180,6 +212,7 @@ pub fn run(snippet_settings: SnippetSettings)
 
             fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
+            // TODO: move this?
             let mut hbs = Handlebars::new();
             hbs.register_escape_fn(no_escape);
             let mut data = BTreeMap::new();
@@ -259,15 +292,17 @@ pub fn extract_snippets(
 }
 
 // if an entry is a directory all files from directory will be listed.
-fn get_filenames(sources: Vec<String>) -> Vec<PathBuf> {
+fn get_filenames(sources: Vec<SnippetSource>) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
 
     for source in sources {
-        // TODO: do we want to print failures and continue rather than unwrap?
-        for entry in glob(&source).unwrap() {
-            let path = entry.unwrap();
-            if !path.is_dir() {
-                out.push(path);
+        for file in source.files {
+            // TODO: do we want to print failures and continue rather than unwrap?
+            for entry in glob(file.as_str()).unwrap() {
+                let path = entry.unwrap();
+                if !path.is_dir() {
+                    out.push(path);
+                }
             }
         }
     }
