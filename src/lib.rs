@@ -285,13 +285,8 @@ pub fn update_target_file(
     content: &str
 ) -> SnippextResult<()> {
     let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    let snippet_start_index = source_content.find(snippet_start).ok_or(SnippextError::SnippetNotFound())?;
-    let content_starting_index = snippet_start_index + snippet_start.len();
-    let end_index = source_content.find(snippet_end).unwrap_or(source_content.len());
-    source_content.replace_range(content_starting_index..end_index, content);
-
+    update_target_string(&mut source_content, snippet_start, snippet_end, content)?;
     fs::write(source.to_path_buf(), source_content)?;
-
     Ok(())
 }
 
@@ -300,19 +295,12 @@ pub fn update_target_string(
     snippet_start: &str,
     snippet_end: &str,
     content: &str
-) {
-    let snippet_start_index = source.find(snippet_start);
-    // println!("{:?}", start_index);
-    let content_starting_index = snippet_start_index.unwrap() + snippet_start.len();
-    let end_index = source.find(snippet_end).unwrap();
-    // let result = &source[starting_index..end_index];
-    // println!("{:?}", result);
-    // let mut updated_source = source.clone();
-    // updated_source.replace_range(starting_index..end_index, content);
-    // println!("{:?}", updated_source);
-
+) -> SnippextResult<()> {
+    let snippet_start_index = source.find(snippet_start).ok_or(SnippextError::SnippetNotFound())?;
+    let content_starting_index = snippet_start_index + snippet_start.len();
+    let end_index = source.find(snippet_end).unwrap_or(source.len());
     source.replace_range(content_starting_index..end_index, content);
-    println!("{:?}", source);
+    Ok(())
 }
 
 pub fn extract_snippets(
@@ -329,7 +317,7 @@ pub fn extract_snippets(
         let l = line?;
 
         let begin_ident = matches(&l, &comment_prefixes, &begin_pattern);
-        if !begin_ident.is_empty() {
+        if let Some(begin_ident) = begin_ident {
             // TODO: I feel like this is the long hard way to do this...
             let mut attributes = HashMap::new();
             let last_square_bracket_pos = begin_ident.rfind('[');
@@ -360,7 +348,7 @@ pub fn extract_snippets(
         }
 
         let end_ident = matches(&l, &comment_prefixes, &end_pattern);
-        if !end_ident.is_empty() {
+        if let Some(end_ident) = end_ident {
             for snippet in snippets.iter_mut() {
                 if snippet.identifier == end_ident {
                     snippet.closed = true
@@ -382,10 +370,8 @@ pub fn extract_snippets(
 
 fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     let mut out: Vec<PathBuf> = Vec::new();
-
     for source in sources {
         for file in source.files {
-            // TODO: do we want to print failures and continue rather than unwrap?
             for entry in glob(file.as_str())? {
                 let path = entry.unwrap();
                 if !path.is_dir() {
@@ -398,18 +384,17 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     Ok(out)
 }
 
-// TODO: Return option
 // TODO: return tuple (prefix and identifier) or struct
-fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> String {
+fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> Option<String> {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
     for comment_prefix in comment_prefixes {
         let prefix = String::from(comment_prefix.as_str()) + pattern;
         if trimmed.starts_with(&prefix) {
-            return s[prefix.len() + len_diff..].to_string();
+            return Some(s[prefix.len() + len_diff..].to_string());
         }
     }
-    String::from("")
+    None
 }
 
 // TODO: Do we need to allow users to specify path to clone to and path of ssh creds?
@@ -527,7 +512,7 @@ mod tests {
                 assert!(failures.contains(&String::from("extension must not be an empty string")));
             }
             _ => {
-                panic!("invalid snippextError");
+                panic!("invalid SnippextError");
             }
         }
     }
