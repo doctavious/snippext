@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSettings, SnippetSource, error::SnippextError, SnippextResult};
+use snippext::{run, SnippextSettings, SnippetSource, error::SnippextError, SnippextResult};
 use structopt::StructOpt;
 use config::{ConfigError, Config, File, Environment, Source, Value, FileFormat};
 use std::env;
@@ -38,7 +38,7 @@ fn main() -> SnippextResult<()> {
     return run(settings);
 }
 
-fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
+fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
     let mut s = Config::default();
 
     if let Some(config) = opt.config {
@@ -79,7 +79,7 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippetSettings> {
         s.set("targets", targets);
     }
 
-    let mut settings: SnippetSettings = s.try_into()?;
+    let mut settings: SnippextSettings = s.try_into()?;
 
     let snippet_source= if let Some(repo_url) = opt.repository_url {
         SnippetSource::new_remote(

@@ -37,12 +37,14 @@ pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
 
 // TODO: this might not be needed
 const DEFAULT_CONFIG: &'static str = "snippext";
-const DEFAULT_COMMENT_PREFIXES: &'static [&str] = &["# ", "<!-- "];
+const DEFAULT_COMMENT_PREFIXES: &'static [&'static str] = &["// ", "# ", "<!-- "];
 const DEFAULT_BEGIN: &'static str = "snippet::";
 const DEFAULT_END: &'static str = "end::";
 const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 const DEFAULT_FILE_EXTENSION: &'static str = "md";
-// const DEFAULT_OUTPUT_DIR: &'static str = ".";
+const DEFAULT_SOURCE_FILES: &'static str = "**";
+const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
+
 lazy_static! {
     static ref DEFAULT_CONFIG_MAP: HashMap<&'static str, &'static str> = {
         let mut m = HashMap::new();
@@ -56,6 +58,10 @@ lazy_static! {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
+    // start_identifier
+    // end_identifier
+
+    // normalized_identifier
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
     pub text: String,
@@ -75,7 +81,7 @@ impl Snippet {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct SnippetSettings {
+pub struct SnippextSettings {
     pub begin: String,
     pub end: String,
     pub extension: String,
@@ -86,21 +92,38 @@ pub struct SnippetSettings {
     pub targets: Option<Vec<String>>,
 }
 
-impl SnippetSettings {
+impl SnippextSettings {
 
-    // TODO: do we need / want this?
-    // TODO: add default
+    /// Create default SnippextSettings which will have the following
+    /// begin: [`DEFAULT_BEGIN`]
+    /// end: [`DEFAULT_END`]
+    /// extension: [`DEFAULT_FILE_EXTENSION`]
+    /// comment_prefixes: [`DEFAULT_COMMENT_PREFIXES`]
+    /// template: [`DEFAULT_TEMPLATE`]
+    /// sources: all files via [`DEFAULT_SOURCE_FILES`] glob
+    /// output_dir: [`DEFAULT_OUTPUT_DIR`]
     pub fn default() -> Self {
         Self {
-            begin: String::from(""),
-            end: String::from(""),
-            extension: String::from(""),
-            comment_prefixes: vec![],
-            template: String::from(""),
-            sources: vec![SnippetSource::new_local(vec![])],
-            output_dir: None,
+            begin: String::from(DEFAULT_BEGIN),
+            end: String::from(DEFAULT_END),
+            extension: String::from(DEFAULT_FILE_EXTENSION),
+            comment_prefixes: DEFAULT_COMMENT_PREFIXES.into_iter().map(|s| s.to_string()).collect(),
+            template: String::from(DEFAULT_TEMPLATE),
+            sources: vec![SnippetSource::new_local(vec![String::from(DEFAULT_SOURCE_FILES)])],
+            output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
             targets: None,
         }
+    }
+
+    /// Create SnippextSettings from config file
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path of config file
+    pub fn from_config<S: AsRef<Path>>(path: S) -> SnippextResult<Self> {
+        let content = fs::read_to_string(path)?;
+        let settings = serde_json::from_str(content.as_str())?;
+        Ok(settings)
     }
 
     // TODO: <S: Into<String>>
@@ -195,17 +218,21 @@ impl SnippetSource {
 // }
 
 // TODO: return result. should validate settings
-pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
+pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
 {
-    // TODO: should be in lib?
-    validate_settings(&snippet_settings)?;
+    validate_settings(&snippext_settings)?;
 
-    let filenames = get_filenames(snippet_settings.sources);
+    let filenames = get_filenames(snippext_settings.sources)?;
+
+    // TODO: move this?
+    let mut hbs = Handlebars::new();
+    hbs.register_escape_fn(no_escape);
+
     for filename in filenames {
         let snippets = extract_snippets(
-            &snippet_settings.comment_prefixes,
-            snippet_settings.begin.to_owned(),
-            snippet_settings.end.to_owned(),
+            &snippext_settings.comment_prefixes,
+            snippext_settings.begin.to_owned(),
+            snippext_settings.end.to_owned(),
             filename.as_path()
         )?;
 
@@ -213,20 +240,22 @@ pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
             continue;
         }
 
+        // TODO: print to stdout if output_dir and targets are both none?
+        // if &snippext_settings.output_dir.is_none() && &snippext_settings.targets.is_none() {
+        //
+        // }
+
         // TODO: output_dir optional
         // TODO: targets
         // TODO: stdout if neither is provided
-        if let Some(output_dir) = &snippet_settings.output_dir {
-            // TODO: move this?
-            let mut hbs = Handlebars::new();
-            hbs.register_escape_fn(no_escape);
+        if let Some(output_dir) = &snippext_settings.output_dir {
 
             for snippet in snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
                     .join(filename.as_path().to_string_lossy().trim_start_matches(x))
                     .join(sanitize(snippet.identifier))
-                    .with_extension(snippet_settings.extension.as_str());
+                    .with_extension(snippext_settings.extension.as_str());
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
@@ -235,12 +264,12 @@ pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
                 for attribute in snippet.attributes {
                     data.insert(attribute.0, attribute.1);
                 }
-                let result = hbs.render_template(snippet_settings.template.as_str(), &data).unwrap();
+                let result = hbs.render_template(snippext_settings.template.as_str(), &data).unwrap();
                 fs::write(output_path, result).unwrap();
             }
         }
 
-        if let Some(targets) = &snippet_settings.targets {
+        if let Some(targets) = &snippext_settings.targets {
 
         }
     }
@@ -248,6 +277,43 @@ pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
     Ok(())
 }
 
+// https://stackoverflow.com/questions/43820696/how-can-i-find-the-index-of-a-character-in-a-string-in-rust
+pub fn update_target_file(
+    source: PathBuf,
+    snippet_start: &str,
+    snippet_end: &str,
+    content: &str
+) -> SnippextResult<()> {
+    let mut source_content = fs::read_to_string(source.to_path_buf())?;
+    let snippet_start_index = source_content.find(snippet_start).ok_or(SnippextError::SnippetNotFound())?;
+    let content_starting_index = snippet_start_index + snippet_start.len();
+    let end_index = source_content.find(snippet_end).unwrap_or(source_content.len());
+    source_content.replace_range(content_starting_index..end_index, content);
+
+    fs::write(source.to_path_buf(), source_content)?;
+
+    Ok(())
+}
+
+pub fn update_target_string(
+    source: &mut String,
+    snippet_start: &str,
+    snippet_end: &str,
+    content: &str
+) {
+    let snippet_start_index = source.find(snippet_start);
+    // println!("{:?}", start_index);
+    let content_starting_index = snippet_start_index.unwrap() + snippet_start.len();
+    let end_index = source.find(snippet_end).unwrap();
+    // let result = &source[starting_index..end_index];
+    // println!("{:?}", result);
+    // let mut updated_source = source.clone();
+    // updated_source.replace_range(starting_index..end_index, content);
+    // println!("{:?}", updated_source);
+
+    source.replace_range(content_starting_index..end_index, content);
+    println!("{:?}", source);
+}
 
 pub fn extract_snippets(
     comment_prefixes: &Vec<String>,
@@ -313,15 +379,14 @@ pub fn extract_snippets(
     Ok(snippets)
 }
 
-// TODO: return result
-// if an entry is a directory all files from directory will be listed.
-fn get_filenames(sources: Vec<SnippetSource>) -> Vec<PathBuf> {
+
+fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     let mut out: Vec<PathBuf> = Vec::new();
 
     for source in sources {
         for file in source.files {
             // TODO: do we want to print failures and continue rather than unwrap?
-            for entry in glob(file.as_str()).unwrap() {
+            for entry in glob(file.as_str())? {
                 let path = entry.unwrap();
                 if !path.is_dir() {
                     out.push(path);
@@ -329,9 +394,12 @@ fn get_filenames(sources: Vec<SnippetSource>) -> Vec<PathBuf> {
             }
         }
     }
-    out
+
+    Ok(out)
 }
 
+// TODO: Return option
+// TODO: return tuple (prefix and identifier) or struct
 fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> String {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
@@ -384,7 +452,7 @@ fn git_clone(remote: &str) {
 }
 
 /// returns a list of validation failures
-fn validate_settings(settings: &SnippetSettings) -> SnippextResult<()> {
+fn validate_settings(settings: &SnippextSettings) -> SnippextResult<()> {
     let mut failures = Vec::new();
 
     if settings.begin.is_empty() {
@@ -432,12 +500,12 @@ fn validate_settings(settings: &SnippetSettings) -> SnippextResult<()> {
 #[cfg(test)]
 mod tests {
     use crate::error::SnippextError;
-    use crate::{SnippetSettings, SnippetSource};
+    use crate::{SnippextSettings, SnippetSource};
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
     #[test]
     fn strings_must_not_be_empty() {
-        let settings = SnippetSettings::new(
+        let settings = SnippextSettings::new(
             vec![String::from("# ")],
             String::from(""),
             String::from(""),
@@ -467,7 +535,7 @@ mod tests {
 
     #[test]
     fn at_least_one_comment_prefix_is_required() {
-        let settings = SnippetSettings::new(
+        let settings = SnippextSettings::new(
             vec![],
             String::from("snippet::"),
             String::from("end::"),
@@ -496,7 +564,7 @@ mod tests {
 
     #[test]
     fn sources_must_not_be_empty() {
-        let settings = SnippetSettings::new(
+        let settings = SnippextSettings::new(
             vec![String::from("# ")],
             String::from("snippet::"),
             String::from("end::"),
@@ -525,7 +593,7 @@ mod tests {
 
     #[test]
     fn sources_must_have_at_least_one_files_entry() {
-        let settings = SnippetSettings::new(
+        let settings = SnippextSettings::new(
             vec![String::from("# ")],
             String::from("snippet::"),
             String::from("end::"),
@@ -553,4 +621,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn update_target() {
+        let mut source = r#"Some content
+snippet::foo
+foo
+end::foo
+"#.to_string();
+
+        super::update_target_string(
+            &mut source,
+            "snippet::foo",
+            "end::foo",
+            "\nbar\n",
+        );
+
+        println!("{}", source);
+    }
 }

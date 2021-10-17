@@ -16,6 +16,16 @@ pub enum SnippextError {
     #[error("IO error: `{0}`")]
     IoError(#[from] std::io::Error),
 
+    /// Glob pattern error
+    #[error("IO error: `{0}`")]
+    GlobPatternError(#[from] glob::PatternError),
+
+    #[error("Serde json error: `{0}`")]
+    SerdeJson(#[from] serde_json::Error),
+
+    #[error("Snippet not found in file")]
+    SnippetNotFound(),
+
     /// Settings validation errors
     #[error("Settings error: `{0:?}`")]
     ValidationError(Vec<String>)

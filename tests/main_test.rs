@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSettings, SnippetSource};
+use snippext::{run, SnippextSettings, SnippetSource};
 
 use tempfile::tempdir;
 use std::fs::File;
@@ -12,7 +12,7 @@ use std::path::Path;
 fn test() {
     let dir = tempdir().unwrap();
 
-    let result = run(SnippetSettings::new(
+    let result = run(SnippextSettings::new(
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
@@ -60,7 +60,7 @@ fn test() {
 fn test_custom_prefix() {
     let dir = tempdir().unwrap();
 
-    run(SnippetSettings::new(
+    run(SnippextSettings::new(
         vec![String::from("# ")],
         String::from("snippet::"),
         String::from("end::"),
@@ -83,7 +83,7 @@ fn test_custom_prefix() {
 fn test_custom_template() {
     let dir = tempdir().unwrap();
 
-    run(SnippetSettings::new(
+    run(SnippextSettings::new(
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
