@@ -108,10 +108,11 @@ impl SnippetSettings {
         comment_prefixes: Vec<String>,
         begin: String,
         end: String,
-        output_dir: Option<String>,
         extension: String,
         template: String,
-        sources: Vec<SnippetSource>
+        sources: Vec<SnippetSource>,
+        output_dir: Option<String>,
+        targets: Option<Vec<String>>,
     ) -> Self {
         Self {
             begin,
@@ -121,7 +122,7 @@ impl SnippetSettings {
             template,
             sources,
             output_dir,
-            targets: None,
+            targets,
         }
     }
 }
@@ -130,9 +131,8 @@ impl SnippetSettings {
 pub struct SnippetSource {
     pub repository: Option<String>,
     pub branch: Option<String>,
-    // TODO: rename commit....
     pub commit: Option<String>,
-    pub directory: Option<String>, // default to "."
+    pub directory: Option<String>,
     pub files: Vec<String>,
 }
 
@@ -207,29 +207,41 @@ pub fn run(snippet_settings: SnippetSettings) -> SnippextResult<()>
             snippet_settings.begin.to_owned(),
             snippet_settings.end.to_owned(),
             filename.as_path()
-        ).unwrap();
+        )?;
+
+        if snippets.is_empty() {
+            continue;
+        }
 
         // TODO: output_dir optional
-        let output_dir = snippet_settings.output_dir.as_ref().unwrap();
-        for snippet in snippets {
-            let x: &[_] = &['.', '/'];
-            let output_path = Path::new(output_dir.as_str())
-                .join(filename.as_path().to_string_lossy().trim_start_matches(x))
-                .join(sanitize(snippet.identifier))
-                .with_extension(snippet_settings.extension.as_str());
-
-            fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-
+        // TODO: targets
+        // TODO: stdout if neither is provided
+        if let Some(output_dir) = &snippet_settings.output_dir {
             // TODO: move this?
             let mut hbs = Handlebars::new();
             hbs.register_escape_fn(no_escape);
-            let mut data = BTreeMap::new();
-            data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
-            for attribute in snippet.attributes {
-                data.insert(attribute.0, attribute.1);
+
+            for snippet in snippets {
+                let x: &[_] = &['.', '/'];
+                let output_path = Path::new(output_dir.as_str())
+                    .join(filename.as_path().to_string_lossy().trim_start_matches(x))
+                    .join(sanitize(snippet.identifier))
+                    .with_extension(snippet_settings.extension.as_str());
+
+                fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+
+                let mut data = BTreeMap::new();
+                data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
+                for attribute in snippet.attributes {
+                    data.insert(attribute.0, attribute.1);
+                }
+                let result = hbs.render_template(snippet_settings.template.as_str(), &data).unwrap();
+                fs::write(output_path, result).unwrap();
             }
-            let result = hbs.render_template(snippet_settings.template.as_str(), &data).unwrap();
-            fs::write(output_path, result).unwrap();
+        }
+
+        if let Some(targets) = &snippet_settings.targets {
+
         }
     }
 
@@ -375,8 +387,24 @@ fn git_clone(remote: &str) {
 fn validate_settings(settings: &SnippetSettings) -> SnippextResult<()> {
     let mut failures = Vec::new();
 
+    if settings.begin.is_empty() {
+        failures.push(String::from("begin must not be an empty string"));
+    }
+
+    if settings.end.is_empty() {
+        failures.push(String::from("end must not be an empty string"));
+    }
+
     if settings.comment_prefixes.is_empty() {
         failures.push(String::from("comment_prefixes must not be empty"));
+    }
+
+    if settings.template.is_empty() {
+        failures.push(String::from("template must not be an empty string"));
+    }
+
+    if settings.extension.is_empty() {
+        failures.push(String::from("extension must not be an empty string"));
     }
 
     if settings.sources.is_empty() {
@@ -399,4 +427,130 @@ fn validate_settings(settings: &SnippetSettings) -> SnippextResult<()> {
     } else {
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::SnippextError;
+    use crate::{SnippetSettings, SnippetSource};
+
+    // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
+    #[test]
+    fn strings_must_not_be_empty() {
+        let settings = SnippetSettings::new(
+            vec![String::from("# ")],
+            String::from(""),
+            String::from(""),
+            String::from(""),
+            String::from(""),
+            vec![SnippetSource::new_local(vec![String::from("**")])],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(4, failures.len());
+                assert!(failures.contains(&String::from("begin must not be an empty string")));
+                assert!(failures.contains(&String::from("end must not be an empty string")));
+                assert!(failures.contains(&String::from("template must not be an empty string")));
+                assert!(failures.contains(&String::from("extension must not be an empty string")));
+            }
+            _ => {
+                panic!("invalid snippextError");
+            }
+        }
+    }
+
+
+    #[test]
+    fn at_least_one_comment_prefix_is_required() {
+        let settings = SnippetSettings::new(
+            vec![],
+            String::from("snippet::"),
+            String::from("end::"),
+            String::from("md"),
+            String::from("{{snippet}}"),
+            vec![SnippetSource::new_local(vec![String::from("**")])],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("comment_prefixes must not be empty"),
+                    failures.get(0).unwrap().to_string()
+                )
+            }
+            _ => {
+                panic!("invalid snippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn sources_must_not_be_empty() {
+        let settings = SnippetSettings::new(
+            vec![String::from("# ")],
+            String::from("snippet::"),
+            String::from("end::"),
+            String::from("md"),
+            String::from("{{snippet}}"),
+            vec![],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("sources must not be empty"),
+                    failures.get(0).unwrap().to_string()
+                )
+            }
+            _ => {
+                panic!("invalid snippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn sources_must_have_at_least_one_files_entry() {
+        let settings = SnippetSettings::new(
+            vec![String::from("# ")],
+            String::from("snippet::"),
+            String::from("end::"),
+            String::from("md"),
+            String::from("{{snippet}}"),
+            vec![SnippetSource::new_local(vec![])],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("sources[0].files must not be empty"),
+                    failures.get(0).unwrap().to_string()
+                )
+            }
+            _ => {
+                panic!("invalid snippextError");
+            }
+        }
+    }
+
 }

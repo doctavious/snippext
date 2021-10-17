@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::fs;
 use std::path::Path;
 
-//TODO: begin / end cant be empty
+// TODO: begin / end cant be empty
 
 #[test]
 fn test() {
@@ -16,11 +16,12 @@ fn test() {
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
-        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![SnippetSource::new_local(vec![String::from("./tests/samples/*")])])
-    ).unwrap();
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/*")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None
+    )).unwrap();
 
     let main_content_actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
@@ -63,11 +64,12 @@ fn test_custom_prefix() {
         vec![String::from("# ")],
         String::from("snippet::"),
         String::from("end::"),
-        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("{{snippet}}"),
-        vec![SnippetSource::new_local(vec![String::from("./tests/samples/custom_prefix.rb")])])
-    ).unwrap();
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/custom_prefix.rb")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    )).unwrap();
 
     let content =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md")).unwrap();
@@ -85,11 +87,12 @@ fn test_custom_template() {
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
-        Some(dir.path().to_string_lossy().to_string()),
         String::from("md"),
         String::from("```{{lang}}\n{{snippet}}```\n"),
-        vec![SnippetSource::new_local(vec![String::from("./tests/samples/main.rs")])])
-    ).unwrap();
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/main.rs")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    )).unwrap();
 
     let actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
