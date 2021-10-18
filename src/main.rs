@@ -99,7 +99,8 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
     return Ok(settings);
 }
 
-// TODO: environment variable fallback
+// TODO: environment variable fallback here or via config?
+// should document it here regardless
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {

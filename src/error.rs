@@ -17,8 +17,8 @@ pub enum SnippextError {
     IoError(#[from] std::io::Error),
 
     /// Glob pattern error
-    #[error("IO error: `{0}`")]
-    GlobPatternError(#[from] glob::PatternError),
+    #[error("{0}")]
+    GlobPatternError(String),
 
     #[error("Serde json error: `{0}`")]
     SerdeJson(#[from] serde_json::Error),

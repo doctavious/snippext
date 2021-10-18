@@ -15,7 +15,7 @@ mod unindent;
 pub mod error;
 mod git;
 
-use glob::glob;
+use glob::{glob, Paths, PatternError};
 use git2::{build::CheckoutBuilder, Cred, Error as GitError, RemoteCallbacks, Repository};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -45,23 +45,12 @@ const DEFAULT_FILE_EXTENSION: &'static str = "md";
 const DEFAULT_SOURCE_FILES: &'static str = "**";
 const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
 
-lazy_static! {
-    static ref DEFAULT_CONFIG_MAP: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        // m.insert(0, "foo");
-        // m.insert(1, "bar");
-        // m.insert(2, "baz");
-        m
-    };
-}
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
-    // start_identifier
-    // end_identifier
+    // snippet_start_tag
+    // snippet_end_tag
 
-    // normalized_identifier
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
     pub text: String,
@@ -70,8 +59,8 @@ pub struct Snippet {
 }
 
 impl Snippet {
-    pub fn new(identifier: String, attributes: HashMap<String, String>) -> Snippet {
-        Snippet {
+    pub fn new(identifier: String, attributes: HashMap<String, String>) -> Self {
+        Self {
             identifier,
             text: "".to_string(),
             closed: false,
@@ -187,37 +176,6 @@ impl SnippetSource {
     }
 }
 
-// impl Source for SnippetSource {
-//     fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-//         Box::new((*self).clone())
-//     }
-//
-//     fn collect(&self) -> Result<HashMap<String, Value>, ConfigError> {
-//         let mut m = HashMap::new();
-//         let uri: String = "command line".into();
-//
-//         if let Some(repo) = &self.repository {
-//             m.insert(String::from("repository"), Value::new(Some(&uri), repo.to_string()));
-//         }
-//
-//         if let Some(branch) = &self.branch {
-//             m.insert(String::from("branch"), Value::new(Some(&uri), branch.to_string()));
-//         }
-//
-//         if let Some(starting_point) = &self.starting_point {
-//             m.insert(String::from("starting_point"), Value::new(Some(&uri), starting_point.to_string()));
-//         }
-//
-//         if let Some(directory) = &self.directory {
-//             m.insert(String::from("directory"), Value::new(Some(&uri), directory.to_string()));
-//         }
-//
-//
-//         Ok(m)
-//     }
-// }
-
-// TODO: return result. should validate settings
 pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
 {
     validate_settings(&snippext_settings)?;
@@ -277,7 +235,6 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
     Ok(())
 }
 
-// https://stackoverflow.com/questions/43820696/how-can-i-find-the-index-of-a-character-in-a-string-in-rust
 pub fn update_target_file(
     source: PathBuf,
     snippet_start: &str,
@@ -372,7 +329,14 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     let mut out: Vec<PathBuf> = Vec::new();
     for source in sources {
         for file in source.files {
-            for entry in glob(file.as_str())? {
+            let paths = match glob(file.as_str()) {
+                Ok(paths) => paths,
+                Err(error) => {
+                    return Err(SnippextError::GlobPatternError(format!("Glob pattern error for `{}`. {}", file, error.msg)))
+                }
+            };
+
+            for entry in paths {
                 let path = entry.unwrap();
                 if !path.is_dir() {
                     out.push(path);
@@ -384,7 +348,8 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     Ok(out)
 }
 
-// TODO: return tuple (prefix and identifier) or struct
+// TODO: return tuple (prefix and identifier) or struct?
+// Might not be necessary depending on how we want to enable doctavious
 fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> Option<String> {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
@@ -395,45 +360,6 @@ fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> Option<String
         }
     }
     None
-}
-
-// TODO: Do we need to allow users to specify path to clone to and path of ssh creds?
-// sparse clone / depth 1?
-// git2-rs doesnt appear to support sparse checkout, yet, because lib2git doesnt
-fn git_clone(remote: &str) {
-    // HTTP clone
-    let repo = match Repository::clone(remote, "/path/to/a/repo") {
-        Ok(repo) => repo,
-        Err(e) => panic!("failed to clone: {}", e),
-    };
-
-    // SSH clone
-    // Prepare callbacks.
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        Cred::ssh_key(
-            username_from_url.unwrap(),
-            None,
-            std::path::Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
-            None,
-        )
-    });
-
-    // Prepare fetch options.
-    let mut fo = git2::FetchOptions::new();
-    fo.remote_callbacks(callbacks);
-
-    // Prepare builder.
-    let mut builder = git2::build::RepoBuilder::new();
-    builder.fetch_options(fo);
-
-    // let mut checkout_builder = CheckoutBuilder::new()
-
-    // Clone the project.
-    builder.clone(
-        "git@github.com:rust-lang/git2-rs.git",
-        Path::new("/tmp/git2-rs"),
-    );
 }
 
 /// returns a list of validation failures

@@ -4,15 +4,14 @@ use tempfile::tempdir;
 use std::fs::File;
 use std::io::{self, Write};
 use std::fs;
-use std::path::Path;
-
-// TODO: begin / end cant be empty
+use std::path::{Path, PathBuf};
+use snippext::error::SnippextError;
 
 #[test]
-fn test() {
+fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
-    let result = run(SnippextSettings::new(
+    run(SnippextSettings::new(
         vec![String::from("// ")],
         String::from("snippet::"),
         String::from("end::"),
@@ -56,8 +55,10 @@ fn test() {
     dir.close().unwrap();
 }
 
+// TODO: test extracting from remote source
+
 #[test]
-fn test_custom_prefix() {
+fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
@@ -80,7 +81,7 @@ fn test_custom_prefix() {
 }
 
 #[test]
-fn test_custom_template() {
+fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
@@ -109,11 +110,114 @@ fn main() {
 }
 
 // TODO: add test where var is not in context
+#[test]
+fn should_treat_unknown_template_variables_as_empty_string() {
+    let dir = tempdir().unwrap();
 
-// TODO: add test where no snippets found
+    run(SnippextSettings::new(
+        vec![String::from("// ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/main.rs")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    )).unwrap();
 
-// TODO: add test for invalid glob
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+    let expected = r#"```
+fn main() {
 
-// TODO: add test for glob that returns no files
+    println!("printing...")
+}
+```
+"#;
+    assert_eq!(expected, actual);
 
-// TODO: test required args/flags
+    dir.close().unwrap();
+}
+
+#[test]
+fn should_support_files_with_no_snippets() {
+    let dir = tempdir().unwrap();
+
+    run(SnippextSettings::new(
+        vec![String::from("// ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/no_snippets.rs")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    )).unwrap();
+
+    let files: Vec<PathBuf> = fs::read_dir(&dir).unwrap()
+        .into_iter()
+        .filter(|r| r.is_ok())
+        .map(|r| r.unwrap().path())
+        .filter(|r| r.is_dir())
+        .collect();
+
+    assert_eq!(0, files.len());
+
+    dir.close().unwrap();
+}
+
+#[test]
+fn invalid_glob() {
+    let dir = tempdir().unwrap();
+
+    let result = run(SnippextSettings::new(
+        vec![String::from("// ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippetSource::new_local(vec![String::from("[&")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    ));
+
+    dir.close().unwrap();
+
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        SnippextError::GlobPatternError(error) => {
+            assert_eq!("Glob pattern error for `[&`. invalid range pattern", error);
+        }
+        _ => {
+            panic!("invalid SnippextError");
+        }
+    }
+}
+
+#[test]
+fn glob_returns_no_files() {
+    let dir = tempdir().unwrap();
+
+    run(SnippextSettings::new(
+        vec![String::from("// ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/*.md")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+    )).unwrap();
+
+    let files: Vec<PathBuf> = fs::read_dir(&dir).unwrap()
+        .into_iter()
+        .filter(|r| r.is_ok())
+        .map(|r| r.unwrap().path())
+        .filter(|r| r.is_dir())
+        .collect();
+
+    assert_eq!(0, files.len());
+
+    dir.close().unwrap();
+}
+
