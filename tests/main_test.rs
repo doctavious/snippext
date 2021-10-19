@@ -109,7 +109,6 @@ fn main() {
     dir.close().unwrap();
 }
 
-// TODO: add test where var is not in context
 #[test]
 fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();

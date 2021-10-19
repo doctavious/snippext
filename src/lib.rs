@@ -144,6 +144,7 @@ pub struct SnippetSource {
     pub repository: Option<String>,
     pub branch: Option<String>,
     pub commit: Option<String>,
+    pub cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
     pub directory: Option<String>,
     pub files: Vec<String>,
 }
@@ -154,6 +155,7 @@ impl SnippetSource {
             repository: None,
             branch: None,
             commit: None,
+            cone_patterns: None,
             directory: None,
             files
         }
@@ -170,6 +172,7 @@ impl SnippetSource {
             repository: Some(repository),
             branch: Some(branch),
             commit,
+            cone_patterns: None,
             directory,
             files
         }
