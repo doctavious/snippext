@@ -331,7 +331,17 @@ pub fn extract_snippets(
 fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
     let mut out: Vec<PathBuf> = Vec::new();
     for source in sources {
+        if source.repository.is_some() {
+            git::checkout_files(
+                source.repository.unwrap(),
+                source.branch,
+                source.cone_patterns,
+                source.directory
+            );
+        }
         for file in source.files {
+            // TODO: for remote files do we want users to specify globs in relation to directory
+            // or do we do that for them? 
             let paths = match glob(file.as_str()) {
                 Ok(paths) => paths,
                 Err(error) => {
@@ -395,6 +405,11 @@ fn validate_settings(settings: &SnippextSettings) -> SnippextResult<()> {
         for (i, source) in settings.sources.iter().enumerate() {
             if source.files.is_empty() {
                 failures.push(format!("sources[{}].files must not be empty", i));
+            }
+
+            if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
+                && (source.cone_patterns.is_some() || source.branch.is_some() || source.commit.is_some()) {
+                failures.push(format!("sources[{}] specifies branch, commit, cone_patterns without specifying repository", i));
             }
         }
     }
@@ -530,7 +545,44 @@ mod tests {
                 )
             }
             _ => {
-                panic!("invalid snippextError");
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn repository_must_be_provided_if_other_remote_sources_are_provided() {
+        let settings = SnippextSettings::new(
+            vec![String::from("# ")],
+            String::from("snippet::"),
+            String::from("end::"),
+            String::from("md"),
+            String::from("{{snippet}}"),
+            vec![SnippetSource {
+                repository: None,
+                branch: Some(String::from("branch")),
+                commit: Some(String::from("commit")),
+                cone_patterns: None,
+                directory: None,
+                files: vec![String::from("**")]
+            }],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+        println!("{:?}", error);
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("sources[0] specifies branch, commit, cone_patterns without specifying repository"),
+                    failures.get(0).unwrap().to_string()
+                )
+            }
+            _ => {
+                panic!("invalid SnippextError");
             }
         }
     }

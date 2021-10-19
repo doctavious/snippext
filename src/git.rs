@@ -8,15 +8,15 @@ use crate::error::SnippextError;
 use crate::SnippextResult;
 
 pub fn checkout_files(
-    remote: &str,
-    branch: Option<&str>,
+    remote: String,
+    branch: Option<String>,
     cone_patterns: Option<Vec<String>>,
-    dir: &Path
+    dir: Option<String>
 ) -> SnippextResult<()> {
     // if cone_patterns are specified lets do a no-checkout clone with a sparse-checkout
     // otherwise just do a regular clone
-    let mut clone_command = Command::new("git")
-        .arg("clone");
+    let mut clone_command = Command::new("git");
+    clone_command.arg("clone");
 
     if cone_patterns.is_some() {
         clone_command.arg("--no-checkout");
@@ -26,9 +26,15 @@ pub fn checkout_files(
         clone_command.arg("--branch").arg(branch);
     }
 
+    let checkout_directory = if let Some(dir) = dir {
+        dir
+    } else {
+        String::from("./")
+    };
+
     clone_command
         .arg(remote)
-        .arg(dir)
+        .arg(&checkout_directory)
         .current_dir("./")
         .output()
         .map_err(SnippextError::from)?;
@@ -39,7 +45,7 @@ pub fn checkout_files(
             .arg("sparse-checkout")
             .arg("init")
             .arg("--cone")
-            .current_dir(dir)
+            .current_dir(&checkout_directory)
             .output()
             .map_err(SnippextError::from)?;
 
@@ -47,7 +53,7 @@ pub fn checkout_files(
             .arg("sparse-checkout")
             .arg("set")
             .arg(cone_patterns.unwrap().join(" "))
-            .current_dir(dir)
+            .current_dir(&checkout_directory)
             .output()
             .map_err(SnippextError::from)?;
     }
