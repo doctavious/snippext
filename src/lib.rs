@@ -15,22 +15,22 @@ mod unindent;
 pub mod error;
 mod git;
 
-use glob::{glob, Paths, PatternError};
-use git2::{build::CheckoutBuilder, Cred, Error as GitError, RemoteCallbacks, Repository};
-use lazy_static::lazy_static;
+use glob::{glob};
+
+
 use regex::Regex;
 use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+
 use std::fs::File;
-use std::{fs, env};
+use std::{fs};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, BTreeMap};
 use unindent::unindent;
 use handlebars::{Handlebars, no_escape};
-use config::{Source, Value, ConfigError};
+use config::{Source};
 use crate::error::SnippextError;
 
 pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
@@ -234,7 +234,7 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
             }
         }
 
-        if let Some(targets) = &snippext_settings.targets {
+        if let Some(_targets) = &snippext_settings.targets {
 
         }
     }
@@ -340,7 +340,6 @@ struct SourceFile {
 // Need both the absolute path and the relative path so that for when we output generated files
 // we only include relative directories within the output directory.
 fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>> {
-    let mut out: Vec<PathBuf> = Vec::new();
     let mut source_files: Vec<SourceFile> = Vec::new();
 
     for source in sources {

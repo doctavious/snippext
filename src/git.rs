@@ -1,8 +1,8 @@
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
-use std::env;
-use std::path::Path;
+
+
 use std::process::Command;
 use crate::error::SnippextError;
 use crate::SnippextResult;

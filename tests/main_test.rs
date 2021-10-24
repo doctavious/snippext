@@ -1,8 +1,8 @@
 use snippext::{run, SnippextSettings, SnippetSource};
 
 use tempfile::tempdir;
-use std::fs::File;
-use std::io::{self, Write};
+
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use snippext::error::SnippextError;

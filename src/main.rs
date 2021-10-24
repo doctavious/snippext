@@ -1,8 +1,8 @@
-use snippext::{run, SnippextSettings, SnippetSource, error::SnippextError, SnippextResult};
+use snippext::{run, SnippextSettings, SnippetSource, SnippextResult};
 use structopt::StructOpt;
-use config::{ConfigError, Config, File, Environment, Source, Value, FileFormat};
-use std::env;
-use std::collections::HashMap;
+use config::{Config, File, Environment, Source};
+
+
 use std::path::PathBuf;
 
 
