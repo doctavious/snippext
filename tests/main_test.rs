@@ -57,6 +57,40 @@ fn should_successfully_extract_from_local_sources_directory() {
 
 // TODO: test extracting from remote source
 
+
+#[test]
+fn should_successfully_extract_from_remote() {
+    let dir = tempdir().unwrap();
+
+    run(SnippextSettings::new(
+        vec![String::from("// ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("{{snippet}}"),
+        vec![SnippetSource::new_remote(
+            String::from("https://github.com/doctavious/snippext.git"),
+            String::from("main"),
+            None,
+            Some(format!("{}/snippext/", dir.path().to_string_lossy())),
+            vec![String::from("/tests/**/*")]
+        )],
+        Some(format!("{}/generated-snippets/", dir.path().to_string_lossy())),
+        None
+    )).unwrap();
+
+    let main_content_actual =
+        fs::read_to_string(Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md")).unwrap();
+    let main_content_expected = r#"fn main() {
+
+    println!("printing...")
+}
+"#;
+    assert_eq!(main_content_expected, main_content_actual);
+
+    dir.close().unwrap();
+}
+
 #[test]
 fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();

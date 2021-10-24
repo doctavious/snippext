@@ -39,7 +39,6 @@ pub fn checkout_files(
         .output()
         .map_err(SnippextError::from)?;
 
-
     if cone_patterns.is_some() {
         Command::new("git")
             .arg("sparse-checkout")

@@ -1,4 +1,5 @@
 use std::io;
+use std::path::StripPrefixError;
 use thiserror::Error;
 
 #[non_exhaustive]
@@ -25,6 +26,9 @@ pub enum SnippextError {
 
     #[error("Snippet not found in file")]
     SnippetNotFound(),
+
+    #[error("Stripe prefix error: `{0}`")]
+    StripeError(#[from] StripPrefixError),
 
     /// Settings validation errors
     #[error("Settings error: `{0:?}`")]

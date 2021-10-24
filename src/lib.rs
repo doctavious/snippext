@@ -177,24 +177,28 @@ impl SnippetSource {
             files
         }
     }
+
+    pub fn is_remote(&self) -> bool {
+        self.repository.is_some()
+    }
 }
 
 pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
 {
     validate_settings(&snippext_settings)?;
 
-    let filenames = get_filenames(snippext_settings.sources)?;
+    let source_files = get_filenames(snippext_settings.sources)?;
 
     // TODO: move this?
     let mut hbs = Handlebars::new();
     hbs.register_escape_fn(no_escape);
 
-    for filename in filenames {
+    for source_file in source_files {
         let snippets = extract_snippets(
             &snippext_settings.comment_prefixes,
             snippext_settings.begin.to_owned(),
             snippext_settings.end.to_owned(),
-            filename.as_path()
+            source_file.full_path.as_path(),
         )?;
 
         if snippets.is_empty() {
@@ -214,7 +218,7 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
             for snippet in snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
-                    .join(filename.as_path().to_string_lossy().trim_start_matches(x))
+                    .join(source_file.relative_path.to_string_lossy().trim_start_matches(x))
                     .join(sanitize(snippet.identifier))
                     .with_extension(snippext_settings.extension.as_str());
 
@@ -327,22 +331,47 @@ pub fn extract_snippets(
     Ok(snippets)
 }
 
+struct SourceFile {
+    pub full_path: PathBuf,
+    pub relative_path: PathBuf,
+}
 
-fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
+// TODO: This code is absolute shit. Clean this up
+// Need both the absolute path and the relative path so that for when we output generated files
+// we only include relative directories within the output directory.
+fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>> {
     let mut out: Vec<PathBuf> = Vec::new();
+    let mut source_files: Vec<SourceFile> = Vec::new();
+
     for source in sources {
-        if source.repository.is_some() {
+
+        // let dir = if let Some(dir) = source.directory.clone() {
+        //     dir
+        // } else {
+        //     String::from("./")
+        // };
+
+        if source.is_remote() {
             git::checkout_files(
                 source.repository.unwrap(),
                 source.branch,
                 source.cone_patterns,
-                source.directory
+                source.directory.clone()
             );
         }
+
         for file in source.files {
-            // TODO: for remote files do we want users to specify globs in relation to directory
-            // or do we do that for them? 
-            let paths = match glob(file.as_str()) {
+            let (g, d) = if let Some(dir) = source.directory.clone() {
+                let x: &[_] = &['.', '/'];
+                (
+                    format!("{}/{}", dir.trim_end_matches('/'), file.clone().trim_start_matches(x)),
+                    dir
+                )
+            } else {
+                (file.clone(), file.clone())
+            };
+
+            let paths = match glob(g.as_str()) {
                 Ok(paths) => paths,
                 Err(error) => {
                     return Err(SnippextError::GlobPatternError(format!("Glob pattern error for `{}`. {}", file, error.msg)))
@@ -351,14 +380,24 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<PathBuf>> {
 
             for entry in paths {
                 let path = entry.unwrap();
+                let relative_path = if let Ok(prefix) = path.clone().strip_prefix(d.clone()) {
+                    prefix.to_path_buf()
+                } else {
+                    path.clone()
+                };
+
                 if !path.is_dir() {
-                    out.push(path);
+                    // out.push(path);
+                    source_files.push(SourceFile {
+                        full_path: path.clone(),
+                        relative_path
+                    });
                 }
             }
         }
     }
 
-    Ok(out)
+    Ok(source_files)
 }
 
 // TODO: return tuple (prefix and identifier) or struct?
