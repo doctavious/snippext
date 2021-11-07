@@ -51,12 +51,7 @@ fn should_successfully_extract_from_local_sources_directory() {
 }
 "#;
     assert_eq!(sample_fn_2_content_expected, sample_fn_2_content_actual);
-
-    dir.close().unwrap();
 }
-
-// TODO: test extracting from remote source
-
 
 #[test]
 fn should_successfully_extract_from_remote() {
@@ -87,8 +82,6 @@ fn should_successfully_extract_from_remote() {
 }
 "#;
     assert_eq!(main_content_expected, main_content_actual);
-
-    dir.close().unwrap();
 }
 
 #[test]
@@ -110,8 +103,47 @@ fn should_successfully_extract_from_local_sources_file() {
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md")).unwrap();
 
     assert_eq!("puts \"Hello, Ruby!\"\n", content);
+}
 
-    dir.close().unwrap();
+#[test]
+fn should_update_specified_targets() {
+    let dir = tempdir().unwrap();
+
+    fs::copy(
+        Path::new("./tests/targets/target.md"),
+        Path::new(&dir.path()).join("./target.md")
+    ).unwrap();
+
+    run(SnippextSettings::new(
+        vec![String::from("// "), String::from("<!-- ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        String::from("{{snippet}}"),
+        vec![SnippetSource::new_local(vec![String::from("./tests/samples/*")])],
+        Some(dir.path().to_string_lossy().to_string()),
+        Some(vec![Path::new(&dir.path()).join("./target.md").to_string_lossy().to_string()]),
+    )).unwrap();
+
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
+    let expected = r#"This is some static content
+
+<!-- snippet::main -->
+fn main() {
+
+    println!("printing...")
+}
+<!-- end::main -->
+
+<!-- snippet::fn_1 -->
+fn sample_fn_1() {
+
+}
+<!-- end::fn_1 -->
+"#;
+    assert_eq!(expected, actual);
+
 }
 
 #[test]
@@ -139,8 +171,6 @@ fn main() {
 ```
 "#;
     assert_eq!(expected, actual);
-
-    dir.close().unwrap();
 }
 
 #[test]
@@ -168,8 +198,6 @@ fn main() {
 ```
 "#;
     assert_eq!(expected, actual);
-
-    dir.close().unwrap();
 }
 
 #[test]
@@ -195,8 +223,6 @@ fn should_support_files_with_no_snippets() {
         .collect();
 
     assert_eq!(0, files.len());
-
-    dir.close().unwrap();
 }
 
 #[test]
@@ -213,8 +239,6 @@ fn invalid_glob() {
         Some(dir.path().to_string_lossy().to_string()),
         None,
     ));
-
-    dir.close().unwrap();
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -250,7 +274,5 @@ fn glob_returns_no_files() {
         .collect();
 
     assert_eq!(0, files.len());
-
-    dir.close().unwrap();
 }
 

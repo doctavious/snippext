@@ -215,55 +215,79 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
         // TODO: stdout if neither is provided
         if let Some(output_dir) = &snippext_settings.output_dir {
 
-            for snippet in snippets {
+            for snippet in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
                     .join(source_file.relative_path.to_string_lossy().trim_start_matches(x))
-                    .join(sanitize(snippet.identifier))
+                    .join(sanitize(snippet.identifier.to_owned()))
                     .with_extension(snippext_settings.extension.as_str());
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
 
                 let mut data = BTreeMap::new();
                 data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
-                for attribute in snippet.attributes {
-                    data.insert(attribute.0, attribute.1);
+                for attribute in &snippet.attributes {
+                    data.insert(attribute.0.to_string(), attribute.1.to_string());
                 }
                 let result = hbs.render_template(snippext_settings.template.as_str(), &data).unwrap();
                 fs::write(output_path, result).unwrap();
             }
         }
 
-        if let Some(_targets) = &snippext_settings.targets {
-
+        if let Some(targets) = &snippext_settings.targets {
+            for snippet in &snippets {
+                for target in targets {
+                    update_target_file(
+                        Path::new(target).to_path_buf(),
+                        &snippext_settings.comment_prefixes,
+                        // snippet.snippet_start_tag,
+                        // snippet.snippet_end_tag,
+                        snippext_settings.begin.to_owned() + snippet.identifier.as_str(),
+                        snippext_settings.end.to_owned() + snippet.identifier.as_str(),
+                        snippet.text.as_str()
+                    );
+                }
+            }
         }
+
     }
 
     Ok(())
 }
 
+// TODO: This should probably read lines instead of entire file content
+// TODO: should look for same comment prefixes?
 pub fn update_target_file(
     source: PathBuf,
-    snippet_start: &str,
-    snippet_end: &str,
+    snippet_prefixes: &Vec<String>,
+    snippet_start: String,
+    snippet_end: String,
     content: &str
 ) -> SnippextResult<()> {
     let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    update_target_string(&mut source_content, snippet_start, snippet_end, content)?;
+    update_target_string(&mut source_content, snippet_prefixes, snippet_start, snippet_end, content)?;
     fs::write(source.to_path_buf(), source_content)?;
     Ok(())
 }
 
+// TODO: clean up
+// TODO: add appropriate error handling like not finding end of a snippet
 pub fn update_target_string(
     source: &mut String,
-    snippet_start: &str,
-    snippet_end: &str,
+    snippet_prefixes: &Vec<String>,
+    snippet_start: String,
+    snippet_end: String,
     content: &str
 ) -> SnippextResult<()> {
-    let snippet_start_index = source.find(snippet_start).ok_or(SnippextError::SnippetNotFound())?;
-    let content_starting_index = snippet_start_index + snippet_start.len();
-    let end_index = source.find(snippet_end).unwrap_or(source.len());
-    source.replace_range(content_starting_index..end_index, content);
+    for prefix in snippet_prefixes {
+        if let Some(snippet_start_index) = source.find(String::from(prefix.as_str().to_owned() + snippet_start.as_str()).as_str()) {
+            if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
+                let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
+                let end_index = source.find(String::from(prefix.as_str().to_owned() + snippet_end.as_str()).as_str()).unwrap_or(source.len());
+                source.replace_range(content_starting_index..end_index, format!("\n{}", content).as_str());
+            }
+        }
+    }
     Ok(())
 }
 
@@ -628,15 +652,16 @@ mod tests {
     #[test]
     fn update_target() {
         let mut source = r#"Some content
-snippet::foo
+# snippet::foo
 foo
-end::foo
+# end::foo
 "#.to_string();
 
         super::update_target_string(
             &mut source,
-            "snippet::foo",
-            "end::foo",
+            &vec![String::from("# ")],
+            String::from("snippet::foo"),
+            String::from("end::foo"),
             "\nbar\n",
         );
 

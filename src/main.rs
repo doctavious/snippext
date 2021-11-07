@@ -303,5 +303,4 @@ mod tests {
         assert_eq!("txt", settings.extension);
     }
 
-
 }
