@@ -3,35 +3,33 @@
 #![warn(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
-
 //! TODO: add docs for snippext lib
 //! [short sentence explaining what it is]
 //! [more detailed explanation]
 //! [at least one code example that users can copy/paste to try it]
 //! [even more advanced explanations if necessary]
 
-mod sanitize;
-mod unindent;
 pub mod error;
 mod git;
+mod sanitize;
+mod unindent;
 
-use glob::{glob};
-
+use glob::glob;
 
 use regex::Regex;
 use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 
+use crate::error::SnippextError;
+use config::Source;
+use handlebars::{no_escape, Handlebars};
+use std::collections::{BTreeMap, HashMap};
+use std::fs;
 use std::fs::File;
-use std::{fs};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::collections::{HashMap, BTreeMap};
 use unindent::unindent;
-use handlebars::{Handlebars, no_escape};
-use config::{Source};
-use crate::error::SnippextError;
 
 pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
 
@@ -40,11 +38,11 @@ const DEFAULT_CONFIG: &'static str = "snippext";
 const DEFAULT_COMMENT_PREFIXES: &'static [&'static str] = &["// ", "# ", "<!-- "];
 const DEFAULT_BEGIN: &'static str = "snippet::";
 const DEFAULT_END: &'static str = "end::";
+const DEFAULT_INCLUDE: &'static str = "snippet::include::";
 const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 const DEFAULT_FILE_EXTENSION: &'static str = "md";
 const DEFAULT_SOURCE_FILES: &'static str = "**";
 const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -64,9 +62,16 @@ impl Snippet {
             identifier,
             text: "".to_string(),
             closed: false,
-            attributes
+            attributes,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SnippextTemplate {
+    pub identifier: String,
+    pub content: String,
+    pub default: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -82,7 +87,6 @@ pub struct SnippextSettings {
 }
 
 impl SnippextSettings {
-
     /// Create default SnippextSettings which will have the following
     /// begin: [`DEFAULT_BEGIN`]
     /// end: [`DEFAULT_END`]
@@ -96,9 +100,14 @@ impl SnippextSettings {
             begin: String::from(DEFAULT_BEGIN),
             end: String::from(DEFAULT_END),
             extension: String::from(DEFAULT_FILE_EXTENSION),
-            comment_prefixes: DEFAULT_COMMENT_PREFIXES.into_iter().map(|s| s.to_string()).collect(),
+            comment_prefixes: DEFAULT_COMMENT_PREFIXES
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect(),
             template: String::from(DEFAULT_TEMPLATE),
-            sources: vec![SnippetSource::new_local(vec![String::from(DEFAULT_SOURCE_FILES)])],
+            sources: vec![SnippetSource::new_local(vec![String::from(
+                DEFAULT_SOURCE_FILES,
+            )])],
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
             targets: None,
         }
@@ -116,7 +125,7 @@ impl SnippextSettings {
     }
 
     // TODO: <S: Into<String>>
-    pub fn new (
+    pub fn new(
         comment_prefixes: Vec<String>,
         begin: String,
         end: String,
@@ -157,7 +166,7 @@ impl SnippetSource {
             commit: None,
             cone_patterns: None,
             directory: None,
-            files
+            files,
         }
     }
 
@@ -174,7 +183,7 @@ impl SnippetSource {
             commit,
             cone_patterns: None,
             directory,
-            files
+            files,
         }
     }
 
@@ -183,8 +192,7 @@ impl SnippetSource {
     }
 }
 
-pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
-{
+pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_settings(&snippext_settings)?;
 
     let source_files = get_filenames(snippext_settings.sources)?;
@@ -214,11 +222,15 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
         // TODO: targets
         // TODO: stdout if neither is provided
         if let Some(output_dir) = &snippext_settings.output_dir {
-
             for snippet in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
-                    .join(source_file.relative_path.to_string_lossy().trim_start_matches(x))
+                    .join(
+                        source_file
+                            .relative_path
+                            .to_string_lossy()
+                            .trim_start_matches(x),
+                    )
                     .join(sanitize(snippet.identifier.to_owned()))
                     .with_extension(snippext_settings.extension.as_str());
 
@@ -229,7 +241,9 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
                 for attribute in &snippet.attributes {
                     data.insert(attribute.0.to_string(), attribute.1.to_string());
                 }
-                let result = hbs.render_template(snippext_settings.template.as_str(), &data).unwrap();
+                let result = hbs
+                    .render_template(snippext_settings.template.as_str(), &data)
+                    .unwrap();
                 fs::write(output_path, result).unwrap();
             }
         }
@@ -244,12 +258,11 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()>
                         // snippet.snippet_end_tag,
                         snippext_settings.begin.to_owned() + snippet.identifier.as_str(),
                         snippext_settings.end.to_owned() + snippet.identifier.as_str(),
-                        snippet.text.as_str()
+                        snippet.text.as_str(),
                     );
                 }
             }
         }
-
     }
 
     Ok(())
@@ -262,10 +275,16 @@ pub fn update_target_file(
     snippet_prefixes: &Vec<String>,
     snippet_start: String,
     snippet_end: String,
-    content: &str
+    content: &str,
 ) -> SnippextResult<()> {
     let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    update_target_string(&mut source_content, snippet_prefixes, snippet_start, snippet_end, content)?;
+    update_target_string(
+        &mut source_content,
+        snippet_prefixes,
+        snippet_start,
+        snippet_end,
+        content,
+    )?;
     fs::write(source.to_path_buf(), source_content)?;
     Ok(())
 }
@@ -277,14 +296,21 @@ pub fn update_target_string(
     snippet_prefixes: &Vec<String>,
     snippet_start: String,
     snippet_end: String,
-    content: &str
+    content: &str,
 ) -> SnippextResult<()> {
     for prefix in snippet_prefixes {
-        if let Some(snippet_start_index) = source.find(String::from(prefix.as_str().to_owned() + snippet_start.as_str()).as_str()) {
+        if let Some(snippet_start_index) =
+            source.find(String::from(prefix.as_str().to_owned() + snippet_start.as_str()).as_str())
+        {
             if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
-                let end_index = source.find(String::from(prefix.as_str().to_owned() + snippet_end.as_str()).as_str()).unwrap_or(source.len());
-                source.replace_range(content_starting_index..end_index, format!("\n{}", content).as_str());
+                let end_index = source
+                    .find(String::from(prefix.as_str().to_owned() + snippet_end.as_str()).as_str())
+                    .unwrap_or(source.len());
+                source.replace_range(
+                    content_starting_index..end_index,
+                    format!("\n{}", content).as_str(),
+                );
             }
         }
     }
@@ -319,7 +345,7 @@ pub fn extract_snippets(
                         if parts.len() == 2 {
                             attributes.insert(
                                 parts.get(0).unwrap().to_string(),
-                                parts.get(1).unwrap().to_string()
+                                parts.get(1).unwrap().to_string(),
                             );
                         }
                     }
@@ -367,7 +393,6 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
     let mut source_files: Vec<SourceFile> = Vec::new();
 
     for source in sources {
-
         // let dir = if let Some(dir) = source.directory.clone() {
         //     dir
         // } else {
@@ -379,7 +404,7 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
                 source.repository.unwrap(),
                 source.branch,
                 source.cone_patterns,
-                source.directory.clone()
+                source.directory.clone(),
             );
         }
 
@@ -387,8 +412,12 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
             let (g, d) = if let Some(dir) = source.directory.clone() {
                 let x: &[_] = &['.', '/'];
                 (
-                    format!("{}/{}", dir.trim_end_matches('/'), file.clone().trim_start_matches(x)),
-                    dir
+                    format!(
+                        "{}/{}",
+                        dir.trim_end_matches('/'),
+                        file.clone().trim_start_matches(x)
+                    ),
+                    dir,
                 )
             } else {
                 (file.clone(), file.clone())
@@ -397,7 +426,10 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
             let paths = match glob(g.as_str()) {
                 Ok(paths) => paths,
                 Err(error) => {
-                    return Err(SnippextError::GlobPatternError(format!("Glob pattern error for `{}`. {}", file, error.msg)))
+                    return Err(SnippextError::GlobPatternError(format!(
+                        "Glob pattern error for `{}`. {}",
+                        file, error.msg
+                    )))
                 }
             };
 
@@ -413,7 +445,7 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
                     // out.push(path);
                     source_files.push(SourceFile {
                         full_path: path.clone(),
-                        relative_path
+                        relative_path,
                     });
                 }
             }
@@ -470,7 +502,10 @@ fn validate_settings(settings: &SnippextSettings) -> SnippextResult<()> {
             }
 
             if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
-                && (source.cone_patterns.is_some() || source.branch.is_some() || source.commit.is_some()) {
+                && (source.cone_patterns.is_some()
+                    || source.branch.is_some()
+                    || source.commit.is_some())
+            {
                 failures.push(format!("sources[{}] specifies branch, commit, cone_patterns without specifying repository", i));
             }
         }
@@ -485,13 +520,122 @@ fn validate_settings(settings: &SnippextSettings) -> SnippextResult<()> {
         Err(SnippextError::ValidationError(failures))
     } else {
         Ok(())
+    };
+}
+
+pub struct InitSettings {
+    pub default: bool,
+}
+
+fn init(settings: InitSettings) -> SnippextResult<()> {
+    if settings.default {
+        // TODO:
+    } else {
     }
+
+    Ok(())
+}
+
+pub struct CleanSettings {
+    pub begin: String,
+    pub end: String,
+    pub comment_prefixes: Vec<String>,
+    pub output_dir: Option<String>,
+    pub targets: Option<Vec<String>>,
+}
+
+fn validate_clean_settings(settings: &CleanSettings) -> SnippextResult<()> {
+    let mut failures = vec![];
+
+    if settings.begin.is_empty() {
+        failures.push("begin must not be empty".to_string())
+    }
+
+    if settings.end.is_empty() {
+        failures.push("end must not be empty".to_string())
+    }
+
+    if settings.comment_prefixes.is_empty() {
+        failures.push("Must provide at least one comment prefix".to_string())
+    }
+
+    if settings.targets.is_none() && settings.output_dir.is_none() {
+        failures.push("Must specify targets or output_dir".to_string())
+    }
+
+    return if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(SnippextError::ValidationError(failures))
+    };
+}
+
+fn clean(settings: CleanSettings) -> SnippextResult<()> {
+    validate_clean_settings(&settings)?;
+
+    if let Some(targets) = settings.targets {
+        clean_targets(
+            settings.begin.as_str(),
+            settings.end.as_str(),
+            settings.comment_prefixes,
+            targets,
+        );
+    }
+
+    // if let Some(output_dir) = settings.output_dir {
+    //     fs::remove_dir_all(output_dir)?;
+    // }
+
+    Ok(())
+}
+
+// TODO: move write out or provide way to test
+fn clean_targets(
+    begin: &str,
+    end: &str,
+    comment_prefixes: Vec<String>,
+    targets: Vec<String>,
+) -> SnippextResult<()> {
+    for target in targets {
+        let mut f = File::open(&target)?;
+        let reader = BufReader::new(f);
+
+        let mut omit = false;
+        let mut new_lines: Vec<String> = Vec::new();
+        // https://github.com/temporalio/snipsync/blob/891805910946cca06de074a77cec27bffdfc4cc9/src/Sync.js#L372
+        for line in reader.lines() {
+            let l = line?;
+
+            for prefix in &comment_prefixes {
+                if l.contains(String::from(prefix.to_owned() + begin).as_str()) {
+                    omit = true;
+                    break;
+                }
+                if !omit {
+                    new_lines.push(l.clone());
+                }
+                if l.contains(String::from(prefix.to_owned() + end).as_str()) {
+                    omit = false;
+                }
+            }
+        }
+
+        let new_content = new_lines
+            .into_iter()
+            .fold(String::new(), |content, s| content + s.as_str() + "\n");
+        fs::write(&target, new_content.as_bytes())?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use crate::error::SnippextError;
-    use crate::{SnippextSettings, SnippetSource};
+    use crate::{CleanSettings, SnippetSource, SnippextSettings};
+    use std::fs;
+    use std::io::Write;
+    use tempfile::{tempdir, NamedTempFile};
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
     #[test]
@@ -522,7 +666,6 @@ mod tests {
             }
         }
     }
-
 
     #[test]
     fn at_least_one_comment_prefix_is_required() {
@@ -626,7 +769,7 @@ mod tests {
                 commit: Some(String::from("commit")),
                 cone_patterns: None,
                 directory: None,
-                files: vec![String::from("**")]
+                files: vec![String::from("**")],
             }],
             Some(String::from("./snippets/")),
             None,
@@ -634,7 +777,6 @@ mod tests {
 
         let validation_result = super::run(settings);
         let error = validation_result.err().unwrap();
-        println!("{:?}", error);
         match error {
             SnippextError::ValidationError(failures) => {
                 assert_eq!(1, failures.len());
@@ -655,7 +797,8 @@ mod tests {
 # snippet::foo
 foo
 # end::foo
-"#.to_string();
+"#
+        .to_string();
 
         super::update_target_string(
             &mut source,
@@ -665,6 +808,136 @@ foo
             "\nbar\n",
         );
 
+        // TODO: assert something
         println!("{}", source);
+    }
+
+    #[test]
+    fn clean_target() {
+        let mut target = NamedTempFile::new().unwrap();
+        target.write(
+            r#"# Some content
+# snippet::foo
+foo
+# end::foo
+
+More content
+"#
+            .as_bytes(),
+        );
+
+        super::clean_targets(
+            "snippet::",
+            "end::",
+            vec![String::from("# ")],
+            vec![String::from(target.path().to_string_lossy())],
+        );
+
+        let actual = fs::read_to_string(target.path()).unwrap();
+        let expected = r#"# Some content
+
+More content
+"#;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn clean_target_starting_with_snippet() {
+        let mut target = NamedTempFile::new().unwrap();
+        target.write(
+            r#"# snippet::foo
+# end::foo
+"#
+            .as_bytes(),
+        );
+
+        super::clean_targets(
+            "snippet::",
+            "end::",
+            vec![String::from("# ")],
+            vec![String::from(target.path().to_string_lossy())],
+        );
+
+        let actual = fs::read_to_string(target.path()).unwrap();
+        assert_eq!("", actual);
+    }
+
+    #[test]
+    fn clean_target_should_require_at_least_one_prefix() {
+        let validation_result = super::clean(CleanSettings {
+            begin: String::from("snippet::"),
+            end: String::from("end::"),
+            comment_prefixes: vec![],
+            output_dir: None,
+            targets: Some(vec!["".to_string()]),
+        });
+
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("Must provide at least one comment prefix"),
+                    failures.get(0).unwrap().to_string()
+                )
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn clean_target_should_require_non_empty_begin_and_end() {
+        let validation_result = super::clean(CleanSettings {
+            begin: String::from(""),
+            end: String::from(""),
+            comment_prefixes: vec![String::from("# ")],
+            output_dir: None,
+            targets: Some(vec!["".to_string()]),
+        });
+
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(2, failures.len());
+                assert_eq!(
+                    String::from("begin must not be empty"),
+                    failures.get(0).unwrap().to_string()
+                );
+                assert_eq!(
+                    String::from("end must not be empty"),
+                    failures.get(1).unwrap().to_string()
+                );
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn clean_target_should_require_targets_or_output_dir() {
+        let validation_result = super::clean(CleanSettings {
+            begin: String::from("snippet::"),
+            end: String::from("end::"),
+            comment_prefixes: vec![String::from("# ")],
+            output_dir: None,
+            targets: None,
+        });
+
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("Must specify targets or output_dir"),
+                    failures.get(0).unwrap().to_string()
+                );
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
     }
 }

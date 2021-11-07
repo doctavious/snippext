@@ -16,11 +16,7 @@ pub fn unindent_bytes(s: &[u8]) -> Vec<u8> {
 
     // Largest number of spaces that can be removed from every
     // non-whitespace-only line after the first
-    let spaces = s
-        .lines()
-        .filter_map(count_spaces)
-        .min()
-        .unwrap_or(0);
+    let spaces = s.lines().filter_map(count_spaces).min().unwrap_or(0);
 
     if spaces == 0 {
         return s.to_vec();
@@ -119,8 +115,5 @@ impl<'a> Iterator for Lines<'a> {
 mod tests {
 
     #[test]
-    fn remove_unnecessary_indents() {
-
-    }
-
+    fn remove_unnecessary_indents() {}
 }

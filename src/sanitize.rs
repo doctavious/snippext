@@ -7,16 +7,17 @@ lazy_static! {
     static ref ILLEGAL_RE: Regex = Regex::new(r#"[/\?<>\\:\*\|":]"#).unwrap();
     static ref CONTROL_RE: Regex = Regex::new(r#"[\x00-\x1f\x80-\x9f]"#).unwrap();
     static ref RESERVED_RE: Regex = Regex::new(r#"^\.+$"#).unwrap();
-    static ref WINDOWS_RESERVED_RE: Regex = RegexBuilder::new(r#"(?i)^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$"#)
-        .case_insensitive(true)
-        .build()
-        .unwrap();
+    static ref WINDOWS_RESERVED_RE: Regex =
+        RegexBuilder::new(r#"(?i)^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$"#)
+            .case_insensitive(true)
+            .build()
+            .unwrap();
     static ref WINDOWS_TRAILING_RE: Regex = Regex::new(r#"^\.+$"#).unwrap();
 }
 
 #[derive(Clone)]
 struct Options {
-    windows: bool
+    windows: bool,
 }
 
 impl Default for Options {
@@ -32,7 +33,6 @@ pub(crate) fn sanitize<S: AsRef<str>>(name: S) -> String {
 }
 
 fn sanitize_with_options<S: AsRef<str>>(name: S, options: Options) -> String {
-
     let name = name.as_ref();
     let name = ILLEGAL_RE.replace_all(name, "");
     let name = CONTROL_RE.replace_all(&name, "");
@@ -42,7 +42,9 @@ fn sanitize_with_options<S: AsRef<str>>(name: S, options: Options) -> String {
         if name.len() > 255 {
             let mut end = 255;
             loop {
-                if name.is_char_boundary(end) { break; }
+                if name.is_char_boundary(end) {
+                    break;
+                }
                 end -= 1;
             }
             String::from(&name[..end])
@@ -58,9 +60,7 @@ fn sanitize_with_options<S: AsRef<str>>(name: S, options: Options) -> String {
     } else {
         collect(name)
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -107,7 +107,7 @@ mod tests {
         "../../foobar",
         "./././foobar",
         "|*.what",
-        "LPT9.asdf"
+        "LPT9.asdf",
     ];
 
     static NAMES_CLEANED: &'static [&'static str] = &[
@@ -152,17 +152,18 @@ mod tests {
         "....foobar",
         "...foobar",
         ".what",
-        ""
+        "",
     ];
 
     #[test]
     fn verify_sanitize() {
-        let options = super::Options {
-            windows: true
-        };
+        let options = super::Options { windows: true };
 
         for (idx, name) in NAMES.iter().enumerate() {
-            assert_eq!(super::sanitize_with_options(name, options.clone()), NAMES_CLEANED[idx]);
+            assert_eq!(
+                super::sanitize_with_options(name, options.clone()),
+                NAMES_CLEANED[idx]
+            );
         }
 
         let long = ::std::iter::repeat('a').take(300).collect::<String>();

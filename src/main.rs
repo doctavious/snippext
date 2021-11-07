@@ -1,17 +1,16 @@
-use snippext::{run, SnippextSettings, SnippetSource, SnippextResult};
+use config::{Config, Environment, File, Source};
+use snippext::{run, SnippetSource, SnippextResult, SnippextSettings};
 use structopt::StructOpt;
-use config::{Config, File, Environment, Source};
-
 
 use std::path::PathBuf;
 
-
 // static DEFAULT_CONFIG: &'static str = include_str!("default_snippext.yaml");
 
-// split into subcommands??
+// split into subcommands?? does extract combine generate and write?
 // 1. generate - output to dir
 // 2. write - write to target files
 // 3. clean - clean up generate or files
+// 4. init - generate config file
 
 // use constants that can also be used as defaults
 // https://github.com/TeXitoi/structopt/issues/226
@@ -32,7 +31,6 @@ fn main() -> SnippextResult<()> {
     // If you specify an option by using a parameter on the AWS CLI command line, it overrides any
     // value from either the corresponding environment variable or a profile in the configuration file.
 
-
     let settings = build_settings(opt)?;
 
     return run(settings);
@@ -45,7 +43,8 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
         s.merge(File::from(config)).unwrap();
     } else {
         // TODO: use constant
-        s.merge(File::with_name("snippext").required(false)).unwrap();
+        s.merge(File::with_name("snippext").required(false))
+            .unwrap();
     }
 
     // TODO: this can probably come from structopt?
@@ -81,13 +80,13 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
 
     let mut settings: SnippextSettings = s.try_into()?;
 
-    let snippet_source= if let Some(repo_url) = opt.repository_url {
+    let snippet_source = if let Some(repo_url) = opt.repository_url {
         SnippetSource::new_remote(
             repo_url.to_string(),
             opt.repository_branch.unwrap(),
             opt.repository_commit.clone(),
             opt.repository_directory.clone(),
-            opt.sources.unwrap_or(Vec::new())
+            opt.sources.unwrap_or(Vec::new()),
         )
     } else {
         SnippetSource::new_local(opt.sources.unwrap_or(Vec::new()))
@@ -99,89 +98,52 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
     return Ok(settings);
 }
 
+#[derive(StructOpt, Debug)]
+enum Command {
+    Init(InitOpt),
+    Extract(ExtractOpt),
+    Clean(CleanOpt),
+}
+
 // TODO: environment variable fallback here or via config?
 // should document it here regardless
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {
-
-    #[structopt(
-        short,
-        long,
-        parse(from_os_str),
-        help = "Config file to use"
-    )]
+    #[structopt(short, long, parse(from_os_str), help = "Config file to use")]
     config: Option<PathBuf>,
 
-    #[structopt(
-        short,
-        long,
-        help = "flag to mark beginning of a snippet"
-    )]
+    #[structopt(short, long, help = "flag to mark beginning of a snippet")]
     begin: Option<String>,
 
-    #[structopt(
-        short = "end",
-        long,
-        help = "flag to mark ending of a snippet"
-    )]
+    #[structopt(short = "end", long, help = "flag to mark ending of a snippet")]
     end: Option<String>,
 
-    #[structopt(
-        short = "x",
-        long,
-        help = "extension for generated files"
-    )]
+    #[structopt(short = "x", long, help = "extension for generated files")]
     extension: Option<String>,
 
     // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
     // comment prefix
-    #[structopt(
-        short = "p",
-        long,
-        help = "Prefixes to use for comments"
-    )]
+    #[structopt(short = "p", long, help = "Prefixes to use for comments")]
     comment_prefixes: Option<Vec<String>>,
 
-    #[structopt(
-        short,
-        long,
-        help = ""
-    )]
+    #[structopt(short, long, help = "")]
     template: Option<String>,
 
-    #[structopt(
-        short,
-        long,
-        help = ""
-    )]
+    #[structopt(short, long, help = "")]
     repository_url: Option<String>,
 
-    #[structopt(
-        short = "B",
-        long,
-        requires = "repository_url",
-        help = ""
-    )]
+    #[structopt(short = "B", long, requires = "repository_url", help = "")]
     repository_branch: Option<String>,
 
-    #[structopt(
-        short = "C",
-        long,
-        help = ""
-    )]
+    #[structopt(short = "C", long, help = "")]
     repository_commit: Option<String>,
 
-    #[structopt(
-        short = "D",
-        long,
-        help = "Directory remote repository is cloned into"
-    )]
+    #[structopt(short = "D", long, help = "Directory remote repository is cloned into")]
     repository_directory: Option<String>,
 
     // TODO: require if for output_dir an targets. one must be provided.
-
     #[structopt(
         short,
         long,
@@ -204,18 +166,49 @@ struct Opt {
     // aka files
     // list of globs and default to all??
     // default to **
+    #[structopt(short, long, help = "TODO: ...")]
+    sources: Option<Vec<String>>,
+}
+
+#[derive(Clone, StructOpt, Debug)]
+#[structopt(about = "TODO: add some details")]
+struct InitOpt {
+    #[structopt(long, help = "TODO: ...")]
+    pub default: bool,
+}
+
+#[derive(Clone, StructOpt, Debug)]
+#[structopt(about = "TODO: add some details")]
+struct ExtractOpt {}
+
+#[derive(Clone, StructOpt, Debug)]
+#[structopt(about = "TODO: add some details")]
+struct CleanOpt {
+    #[structopt(short, long, parse(from_os_str), help = "Config file to use")]
+    config: Option<PathBuf>,
+
     #[structopt(
         short,
         long,
-        help = "TODO: ..."
+        required_unless = "targets",
+        help = "directory in which the files will be generated"
     )]
-    sources: Option<Vec<String>>,
+    output_dir: Option<String>,
+
+    // globs
+    #[structopt(
+        short = "T",
+        long,
+        required_unless = "output_dir",
+        help = "The local directories that contain the files to be spliced with the code snippets."
+    )]
+    targets: Option<Vec<String>>,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::Opt;
     use std::path::PathBuf;
-    use crate::{Opt};
 
     #[test]
     fn default_config_file() {
@@ -232,7 +225,7 @@ mod tests {
             repository_directory: None,
             output_dir: None,
             targets: None,
-            sources: Some(vec![])
+            sources: Some(vec![]),
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -269,9 +262,15 @@ mod tests {
 
         assert_eq!(2, settings.sources.len());
         let source = settings.sources.get(1).unwrap();
-        assert_eq!(Some(String::from("https://github.com/doctavious/snippext.git")), source.repository);
+        assert_eq!(
+            Some(String::from("https://github.com/doctavious/snippext.git")),
+            source.repository
+        );
         assert_eq!(Some(String::from("main")), source.branch);
-        assert_eq!(Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")), source.commit);
+        assert_eq!(
+            Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")),
+            source.commit
+        );
         assert_eq!(Some(String::from("docs")), source.directory);
         assert_eq!(vec![String::from("**/*.rs")], source.files);
     }
@@ -293,14 +292,16 @@ mod tests {
             repository_directory: None,
             output_dir: None,
             targets: None,
-            sources: None
+            sources: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
         // env overrides config
-        assert_eq!(Some(String::from("./generated-snippets/")), settings.output_dir);
+        assert_eq!(
+            Some(String::from("./generated-snippets/")),
+            settings.output_dir
+        );
         // cli arg overrides env
         assert_eq!("txt", settings.extension);
     }
-
 }

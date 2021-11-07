@@ -1,11 +1,9 @@
-
 use std::path::StripPrefixError;
 use thiserror::Error;
 
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum SnippextError {
-
     #[error("Config error: `{0}`")]
     ConfigError(#[from] config::ConfigError),
 
@@ -32,5 +30,5 @@ pub enum SnippextError {
 
     /// Settings validation errors
     #[error("Settings error: `{0:?}`")]
-    ValidationError(Vec<String>)
+    ValidationError(Vec<String>),
 }
