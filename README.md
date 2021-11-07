@@ -106,3 +106,9 @@ snippext [FLAGS] [OPTIONS] [sources]
 ```
 <sources> space delimited list of files or directories [./file|./directory/]
 ```
+
+
+TODO: add a note about nested snippets  - Notice that none of the lines with the tag directives are displayed.
+
+TODO: add a note about how start and end snippext tags in target must be on separate lines
+
