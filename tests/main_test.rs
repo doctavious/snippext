@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSource, SnippextSettings};
+use snippext::{run, SnippetSource, SnippextSettings, SnippextTemplate};
 
 use tempfile::tempdir;
 
@@ -15,7 +15,11 @@ fn should_successfully_extract_from_local_sources_directory() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("{{snippet}}"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*",
         )])],
@@ -65,7 +69,11 @@ fn should_successfully_extract_from_remote() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("{{snippet}}"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_remote(
             String::from("https://github.com/doctavious/snippext.git"),
             String::from("main"),
@@ -102,7 +110,11 @@ fn should_successfully_extract_from_local_sources_file() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("{{snippet}}"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/custom_prefix.rb",
         )])],
@@ -133,7 +145,11 @@ fn should_update_specified_targets() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("{{snippet}}"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*",
         )])],
@@ -173,7 +189,11 @@ fn should_support_template_with_attributes() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("```{{lang}}\n{{snippet}}```\n"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("```{{lang}}\n{{snippet}}```\n"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
@@ -203,7 +223,11 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("```{{unknown}}\n{{snippet}}```\n"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
@@ -233,7 +257,11 @@ fn should_support_files_with_no_snippets() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/no_snippets.rs",
         )])],
@@ -262,7 +290,11 @@ fn invalid_glob() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from("[&")])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
@@ -288,7 +320,11 @@ fn glob_returns_no_files() {
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        String::from("```{{unknown}}\n{{snippet}}```\n"),
+        vec![SnippextTemplate {
+            identifier: "default".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }],
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*.md",
         )])],

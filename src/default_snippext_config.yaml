@@ -3,13 +3,14 @@ end: "end::"
 extension: "md"
 comment_prefixes:
 - "// "
+- "# "
 - "<!-- "
 templates:
-- identifier: "default"
-  content: "{{snippet}}"
+- name: "default"
+  template: "{{snippet}}"
   default: true
 sources:
 # extract from local files
 - files:
-    - "**"
+  - "**"
 output_dir: "./generated-snippets/"

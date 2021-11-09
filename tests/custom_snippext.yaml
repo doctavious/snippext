@@ -3,7 +3,10 @@ end: "end::"
 extension: "adoc"
 comment_prefixes:
 - "// "
-template: "{{snippet}}"
+templates:
+- identifier: "default"
+  content: "{{snippet}}"
+  default: true
 sources:
 # extract from local files
 - files:

@@ -1,5 +1,5 @@
 use config::{Config, Environment, File, Source};
-use snippext::{run, SnippetSource, SnippextResult, SnippextSettings};
+use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, run, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
 use structopt::StructOpt;
 
 use std::path::PathBuf;
@@ -43,8 +43,7 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
         s.merge(File::from(config)).unwrap();
     } else {
         // TODO: use constant
-        s.merge(File::with_name("snippext").required(false))
-            .unwrap();
+        s.merge(File::with_name("snippext").required(false)).unwrap();
     }
 
     // TODO: this can probably come from structopt?
@@ -66,9 +65,9 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
         s.set("comment_prefixes", comment_prefixes);
     }
 
-    if let Some(template) = opt.template {
-        s.set("template", template);
-    }
+    // if let Some(template) = opt.template {
+    //     s.set("template", template);
+    // }
 
     if let Some(output_dir) = opt.output_dir {
         s.set("output_dir", output_dir);
@@ -80,20 +79,30 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
 
     let mut settings: SnippextSettings = s.try_into()?;
 
-    let snippet_source = if let Some(repo_url) = opt.repository_url {
-        SnippetSource::new_remote(
+    if let Some(template) = opt.template {
+        settings.templates = vec![SnippextTemplate {
+            identifier: String::from(DEFAULT_TEMPLATE_IDENTIFIER),
+            content: template,
+            default: true
+        }];
+    }
+
+     if let Some(repo_url) = opt.repository_url {
+        let source = SnippetSource::new_remote(
             repo_url.to_string(),
             opt.repository_branch.unwrap(),
             opt.repository_commit.clone(),
             opt.repository_directory.clone(),
-            opt.sources.unwrap_or(Vec::new()),
-        )
-    } else {
-        SnippetSource::new_local(opt.sources.unwrap_or(Vec::new()))
-    };
+            opt.sources.unwrap_or(vec![String::from(DEFAULT_SOURCE_FILES)]),
+        );
+         settings.sources = vec![source];
+    } else if let Some(sources) = opt.sources {
+         let source = SnippetSource::new_local(sources);
+         settings.sources = vec![source];
+    }
 
     // TODO: should this override or merge?
-    settings.sources.push(snippet_source);
+    // settings.sources.push(snippet_source);
 
     return Ok(settings);
 }
@@ -246,7 +255,7 @@ mod tests {
             repository_commit: Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")),
             repository_directory: Some(String::from("docs")),
             sources: Some(vec![String::from("**/*.rs")]),
-            output_dir: Some(String::from("./snppext/")),
+            output_dir: Some(String::from("./snippext/")),
             targets: Some(vec![String::from("README.md")]),
         };
 
@@ -256,12 +265,17 @@ mod tests {
         assert_eq!("finish::", settings.end);
         assert_eq!("txt", settings.extension);
         assert_eq!(vec![String::from("# ")], settings.comment_prefixes);
-        assert_eq!("````\n{{snippet}}\n```", settings.template);
-        assert_eq!(Some(String::from("./snppext/")), settings.output_dir);
+
+        assert_eq!(1, settings.templates.len());
+        let template = settings.templates.first().unwrap();
+        assert_eq!("````\n{{snippet}}\n```", template.content);
+        assert_eq!("default", template.identifier);
+        assert!(template.default);
+        assert_eq!(Some(String::from("./snippext/")), settings.output_dir);
         assert_eq!(Some(vec![String::from("README.md")]), settings.targets);
 
-        assert_eq!(2, settings.sources.len());
-        let source = settings.sources.get(1).unwrap();
+        assert_eq!(1, settings.sources.len());
+        let source = settings.sources.get(0).unwrap();
         assert_eq!(
             Some(String::from("https://github.com/doctavious/snippext.git")),
             source.repository
