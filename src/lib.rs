@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::SnippextError;
 use config::Source;
 use handlebars::{no_escape, Handlebars};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -79,7 +79,6 @@ impl Snippet {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SnippextTemplate {
-    pub identifier: String,
     pub content: String,
     pub default: bool,
 }
@@ -89,12 +88,8 @@ pub struct SnippextSettings {
     pub begin: String,
     pub end: String,
     pub extension: String,
-
-    // TODO: should this be a HashSet?
-    pub comment_prefixes: Vec<String>,
-
-    // TODO: make this a HashMap where key is identifier
-    pub templates: Vec<SnippextTemplate>,
+    pub comment_prefixes: HashSet<String>,
+    pub templates: HashMap<String, SnippextTemplate>,
     pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
     pub targets: Option<Vec<String>>,
@@ -118,11 +113,12 @@ impl SnippextSettings {
                 .into_iter()
                 .map(|s| s.to_string())
                 .collect(),
-            templates: vec![SnippextTemplate {
-                identifier: String::from("default"),
-                content: String::from(DEFAULT_TEMPLATE),
-                default: true,
-            }],
+            templates: HashMap::from([
+                (String::from("default"), SnippextTemplate {
+                    content: String::from(DEFAULT_TEMPLATE),
+                    default: true,
+                }),
+            ]),
             sources: vec![SnippetSource::new_local(vec![String::from(
                 DEFAULT_SOURCE_FILES,
             )])],
@@ -144,11 +140,11 @@ impl SnippextSettings {
 
     // TODO: <S: Into<String>>
     pub fn new(
-        comment_prefixes: Vec<String>,
+        comment_prefixes: HashSet<String>,
         begin: String,
         end: String,
         extension: String,
-        templates: Vec<SnippextTemplate>,
+        templates: HashMap<String, SnippextTemplate>,
         sources: Vec<SnippetSource>,
         output_dir: Option<String>,
         targets: Option<Vec<String>>,
@@ -302,10 +298,7 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 /// if more than one template find the default one
 fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSettings) -> Option<&'a SnippextTemplate> {
     return if let Some(identifier) = id {
-        let t = snippext_settings.templates
-            .iter()
-            .find(|t| identifier.eq(&t.identifier));
-        if let Some(template) = t {
+        if let Some(template) = snippext_settings.templates.get(identifier) {
             Some(template)
         } else {
             None
@@ -313,15 +306,15 @@ fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSe
     } else {
         // could probably turn this into a match expression with match guards
         if snippext_settings.templates.len() == 1 {
-            return Some(snippext_settings.templates.get(0).unwrap());
+            return Some(snippext_settings.templates.values().next().unwrap());
         }
 
         if snippext_settings.templates.len() > 1 {
             let t = snippext_settings.templates
                 .iter()
-                .find(|t| t.default);
+                .find(|t| t.1.default);
             return if let Some(template) = t {
-                Some(template)
+                Some(template.1)
             } else {
                 // we validate that we should always have one default template
                 // so should never get here. Should we assert instead?
@@ -477,7 +470,7 @@ pub fn update_target_string_snippet(
 }
 
 pub fn extract_snippets(
-    comment_prefixes: &Vec<String>,
+    comment_prefixes: &HashSet<String>,
     begin_pattern: String,
     end_pattern: String,
     filename: &Path,
@@ -489,7 +482,7 @@ pub fn extract_snippets(
     for line in reader.lines() {
         let l = line?;
 
-        let begin_ident = matches(&l, &comment_prefixes, &begin_pattern);
+        let begin_ident = matches(&l, comment_prefixes, &begin_pattern);
         if let Some(begin_ident) = begin_ident {
             // TODO: I feel like this is the long hard way to do this...
             let mut attributes = HashMap::new();
@@ -610,7 +603,7 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
 
 // TODO: return tuple (prefix and identifier) or struct?
 // Might not be necessary depending on how we want to enable doctavious
-fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> Option<String> {
+fn matches(s: &str, comment_prefixes: &HashSet<String>, pattern: &str) -> Option<String> {
     let trimmed = s.trim();
     let len_diff = s.len() - trimmed.len();
     for comment_prefix in comment_prefixes {
@@ -643,15 +636,15 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
     } else {
         let mut default_templates = 0;
         for (i, template) in settings.templates.iter().enumerate() {
-            if template.identifier.is_empty() {
+            if template.0.is_empty() {
                 failures.push(format!("templates[{}].identifier must not be an empty string", i));
             }
 
-            if template.content.is_empty() {
+            if template.1.content.is_empty() {
                 failures.push(format!("templates[{}].content must not be an empty string", i));
             }
 
-            if template.default {
+            if template.1.default {
                 default_templates = default_templates + 1;
             }
         }
@@ -807,6 +800,7 @@ fn clean_targets(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
     use crate::error::SnippextError;
     use crate::{CleanSettings, SnippetSource, SnippextSettings, SnippextTemplate};
     use std::fs;
@@ -817,15 +811,16 @@ mod tests {
     #[test]
     fn strings_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from(""),
             String::from(""),
             String::from(""),
-            vec![SnippextTemplate {
-                identifier: "".to_string(),
-                content: "".to_string(),
-                default: false
-            }],
+            HashMap::from([
+                              ("".to_string(), SnippextTemplate {
+                                  content: "".to_string(),
+                                  default: false
+                              })
+                ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -852,11 +847,11 @@ mod tests {
     #[test]
     fn at_least_one_template_is_required() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![],
+            HashMap::new(),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -881,22 +876,20 @@ mod tests {
     #[test]
     fn one_template_must_be_marked_default_when_multiple_templates_exist() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![
-                SnippextTemplate {
-                    identifier: "first".to_string(),
+            HashMap::from([
+                ("first".to_string(), SnippextTemplate {
                     content: String::from("{{snippet}}"),
                     default: false
-                },
-                SnippextTemplate {
-                    identifier: "second".to_string(),
+                }),
+                ("second".to_string(), SnippextTemplate {
                     content: String::from("{{snippet}}"),
                     default: false
-                }
-            ],
+                }),
+            ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -921,22 +914,20 @@ mod tests {
     #[test]
     fn multiple_default_templates_cannot_exist() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![
-                SnippextTemplate {
-                    identifier: "first".to_string(),
+            HashMap::from([
+                ("first".to_string(), SnippextTemplate {
                     content: String::from("{{snippet}}"),
                     default: true
-                },
-                SnippextTemplate {
-                    identifier: "second".to_string(),
+                }),
+                ("second".to_string(), SnippextTemplate {
                     content: String::from("{{snippet}}"),
                     default: true
-                }
-            ],
+                }),
+            ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -961,15 +952,16 @@ mod tests {
     #[test]
     fn at_least_one_comment_prefix_is_required() {
         let settings = SnippextSettings::new(
-            vec![],
+            HashSet::new(),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![SnippextTemplate {
-                identifier: "default".to_string(),
-                content: String::from("{{snippet}}"),
-                default: true
-            }],
+            HashMap::from([
+                ("default".to_string(), SnippextTemplate {
+                    content: String::from("{{snippet}}"),
+                    default: true
+                })
+            ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -994,15 +986,16 @@ mod tests {
     #[test]
     fn sources_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![SnippextTemplate {
-                identifier: "default".to_string(),
-                content: String::from("{{snippet}}"),
-                default: true
-            }],
+            HashMap::from([
+                ("default".to_string(), SnippextTemplate {
+                    content: String::from("{{snippet}}"),
+                    default: true
+                })
+            ]),
             vec![],
             Some(String::from("./snippets/")),
             None,
@@ -1027,15 +1020,16 @@ mod tests {
     #[test]
     fn sources_must_have_at_least_one_files_entry() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![SnippextTemplate {
-                identifier: "default".to_string(),
-                content: String::from("{{snippet}}"),
-                default: true
-            }],
+            HashMap::from([
+                ("default".to_string(), SnippextTemplate {
+                    content: String::from("{{snippet}}"),
+                    default: true
+                })
+            ]),
             vec![SnippetSource::new_local(vec![])],
             Some(String::from("./snippets/")),
             None,
@@ -1061,15 +1055,16 @@ mod tests {
     #[test]
     fn repository_must_be_provided_if_other_remote_sources_are_provided() {
         let settings = SnippextSettings::new(
-            vec![String::from("# ")],
+            HashSet::from([String::from("# ")]),
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            vec![SnippextTemplate {
-                identifier: "default".to_string(),
-                content: String::from("{{snippet}}"),
-                default: true
-            }],
+            HashMap::from([
+                ("default".to_string(), SnippextTemplate {
+                    content: String::from("{{snippet}}"),
+                    default: true
+                })
+            ]),
             vec![SnippetSource {
                 repository: None,
                 branch: Some(String::from("branch")),

@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use snippext::{run, SnippetSource, SnippextSettings, SnippextTemplate};
 
 use tempfile::tempdir;
@@ -11,15 +12,16 @@ fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*",
         )])],
@@ -65,15 +67,16 @@ fn should_successfully_extract_from_remote() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_remote(
             String::from("https://github.com/doctavious/snippext.git"),
             String::from("main"),
@@ -106,15 +109,16 @@ fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("# ")],
+        HashSet::from([String::from("# ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/custom_prefix.rb",
         )])],
@@ -141,15 +145,16 @@ fn should_update_specified_targets() {
     .unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// "), String::from("<!-- ")],
+        HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*",
         )])],
@@ -185,15 +190,16 @@ fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("```{{lang}}\n{{snippet}}```\n"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("```{{lang}}\n{{snippet}}```\n"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
@@ -226,19 +232,20 @@ fn support_target_snippet_specifies_template() {
 
 
     run(SnippextSettings::new(
-        vec![String::from("// ") , String::from("<!-- ")],
+        HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "basic".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }, SnippextTemplate {
-            identifier: "code".to_string(),
-            content: String::from("```{{lang}}\n{{snippet}}```\n"),
-            default: false
-        }],
+        HashMap::from([
+            ("basic".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+            ("code".to_string(), SnippextTemplate {
+                content: String::from("```{{lang}}\n{{snippet}}```\n"),
+                default: false
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
@@ -270,15 +277,16 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("```{{unknown}}\n{{snippet}}```\n"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("```{{unknown}}\n{{snippet}}```\n"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
@@ -304,15 +312,16 @@ fn should_support_files_with_no_snippets() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/no_snippets.rs",
         )])],
@@ -337,15 +346,16 @@ fn invalid_glob() {
     let dir = tempdir().unwrap();
 
     let result = run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from("[&")])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
@@ -367,15 +377,16 @@ fn glob_returns_no_files() {
     let dir = tempdir().unwrap();
 
     run(SnippextSettings::new(
-        vec![String::from("// ")],
+        HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
         String::from("md"),
-        vec![SnippextTemplate {
-            identifier: "default".to_string(),
-            content: String::from("{{snippet}}"),
-            default: true
-        }],
+        HashMap::from([
+            ("default".to_string(), SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true
+            }),
+        ]),
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/*.md",
         )])],

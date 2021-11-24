@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use config::{Config, Environment, File, Source};
 use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, run, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
 use structopt::StructOpt;
@@ -80,11 +81,12 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
     let mut settings: SnippextSettings = s.try_into()?;
 
     if let Some(template) = opt.template {
-        settings.templates = vec![SnippextTemplate {
-            identifier: String::from(DEFAULT_TEMPLATE_IDENTIFIER),
-            content: template,
-            default: true
-        }];
+        settings.templates = HashMap::from([
+            (String::from(DEFAULT_TEMPLATE_IDENTIFIER), SnippextTemplate {
+                content: template,
+                default: true
+            })
+        ]);
     }
 
      if let Some(repo_url) = opt.repository_url {
@@ -216,6 +218,7 @@ struct CleanOpt {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use crate::Opt;
     use std::path::PathBuf;
 
@@ -264,12 +267,12 @@ mod tests {
         assert_eq!("snippext::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!("txt", settings.extension);
-        assert_eq!(vec![String::from("# ")], settings.comment_prefixes);
+        assert_eq!(HashSet::from([String::from("# ")]), settings.comment_prefixes);
 
         assert_eq!(1, settings.templates.len());
-        let template = settings.templates.first().unwrap();
+        assert_eq!("default", settings.templates.keys().next().unwrap());
+        let template = settings.templates.values().next().unwrap();
         assert_eq!("````\n{{snippet}}\n```", template.content);
-        assert_eq!("default", template.identifier);
         assert!(template.default);
         assert_eq!(Some(String::from("./snippext/")), settings.output_dir);
         assert_eq!(Some(vec![String::from("README.md")]), settings.targets);

@@ -6,9 +6,9 @@ comment_prefixes:
 - "# "
 - "<!-- "
 templates:
-- name: "default"
-  template: "{{snippet}}"
-  default: true
+  default:
+    template: "{{snippet}}"
+    default: true
 sources:
 # extract from local files
 - files:
