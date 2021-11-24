@@ -1,0 +1,17 @@
+begin: "snippet::"
+end: "end::"
+extension: "adoc"
+comment_prefixes:
+  - "// "
+templates:
+  - identifier: "basic"
+    content: "{{snippet}}"
+    default: true
+  - identifier: "code"
+    content: "```{{lang}}\n{{snippet}}```\n"
+    default: false
+sources:
+  # extract from local files
+  - files:
+      - "**"
+output_dir: "./snippets/"

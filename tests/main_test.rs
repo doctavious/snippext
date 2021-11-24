@@ -215,6 +215,57 @@ fn main() {
 }
 
 #[test]
+fn support_target_snippet_specifies_template() {
+    let dir = tempdir().unwrap();
+
+    fs::copy(
+        Path::new("./tests/targets/specify_template.md"),
+        Path::new(&dir.path()).join("./specify_template.md"),
+    )
+        .unwrap();
+
+
+    run(SnippextSettings::new(
+        vec![String::from("// ") , String::from("<!-- ")],
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        vec![SnippextTemplate {
+            identifier: "basic".to_string(),
+            content: String::from("{{snippet}}"),
+            default: true
+        }, SnippextTemplate {
+            identifier: "code".to_string(),
+            content: String::from("```{{lang}}\n{{snippet}}```\n"),
+            default: false
+        }],
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/samples/main.rs",
+        )])],
+        None,
+        Some(vec![Path::new(&dir.path())
+            .join("./specify_template.md")
+            .to_string_lossy()
+            .to_string()]),
+
+    ))
+        .unwrap();
+
+    let actual = fs::read_to_string(Path::new(&dir.path()).join("./specify_template.md")).unwrap();
+    let expected = r#"Specify template
+<!-- snippet::main[snippext_template=code] -->
+```rust
+fn main() {
+
+    println!("printing...")
+}
+```
+<!-- end::main -->
+"#;
+    assert_eq!(expected, actual);
+}
+
+#[test]
 fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 

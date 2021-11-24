@@ -40,6 +40,9 @@ const DEFAULT_COMMENT_PREFIXES: &'static [&'static str] = &["// ", "# ", "<!-- "
 const DEFAULT_BEGIN: &'static str = "snippet::";
 const DEFAULT_END: &'static str = "end::";
 const DEFAULT_INCLUDE: &'static str = "snippet::include::";
+// snippet::start::
+// snippet::end::
+const DEFAULT_REPLACE: &'static str = "snippet::replace::";
 const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 const DEFAULT_FILE_EXTENSION: &'static str = "md";
 pub const DEFAULT_SOURCE_FILES: &'static str = "**";
@@ -67,6 +70,10 @@ impl Snippet {
             closed: false,
             attributes,
         }
+    }
+
+    pub fn create_tag(&self, prefix: String, tag: String) -> String {
+        prefix + tag.as_str() + self.identifier.as_str()
     }
 }
 
@@ -204,9 +211,9 @@ impl SnippetSource {
 }
 
 pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
-    validate_settings(&snippext_settings)?;
+    validate_snippext_settings(&snippext_settings)?;
 
-    let source_files = get_filenames(snippext_settings.sources)?;
+    let source_files = get_filenames(&snippext_settings)?;
 
     // TODO: move this?
     let mut hbs = Handlebars::new();
@@ -253,50 +260,31 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                     data.insert(attribute.0.to_string(), attribute.1.to_string());
                 }
 
-                // TODO: clean up
-                let template = if let Some(identifier) = data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE) {
-                    // TODO: return error
-                    let t = snippext_settings.templates
-                        .iter()
-                        .find(|t| identifier.eq(&t.identifier));
-                    if let Some(template) = t {
-                        template.content.clone()
-                    } else {
-                        snippext_settings.templates.get(0).unwrap().content.clone()
-                    }
-                } else {
-                    if snippext_settings.templates.len() > 1 {
-                        let t = snippext_settings.templates
-                            .iter()
-                            .find(|t| t.default);
-                        if let Some(template) = t {
-                            template.content.clone()
-                        } else {
-                            snippext_settings.templates.get(0).unwrap().content.clone()
-                        }
-                    } else {
-                        snippext_settings.templates.get(0).unwrap().content.clone()
-                    }
-                };
+                let template = get_template_by_id(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings).unwrap();
 
                 let result = hbs
-                    .render_template(template.as_str(), &data)
+                    .render_template(template.content.as_str(), &data)
                     .unwrap();
                 fs::write(output_path, result).unwrap();
             }
         }
 
         if let Some(targets) = &snippext_settings.targets {
-            for snippet in &snippets {
-                for target in targets {
-                    update_target_file(
+            for target in targets {
+                for snippet in &snippets {
+                    // update_target_file(
+                    //     Path::new(target).to_path_buf(),
+                    //     &snippext_settings.comment_prefixes,
+                    //     // snippet.snippet_start_tag,
+                    //     // snippet.snippet_end_tag,
+                    //     snippext_settings.begin.to_owned() + snippet.identifier.as_str(),
+                    //     snippext_settings.end.to_owned() + snippet.identifier.as_str(),
+                    //     snippet.text.as_str(),
+                    // );
+                    update_target_file_snippet(
                         Path::new(target).to_path_buf(),
-                        &snippext_settings.comment_prefixes,
-                        // snippet.snippet_start_tag,
-                        // snippet.snippet_end_tag,
-                        snippext_settings.begin.to_owned() + snippet.identifier.as_str(),
-                        snippext_settings.end.to_owned() + snippet.identifier.as_str(),
-                        snippet.text.as_str(),
+                        &snippet,
+                        &snippext_settings
                     );
                 }
             }
@@ -306,7 +294,50 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     Ok(())
 }
 
+/// find appropriate Snippext Template using the following rules
+///
+/// 1. template by id. None if not found
+/// If id not provided
+/// if only one template provided use it
+/// if more than one template find the default one
+fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSettings) -> Option<&'a SnippextTemplate> {
+    return if let Some(identifier) = id {
+        let t = snippext_settings.templates
+            .iter()
+            .find(|t| identifier.eq(&t.identifier));
+        if let Some(template) = t {
+            Some(template)
+        } else {
+            None
+        }
+    } else {
+        // could probably turn this into a match expression with match guards
+        if snippext_settings.templates.len() == 1 {
+            return Some(snippext_settings.templates.get(0).unwrap());
+        }
+
+        if snippext_settings.templates.len() > 1 {
+            let t = snippext_settings.templates
+                .iter()
+                .find(|t| t.default);
+            return if let Some(template) = t {
+                Some(template)
+            } else {
+                // we validate that we should always have one default template
+                // so should never get here. Should we assert instead?
+                None
+            }
+        }
+
+        // we validate that we have at least one template so should never get here.
+        // should we assert instead?
+        None
+    }
+}
+
+
 // TODO: This should probably read lines instead of entire file content
+//       currently we cant have the same snippet multiple times in the same file
 // TODO: should look for same comment prefixes?
 pub fn update_target_file(
     source: PathBuf,
@@ -327,6 +358,21 @@ pub fn update_target_file(
     Ok(())
 }
 
+pub fn update_target_file_snippet(
+    source: PathBuf,
+    snippet: &Snippet,
+    snippet_settings: &SnippextSettings,
+) -> SnippextResult<()> {
+    let mut source_content = fs::read_to_string(source.to_path_buf())?;
+    update_target_string_snippet(
+        &mut source_content,
+        snippet,
+        snippet_settings,
+    )?;
+    fs::write(source.to_path_buf(), source_content)?;
+    Ok(())
+}
+
 // TODO: clean up
 // TODO: add appropriate error handling like not finding end of a snippet
 pub fn update_target_string(
@@ -340,6 +386,8 @@ pub fn update_target_string(
         if let Some(snippet_start_index) =
             source.find(String::from(prefix.as_str().to_owned() + snippet_start.as_str()).as_str())
         {
+            // TODO: extract attribute from snippet
+            // TODO: should find/use template
             if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
                 let end_index = source
@@ -349,6 +397,79 @@ pub fn update_target_string(
                     content_starting_index..end_index,
                     format!("\n{}", content).as_str(),
                 );
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn update_target_string_snippet(
+    source: &mut String,
+    snippet: &Snippet,
+    snippet_settings: &SnippextSettings
+) -> SnippextResult<()> {
+    for prefix in &snippet_settings.comment_prefixes {
+        // TODO: create helper method for building prefix+being+ident string
+        if let Some(snippet_start_index) =
+        source.find(String::from(prefix.as_str().to_owned() + snippet_settings.begin.as_str() + snippet.identifier.as_str()).as_str())
+        {
+            // TODO: extract attribute from snippet
+            // TODO: should find/use template
+            if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
+                let snippet_include_start = &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
+                let mut attributes = BTreeMap::new();
+                let last_square_bracket_pos = snippet_include_start.rfind('[');
+                if let Some(last_square_bracket_pos) = last_square_bracket_pos {
+                    // TODO: make regex const?
+                    // TODO: extract to fn
+                    let re = Regex::new("\\[([^]]+)]").unwrap();
+                    let captured_kv = re.captures(snippet_include_start);
+                    if captured_kv.is_some() {
+                        for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
+                            let parts: Vec<&str> = kv.split("=").collect();
+                            println!("found attribute [{:?}]", parts);
+                            if parts.len() == 2 {
+                                attributes.insert(
+                                    parts.get(0).unwrap().to_string(),
+                                    parts.get(1).unwrap().to_string(),
+                                );
+                            }
+                        }
+                    }
+                }
+
+                let template = get_template_by_id(attributes.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), snippet_settings).unwrap();
+
+                println!("template [{}]", template.content);
+
+                // TODO: move to module and have helper method that takes in a snippet
+                // and returns a rendered template
+                let mut hbs = Handlebars::new();
+                hbs.register_escape_fn(no_escape);
+
+                let mut data = BTreeMap::new();
+                data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
+                for attribute in &snippet.attributes {
+                    data.insert(attribute.0.to_string(), attribute.1.to_string());
+                }
+
+                let result = hbs
+                    .render_template(template.content.as_str(), &data)
+                    .unwrap();
+
+                println!("result [{}]", result);
+
+
+                let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
+                let end_index = source
+                    .find(String::from(prefix.as_str().to_owned() + snippet_settings.end.as_str() + snippet.identifier.as_str()).as_str())
+                    .unwrap_or(source.len());
+                source.replace_range(
+                    content_starting_index..end_index,
+                    format!("\n{}", result).as_str(),
+                );
+
+                println!("source: [{}]", source);
             }
         }
     }
@@ -427,27 +548,22 @@ struct SourceFile {
 // TODO: This code is absolute shit. Clean this up
 // Need both the absolute path and the relative path so that for when we output generated files
 // we only include relative directories within the output directory.
-fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>> {
+fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>> {
     let mut source_files: Vec<SourceFile> = Vec::new();
 
-    for source in sources {
-        // let dir = if let Some(dir) = source.directory.clone() {
-        //     dir
-        // } else {
-        //     String::from("./")
-        // };
-
+    for source in &settings.sources {
         if source.is_remote() {
             git::checkout_files(
-                source.repository.unwrap(),
-                source.branch,
-                source.cone_patterns,
+                source.repository.clone().unwrap(),
+                source.branch.clone(),
+                source.cone_patterns.clone(),
                 source.directory.clone(),
             );
         }
 
-        for file in source.files {
+        for file in &source.files {
             let (g, d) = if let Some(dir) = source.directory.clone() {
+                // TODO: encapsulate this somewhere
                 let x: &[_] = &['.', '/'];
                 (
                     format!(
@@ -480,7 +596,6 @@ fn get_filenames(sources: Vec<SnippetSource>) -> SnippextResult<Vec<SourceFile>>
                 };
 
                 if !path.is_dir() {
-                    // out.push(path);
                     source_files.push(SourceFile {
                         full_path: path.clone(),
                         relative_path,
@@ -508,7 +623,7 @@ fn matches(s: &str, comment_prefixes: &[String], pattern: &str) -> Option<String
 }
 
 /// returns a list of validation failures
-fn validate_settings(settings: &SnippextSettings) -> SnippextResult<()> {
+fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()> {
     let mut failures = Vec::new();
 
     if settings.begin.is_empty() {
@@ -794,6 +909,46 @@ mod tests {
                 assert_eq!(1, failures.len());
                 assert_eq!(
                     String::from("When multiple templates are defined one must be marked default"),
+                    failures.get(0).unwrap().to_string()
+                );
+            }
+            _ => {
+                panic!("invalid snippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn multiple_default_templates_cannot_exist() {
+        let settings = SnippextSettings::new(
+            vec![String::from("# ")],
+            String::from("snippet::"),
+            String::from("end::"),
+            String::from("md"),
+            vec![
+                SnippextTemplate {
+                    identifier: "first".to_string(),
+                    content: String::from("{{snippet}}"),
+                    default: true
+                },
+                SnippextTemplate {
+                    identifier: "second".to_string(),
+                    content: String::from("{{snippet}}"),
+                    default: true
+                }
+            ],
+            vec![SnippetSource::new_local(vec![String::from("**")])],
+            Some(String::from("./snippets/")),
+            None,
+        );
+
+        let validation_result = super::run(settings);
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                assert_eq!(1, failures.len());
+                assert_eq!(
+                    String::from("templates must have only one marked as default"),
                     failures.get(0).unwrap().to_string()
                 );
             }
