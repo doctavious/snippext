@@ -88,11 +88,11 @@ impl SnippextTemplate {
     pub fn render_template(
         snippet: &Snippet,
         snippext_settings: &SnippextSettings,
-        target_attributes: Option<BTreeMap<String, String>>,
+        target_attributes: Option<HashMap<String, String>>,
     ) -> SnippextResult<String> {
-        let mut data = BTreeMap::new();
+        let mut data = HashMap::new();
         if target_attributes.is_some() {
-            data.append(&mut target_attributes.unwrap());
+            data.extend(target_attributes.unwrap());
         }
 
         data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
@@ -104,7 +104,7 @@ impl SnippextTemplate {
         return template.render(&data);
     }
 
-    pub fn render(&self, data: &BTreeMap<String, String>) -> SnippextResult<String> {
+    pub fn render(&self, data: &HashMap<String, String>) -> SnippextResult<String> {
         let mut hbs = Handlebars::new();
         hbs.register_escape_fn(no_escape);
 
@@ -344,29 +344,9 @@ fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSe
     }
 }
 
-
 // TODO: This should probably read lines instead of entire file content
 //       currently we cant have the same snippet multiple times in the same file
 // TODO: should look for same comment prefixes?
-pub fn update_target_file(
-    source: PathBuf,
-    snippet_prefixes: &Vec<String>,
-    snippet_start: String,
-    snippet_end: String,
-    content: &str,
-) -> SnippextResult<()> {
-    let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    update_target_string(
-        &mut source_content,
-        snippet_prefixes,
-        snippet_start,
-        snippet_end,
-        content,
-    )?;
-    fs::write(source.to_path_buf(), source_content)?;
-    Ok(())
-}
-
 pub fn update_target_file_snippet(
     source: PathBuf,
     snippet: &Snippet,
@@ -379,36 +359,6 @@ pub fn update_target_file_snippet(
         snippet_settings,
     )?;
     fs::write(source.to_path_buf(), source_content)?;
-    Ok(())
-}
-
-// TODO: clean up
-// TODO: add appropriate error handling like not finding end of a snippet
-pub fn update_target_string(
-    source: &mut String,
-    snippet_prefixes: &Vec<String>,
-    snippet_start: String,
-    snippet_end: String,
-    content: &str,
-) -> SnippextResult<()> {
-    for prefix in snippet_prefixes {
-        if let Some(snippet_start_index) =
-            source.find(String::from(prefix.as_str().to_owned() + snippet_start.as_str()).as_str())
-        {
-            // TODO: extract attribute from snippet
-            // TODO: should find/use template
-            if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
-                let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
-                let end_index = source
-                    .find(String::from(prefix.as_str().to_owned() + snippet_end.as_str()).as_str())
-                    .unwrap_or(source.len());
-                source.replace_range(
-                    content_starting_index..end_index,
-                    format!("\n{}", content).as_str(),
-                );
-            }
-        }
-    }
     Ok(())
 }
 
@@ -426,28 +376,13 @@ pub fn update_target_string_snippet(
             // TODO: should find/use template
             if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
                 let snippet_include_start = &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
-                let mut attributes = BTreeMap::new();
-                let last_square_bracket_pos = snippet_include_start.rfind('[');
-                if let Some(last_square_bracket_pos) = last_square_bracket_pos {
-                    // TODO: make regex const?
-                    // TODO: extract to fn
-                    let re = Regex::new("\\[([^]]+)]").unwrap();
-                    let captured_kv = re.captures(snippet_include_start);
-                    if captured_kv.is_some() {
-                        for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
-                            let parts: Vec<&str> = kv.split("=").collect();
-                            println!("found attribute [{:?}]", parts);
-                            if parts.len() == 2 {
-                                attributes.insert(
-                                    parts.get(0).unwrap().to_string(),
-                                    parts.get(1).unwrap().to_string(),
-                                );
-                            }
-                        }
-                    }
-                }
+                let attributes = if snippet_include_start.rfind('[').is_some() {
+                    Some(extract_attributes(snippet_include_start))
+                } else {
+                    None
+                };
 
-                let result = SnippextTemplate::render_template(snippet, snippet_settings, Some(attributes))?;
+                let result = SnippextTemplate::render_template(snippet, snippet_settings, attributes)?;
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
                 let end_index = source
                     .find(String::from(prefix.as_str().to_owned() + snippet_settings.end.as_str() + snippet.identifier.as_str()).as_str())
@@ -456,8 +391,6 @@ pub fn update_target_string_snippet(
                     content_starting_index..end_index,
                     format!("\n{}", result).as_str(),
                 );
-
-                println!("source: [{}]", source);
             }
         }
     }
@@ -484,20 +417,7 @@ pub fn extract_snippets(
             let last_square_bracket_pos = begin_ident.rfind('[');
             if let Some(last_square_bracket_pos) = last_square_bracket_pos {
                 let identifier = &begin_ident.as_str()[..last_square_bracket_pos];
-                let re = Regex::new("\\[([^]]+)]").unwrap();
-                let captured_kv = re.captures(begin_ident.as_str());
-                if captured_kv.is_some() {
-                    for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
-                        let parts: Vec<&str> = kv.split("=").collect();
-                        if parts.len() == 2 {
-                            attributes.insert(
-                                parts.get(0).unwrap().to_string(),
-                                parts.get(1).unwrap().to_string(),
-                            );
-                        }
-                    }
-                }
-
+                let attributes = extract_attributes(begin_ident.as_str());
                 let snippet = Snippet::new(identifier.to_string(), attributes);
                 snippets.push(snippet);
             } else {
@@ -526,6 +446,28 @@ pub fn extract_snippets(
     }
 
     Ok(snippets)
+}
+
+// (?<pair>(?<key>.+?)(?:=)(?<value>[^=]+)(?:,|$))
+/// Extract comma separated key value parts from source string
+/// format [k=v,k2=v2]
+fn extract_attributes(source: &str) -> HashMap<String, String> {
+    let mut attributes = HashMap::new();
+    let re = Regex::new("\\[([^]]+)]").unwrap();
+    let captured_kv = re.captures(source);
+    if captured_kv.is_some() {
+        for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
+            let parts: Vec<&str> = kv.split("=").collect();
+            if parts.len() == 2 {
+                attributes.insert(
+                    parts.get(0).unwrap().to_string(),
+                    parts.get(1).unwrap().to_string(),
+                );
+            }
+        }
+    }
+
+    attributes
 }
 
 struct SourceFile {
@@ -1086,27 +1028,6 @@ mod tests {
                 panic!("invalid SnippextError");
             }
         }
-    }
-
-    #[test]
-    fn update_target() {
-        let mut source = r#"Some content
-# snippet::foo
-foo
-# end::foo
-"#
-        .to_string();
-
-        super::update_target_string(
-            &mut source,
-            &vec![String::from("# ")],
-            String::from("snippet::foo"),
-            String::from("end::foo"),
-            "\nbar\n",
-        );
-
-        // TODO: assert something
-        println!("{}", source);
     }
 
     #[test]
