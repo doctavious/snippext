@@ -1,6 +1,9 @@
-use std::collections::HashMap;
 use config::{Config, Environment, File, Source};
-use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, run, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
+use snippext::{
+    run, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, DEFAULT_SOURCE_FILES,
+    DEFAULT_TEMPLATE_IDENTIFIER,
+};
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 use std::path::PathBuf;
@@ -44,7 +47,8 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
         s.merge(File::from(config)).unwrap();
     } else {
         // TODO: use constant
-        s.merge(File::with_name("snippext").required(false)).unwrap();
+        s.merge(File::with_name("snippext").required(false))
+            .unwrap();
     }
 
     // TODO: this can probably come from structopt?
@@ -81,26 +85,28 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
     let mut settings: SnippextSettings = s.try_into()?;
 
     if let Some(template) = opt.template {
-        settings.templates = HashMap::from([
-            (String::from(DEFAULT_TEMPLATE_IDENTIFIER), SnippextTemplate {
+        settings.templates = HashMap::from([(
+            String::from(DEFAULT_TEMPLATE_IDENTIFIER),
+            SnippextTemplate {
                 content: template,
-                default: true
-            })
-        ]);
+                default: true,
+            },
+        )]);
     }
 
-     if let Some(repo_url) = opt.repository_url {
+    if let Some(repo_url) = opt.repository_url {
         let source = SnippetSource::new_remote(
             repo_url.to_string(),
             opt.repository_branch.unwrap(),
             opt.repository_commit.clone(),
             opt.repository_directory.clone(),
-            opt.sources.unwrap_or(vec![String::from(DEFAULT_SOURCE_FILES)]),
+            opt.sources
+                .unwrap_or(vec![String::from(DEFAULT_SOURCE_FILES)]),
         );
-         settings.sources = vec![source];
+        settings.sources = vec![source];
     } else if let Some(sources) = opt.sources {
-         let source = SnippetSource::new_local(sources);
-         settings.sources = vec![source];
+        let source = SnippetSource::new_local(sources);
+        settings.sources = vec![source];
     }
 
     // TODO: should this override or merge?
@@ -218,8 +224,8 @@ struct CleanOpt {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use crate::Opt;
+    use std::collections::HashSet;
     use std::path::PathBuf;
 
     #[test]
@@ -267,7 +273,10 @@ mod tests {
         assert_eq!("snippext::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!("txt", settings.extension);
-        assert_eq!(HashSet::from([String::from("# ")]), settings.comment_prefixes);
+        assert_eq!(
+            HashSet::from([String::from("# ")]),
+            settings.comment_prefixes
+        );
 
         assert_eq!(1, settings.templates.len());
         assert_eq!("default", settings.templates.keys().next().unwrap());

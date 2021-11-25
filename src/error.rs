@@ -1,6 +1,7 @@
 use std::path::StripPrefixError;
 use thiserror::Error;
 
+// TODO: do a pass on error messages and make sure they're decent
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum SnippextError {

@@ -84,7 +84,6 @@ pub struct SnippextTemplate {
 }
 
 impl SnippextTemplate {
-
     pub fn render_template(
         snippet: &Snippet,
         snippext_settings: &SnippextSettings,
@@ -112,7 +111,6 @@ impl SnippextTemplate {
 
         Ok(rendered)
     }
-
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -145,12 +143,13 @@ impl SnippextSettings {
                 .into_iter()
                 .map(|s| s.to_string())
                 .collect(),
-            templates: HashMap::from([
-                (String::from("default"), SnippextTemplate {
+            templates: HashMap::from([(
+                String::from("default"),
+                SnippextTemplate {
                     content: String::from(DEFAULT_TEMPLATE),
                     default: true,
-                }),
-            ]),
+                },
+            )]),
             sources: vec![SnippetSource::new_local(vec![String::from(
                 DEFAULT_SOURCE_FILES,
             )])],
@@ -284,19 +283,10 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         if let Some(targets) = &snippext_settings.targets {
             for target in targets {
                 for snippet in &snippets {
-                    // update_target_file(
-                    //     Path::new(target).to_path_buf(),
-                    //     &snippext_settings.comment_prefixes,
-                    //     // snippet.snippet_start_tag,
-                    //     // snippet.snippet_end_tag,
-                    //     snippext_settings.begin.to_owned() + snippet.identifier.as_str(),
-                    //     snippext_settings.end.to_owned() + snippet.identifier.as_str(),
-                    //     snippet.text.as_str(),
-                    // );
                     update_target_file_snippet(
                         Path::new(target).to_path_buf(),
                         &snippet,
-                        &snippext_settings
+                        &snippext_settings,
                     );
                 }
             }
@@ -314,13 +304,16 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 /// if more than one template find the default one
 fn get_template<'a>(
     id: Option<&String>,
-    snippext_settings: &'a SnippextSettings
+    snippext_settings: &'a SnippextSettings,
 ) -> SnippextResult<&'a SnippextTemplate> {
     return if let Some(identifier) = id {
         if let Some(template) = snippext_settings.templates.get(identifier) {
             Ok(template)
         } else {
-            Err(SnippextError::TemplateNotFound(String::from(format!("{} does not exist", identifier))))
+            Err(SnippextError::TemplateNotFound(String::from(format!(
+                "{} does not exist",
+                identifier
+            ))))
         }
     } else {
         // could probably turn this into a match expression with match guards
@@ -329,22 +322,24 @@ fn get_template<'a>(
         }
 
         if snippext_settings.templates.len() > 1 {
-            let t = snippext_settings.templates
-                .iter()
-                .find(|t| t.1.default);
-            return if let Some(template) = t {
+            let default_template = snippext_settings.templates.iter().find(|t| t.1.default);
+            return if let Some(template) = default_template {
                 Ok(template.1)
             } else {
                 // we validate that we should always have one default template
                 // so should never get here. Should we assert instead?
-                Err(SnippextError::TemplateNotFound(String::from("No default template found")))
-            }
+                Err(SnippextError::TemplateNotFound(String::from(
+                    "No default template found",
+                )))
+            };
         }
 
         // we validate that we have at least one template so should never get here.
         // should we assert instead?
-        Err(SnippextError::TemplateNotFound(String::from("No templates found")))
-    }
+        Err(SnippextError::TemplateNotFound(String::from(
+            "No templates found",
+        )))
+    };
 }
 
 // TODO: This should probably read lines instead of entire file content
@@ -356,11 +351,7 @@ pub fn update_target_file_snippet(
     snippet_settings: &SnippextSettings,
 ) -> SnippextResult<()> {
     let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    update_target_string_snippet(
-        &mut source_content,
-        snippet,
-        snippet_settings,
-    )?;
+    update_target_string_snippet(&mut source_content, snippet, snippet_settings)?;
     fs::write(source.to_path_buf(), source_content)?;
     Ok(())
 }
@@ -368,27 +359,41 @@ pub fn update_target_file_snippet(
 pub fn update_target_string_snippet(
     source: &mut String,
     snippet: &Snippet,
-    snippet_settings: &SnippextSettings
+    snippet_settings: &SnippextSettings,
 ) -> SnippextResult<()> {
     for prefix in &snippet_settings.comment_prefixes {
         // TODO: create helper method for building prefix+being+ident string
-        if let Some(snippet_start_index) =
-        source.find(String::from(prefix.as_str().to_owned() + snippet_settings.begin.as_str() + snippet.identifier.as_str()).as_str())
-        {
+        if let Some(snippet_start_index) = source.find(
+            String::from(
+                prefix.as_str().to_owned()
+                    + snippet_settings.begin.as_str()
+                    + snippet.identifier.as_str(),
+            )
+            .as_str(),
+        ) {
             // TODO: extract attribute from snippet
             // TODO: should find/use template
             if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
-                let snippet_include_start = &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
+                let snippet_include_start =
+                    &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
                 let attributes = if snippet_include_start.rfind('[').is_some() {
                     Some(extract_attributes(snippet_include_start))
                 } else {
                     None
                 };
 
-                let result = SnippextTemplate::render_template(snippet, snippet_settings, attributes)?;
+                let result =
+                    SnippextTemplate::render_template(snippet, snippet_settings, attributes)?;
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
                 let end_index = source
-                    .find(String::from(prefix.as_str().to_owned() + snippet_settings.end.as_str() + snippet.identifier.as_str()).as_str())
+                    .find(
+                        String::from(
+                            prefix.as_str().to_owned()
+                                + snippet_settings.end.as_str()
+                                + snippet.identifier.as_str(),
+                        )
+                        .as_str(),
+                    )
                     .unwrap_or(source.len());
                 source.replace_range(
                     content_starting_index..end_index,
@@ -499,11 +504,7 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
                 // TODO: encapsulate this somewhere
                 let x: &[_] = &['.', '/'];
                 (
-                    format!(
-                        "{}/{}",
-                        dir.trim_end_matches('/'),
-                        file.clone().trim_start_matches(x)
-                    ),
+                    format!("{}/{}", dir.trim_end_matches('/'), file.clone().trim_start_matches(x)),
                     dir,
                 )
             } else {
@@ -577,11 +578,17 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         let mut default_templates = 0;
         for (i, template) in settings.templates.iter().enumerate() {
             if template.0.is_empty() {
-                failures.push(format!("templates[{}].identifier must not be an empty string", i));
+                failures.push(format!(
+                    "templates[{}].identifier must not be an empty string",
+                    i
+                ));
             }
 
             if template.1.content.is_empty() {
-                failures.push(format!("templates[{}].content must not be an empty string", i));
+                failures.push(format!(
+                    "templates[{}].content must not be an empty string",
+                    i
+                ));
             }
 
             if template.1.default {
@@ -590,11 +597,15 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         }
 
         if settings.templates.len() > 1 && default_templates == 0 {
-            failures.push(String::from("When multiple templates are defined one must be marked default"));
+            failures.push(String::from(
+                "When multiple templates are defined one must be marked default",
+            ));
         }
 
         if default_templates > 1 {
-            failures.push(String::from("templates must have only one marked as default"));
+            failures.push(String::from(
+                "templates must have only one marked as default",
+            ));
         }
     }
 
@@ -642,7 +653,7 @@ fn init(settings: InitSettings) -> SnippextResult<()> {
         Ok(())
     } else {
         Ok(())
-    }
+    };
 }
 
 pub struct CleanSettings {
@@ -740,9 +751,9 @@ fn clean_targets(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
     use crate::error::SnippextError;
     use crate::{CleanSettings, SnippetSource, SnippextSettings, SnippextTemplate};
+    use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
@@ -755,12 +766,13 @@ mod tests {
             String::from(""),
             String::from(""),
             String::from(""),
-            HashMap::from([
-                              ("".to_string(), SnippextTemplate {
-                                  content: "".to_string(),
-                                  default: false
-                              })
-                ]),
+            HashMap::from([(
+                "".to_string(),
+                SnippextTemplate {
+                    content: "".to_string(),
+                    default: false,
+                },
+            )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -774,8 +786,12 @@ mod tests {
                 assert_eq!(5, failures.len());
                 assert!(failures.contains(&String::from("begin must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
-                assert!(failures.contains(&String::from("templates[0].identifier must not be an empty string")));
-                assert!(failures.contains(&String::from("templates[0].content must not be an empty string")));
+                assert!(failures.contains(&String::from(
+                    "templates[0].identifier must not be an empty string"
+                )));
+                assert!(failures.contains(&String::from(
+                    "templates[0].content must not be an empty string"
+                )));
                 assert!(failures.contains(&String::from("extension must not be an empty string")));
             }
             _ => {
@@ -821,14 +837,20 @@ mod tests {
             String::from("end::"),
             String::from("md"),
             HashMap::from([
-                ("first".to_string(), SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: false
-                }),
-                ("second".to_string(), SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: false
-                }),
+                (
+                    "first".to_string(),
+                    SnippextTemplate {
+                        content: String::from("{{snippet}}"),
+                        default: false,
+                    },
+                ),
+                (
+                    "second".to_string(),
+                    SnippextTemplate {
+                        content: String::from("{{snippet}}"),
+                        default: false,
+                    },
+                ),
             ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
@@ -859,14 +881,20 @@ mod tests {
             String::from("end::"),
             String::from("md"),
             HashMap::from([
-                ("first".to_string(), SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true
-                }),
-                ("second".to_string(), SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true
-                }),
+                (
+                    "first".to_string(),
+                    SnippextTemplate {
+                        content: String::from("{{snippet}}"),
+                        default: true,
+                    },
+                ),
+                (
+                    "second".to_string(),
+                    SnippextTemplate {
+                        content: String::from("{{snippet}}"),
+                        default: true,
+                    },
+                ),
             ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
@@ -896,12 +924,13 @@ mod tests {
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            HashMap::from([
-                ("default".to_string(), SnippextTemplate {
+            HashMap::from([(
+                "default".to_string(),
+                SnippextTemplate {
                     content: String::from("{{snippet}}"),
-                    default: true
-                })
-            ]),
+                    default: true,
+                },
+            )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
@@ -930,12 +959,13 @@ mod tests {
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            HashMap::from([
-                ("default".to_string(), SnippextTemplate {
+            HashMap::from([(
+                "default".to_string(),
+                SnippextTemplate {
                     content: String::from("{{snippet}}"),
-                    default: true
-                })
-            ]),
+                    default: true,
+                },
+            )]),
             vec![],
             Some(String::from("./snippets/")),
             None,
@@ -964,12 +994,13 @@ mod tests {
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            HashMap::from([
-                ("default".to_string(), SnippextTemplate {
+            HashMap::from([(
+                "default".to_string(),
+                SnippextTemplate {
                     content: String::from("{{snippet}}"),
-                    default: true
-                })
-            ]),
+                    default: true,
+                },
+            )]),
             vec![SnippetSource::new_local(vec![])],
             Some(String::from("./snippets/")),
             None,
@@ -999,12 +1030,13 @@ mod tests {
             String::from("snippet::"),
             String::from("end::"),
             String::from("md"),
-            HashMap::from([
-                ("default".to_string(), SnippextTemplate {
+            HashMap::from([(
+                "default".to_string(),
+                SnippextTemplate {
                     content: String::from("{{snippet}}"),
-                    default: true
-                })
-            ]),
+                    default: true,
+                },
+            )]),
             vec![SnippetSource {
                 repository: None,
                 branch: Some(String::from("branch")),

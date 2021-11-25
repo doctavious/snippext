@@ -4,10 +4,10 @@ extension: "adoc"
 comment_prefixes:
   - "// "
 templates:
-  - identifier: "basic"
+  basic:
     content: "{{snippet}}"
     default: true
-  - identifier: "code"
+  code:
     content: "```{{lang}}\n{{snippet}}```\n"
     default: false
 sources:
