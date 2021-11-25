@@ -19,6 +19,9 @@ pub enum SnippextError {
     #[error("{0}")]
     GlobPatternError(String),
 
+    #[error("Template render error: `{0}`")]
+    TemplateRenderError(#[from] handlebars::RenderError),
+
     #[error("Serde json error: `{0}`")]
     SerdeJson(#[from] serde_json::Error),
 

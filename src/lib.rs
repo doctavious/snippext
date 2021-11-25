@@ -42,7 +42,7 @@ const DEFAULT_END: &'static str = "end::";
 const DEFAULT_INCLUDE: &'static str = "snippet::include::";
 // snippet::start::
 // snippet::end::
-const DEFAULT_REPLACE: &'static str = "snippet::replace::";
+const DEFAULT_REPLACE: &'static str = "snippet::replace::"; // TODO: do we want this?
 const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 const DEFAULT_FILE_EXTENSION: &'static str = "md";
 pub const DEFAULT_SOURCE_FILES: &'static str = "**";
@@ -81,6 +81,38 @@ impl Snippet {
 pub struct SnippextTemplate {
     pub content: String,
     pub default: bool,
+}
+
+impl SnippextTemplate {
+
+    pub fn render_template(
+        snippet: &Snippet,
+        snippext_settings: &SnippextSettings,
+        target_attributes: Option<BTreeMap<String, String>>,
+    ) -> SnippextResult<String> {
+        let mut data = BTreeMap::new();
+        if target_attributes.is_some() {
+            data.append(&mut target_attributes.unwrap());
+        }
+
+        data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
+        for attribute in &snippet.attributes {
+            data.insert(attribute.0.to_string(), attribute.1.to_string());
+        }
+
+        let template = get_template_by_id(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings).unwrap();
+        return template.render(&data);
+    }
+
+    pub fn render(&self, data: &BTreeMap<String, String>) -> SnippextResult<String> {
+        let mut hbs = Handlebars::new();
+        hbs.register_escape_fn(no_escape);
+
+        let rendered = hbs.render_template(self.content.as_str(), data)?;
+
+        Ok(rendered)
+    }
+
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -210,11 +242,6 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_snippext_settings(&snippext_settings)?;
 
     let source_files = get_filenames(&snippext_settings)?;
-
-    // TODO: move this?
-    let mut hbs = Handlebars::new();
-    hbs.register_escape_fn(no_escape);
-
     for source_file in source_files {
         let snippets = extract_snippets(
             &snippext_settings.comment_prefixes,
@@ -249,18 +276,7 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                     .with_extension(snippext_settings.extension.as_str());
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-
-                let mut data = BTreeMap::new();
-                data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
-                for attribute in &snippet.attributes {
-                    data.insert(attribute.0.to_string(), attribute.1.to_string());
-                }
-
-                let template = get_template_by_id(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings).unwrap();
-
-                let result = hbs
-                    .render_template(template.content.as_str(), &data)
-                    .unwrap();
+                let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
                 fs::write(output_path, result).unwrap();
             }
         }
@@ -431,28 +447,7 @@ pub fn update_target_string_snippet(
                     }
                 }
 
-                let template = get_template_by_id(attributes.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), snippet_settings).unwrap();
-
-                println!("template [{}]", template.content);
-
-                // TODO: move to module and have helper method that takes in a snippet
-                // and returns a rendered template
-                let mut hbs = Handlebars::new();
-                hbs.register_escape_fn(no_escape);
-
-                let mut data = BTreeMap::new();
-                data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
-                for attribute in &snippet.attributes {
-                    data.insert(attribute.0.to_string(), attribute.1.to_string());
-                }
-
-                let result = hbs
-                    .render_template(template.content.as_str(), &data)
-                    .unwrap();
-
-                println!("result [{}]", result);
-
-
+                let result = SnippextTemplate::render_template(snippet, snippet_settings, Some(attributes))?;
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
                 let end_index = source
                     .find(String::from(prefix.as_str().to_owned() + snippet_settings.end.as_str() + snippet.identifier.as_str()).as_str())
