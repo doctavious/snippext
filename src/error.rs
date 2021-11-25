@@ -22,6 +22,9 @@ pub enum SnippextError {
     #[error("Template render error: `{0}`")]
     TemplateRenderError(#[from] handlebars::RenderError),
 
+    #[error("Template not found: `{0}`")]
+    TemplateNotFound(String),
+
     #[error("Serde json error: `{0}`")]
     SerdeJson(#[from] serde_json::Error),
 

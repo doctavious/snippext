@@ -100,7 +100,7 @@ impl SnippextTemplate {
             data.insert(attribute.0.to_string(), attribute.1.to_string());
         }
 
-        let template = get_template_by_id(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings).unwrap();
+        let template = get_template(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings)?;
         return template.render(&data);
     }
 
@@ -312,17 +312,20 @@ pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 /// If id not provided
 /// if only one template provided use it
 /// if more than one template find the default one
-fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSettings) -> Option<&'a SnippextTemplate> {
+fn get_template<'a>(
+    id: Option<&String>,
+    snippext_settings: &'a SnippextSettings
+) -> SnippextResult<&'a SnippextTemplate> {
     return if let Some(identifier) = id {
         if let Some(template) = snippext_settings.templates.get(identifier) {
-            Some(template)
+            Ok(template)
         } else {
-            None
+            Err(SnippextError::TemplateNotFound(String::from(format!("{} does not exist", identifier))))
         }
     } else {
         // could probably turn this into a match expression with match guards
         if snippext_settings.templates.len() == 1 {
-            return Some(snippext_settings.templates.values().next().unwrap());
+            return Ok(snippext_settings.templates.values().next().unwrap());
         }
 
         if snippext_settings.templates.len() > 1 {
@@ -330,17 +333,17 @@ fn get_template_by_id<'a>(id: Option<&String>, snippext_settings: &'a SnippextSe
                 .iter()
                 .find(|t| t.1.default);
             return if let Some(template) = t {
-                Some(template.1)
+                Ok(template.1)
             } else {
                 // we validate that we should always have one default template
                 // so should never get here. Should we assert instead?
-                None
+                Err(SnippextError::TemplateNotFound(String::from("No default template found")))
             }
         }
 
         // we validate that we have at least one template so should never get here.
         // should we assert instead?
-        None
+        Err(SnippextError::TemplateNotFound(String::from("No templates found")))
     }
 }
 
