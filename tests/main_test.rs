@@ -1,4 +1,4 @@
-use snippext::{run, SnippetSource, SnippextSettings, SnippextTemplate};
+use snippext::{extract, SnippetSource, SnippextSettings, SnippextTemplate};
 use std::collections::{HashMap, HashSet};
 
 use tempfile::tempdir;
@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -67,7 +67,7 @@ fn should_successfully_extract_from_local_sources_directory() {
 fn should_successfully_extract_from_remote() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -110,7 +110,7 @@ fn should_successfully_extract_from_remote() {
 fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("# ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -147,7 +147,7 @@ fn should_update_specified_targets() {
     )
     .unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -193,7 +193,7 @@ fn sample_fn_1() {
 fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -235,7 +235,7 @@ fn support_target_snippet_specifies_template() {
     )
     .unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -285,7 +285,7 @@ fn main() {
 fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -321,7 +321,7 @@ fn main() {
 fn should_support_files_with_no_snippets() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -356,7 +356,7 @@ fn should_support_files_with_no_snippets() {
 fn invalid_glob() {
     let dir = tempdir().unwrap();
 
-    let result = run(SnippextSettings::new(
+    let result = extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),
@@ -388,7 +388,7 @@ fn invalid_glob() {
 fn glob_returns_no_files() {
     let dir = tempdir().unwrap();
 
-    run(SnippextSettings::new(
+    extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
         String::from("snippet::"),
         String::from("end::"),

@@ -237,7 +237,7 @@ impl SnippetSource {
     }
 }
 
-pub fn run(snippext_settings: SnippextSettings) -> SnippextResult<()> {
+pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_snippext_settings(&snippext_settings)?;
 
     let source_files = get_filenames(&snippext_settings)?;
@@ -643,20 +643,25 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
     };
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct InitSettings {
     pub default: bool,
 }
 
-fn init(settings: InitSettings) -> SnippextResult<()> {
-    return if settings.default {
-        fs::write("./snippext.yaml", DEFAULT_SNIPPEXT_CONFIG)?;
-        Ok(())
+/// Configure Snippext settings
+pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
+    let content = if let Some(settings) = settings {
+        serde_yaml::to_string(&settings)?
     } else {
-        Ok(())
+        DEFAULT_SNIPPEXT_CONFIG.to_string()
     };
+
+    fs::write("./snippext.yaml", content)?;
+    Ok(())
 }
 
-pub struct CleanSettings {
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ClearSettings {
     pub begin: String,
     pub end: String,
     pub comment_prefixes: Vec<String>,
@@ -664,7 +669,7 @@ pub struct CleanSettings {
     pub targets: Option<Vec<String>>,
 }
 
-fn validate_clean_settings(settings: &CleanSettings) -> SnippextResult<()> {
+fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
     let mut failures = vec![];
 
     if settings.begin.is_empty() {
@@ -690,11 +695,12 @@ fn validate_clean_settings(settings: &CleanSettings) -> SnippextResult<()> {
     };
 }
 
-fn clean(settings: CleanSettings) -> SnippextResult<()> {
-    validate_clean_settings(&settings)?;
+/// remove snippets from target files
+pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
+    validate_clear_settings(&settings)?;
 
     if let Some(targets) = settings.targets {
-        clean_targets(
+        clear_targets(
             settings.begin.as_str(),
             settings.end.as_str(),
             settings.comment_prefixes,
@@ -710,7 +716,7 @@ fn clean(settings: CleanSettings) -> SnippextResult<()> {
 }
 
 // TODO: move write out or provide way to test
-fn clean_targets(
+fn clear_targets(
     begin: &str,
     end: &str,
     comment_prefixes: Vec<String>,
@@ -752,7 +758,7 @@ fn clean_targets(
 #[cfg(test)]
 mod tests {
     use crate::error::SnippextError;
-    use crate::{CleanSettings, SnippetSource, SnippextSettings, SnippextTemplate};
+    use crate::{ClearSettings, SnippetSource, SnippextSettings, SnippextTemplate};
     use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::io::Write;
@@ -778,7 +784,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -813,7 +819,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -857,7 +863,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -901,7 +907,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -936,7 +942,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -971,7 +977,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -1006,7 +1012,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
 
         match error {
@@ -1049,7 +1055,7 @@ mod tests {
             None,
         );
 
-        let validation_result = super::run(settings);
+        let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
@@ -1066,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn clean_target() {
+    fn clear_target() {
         let mut target = NamedTempFile::new().unwrap();
         target.write(
             r#"# Some content
@@ -1079,7 +1085,7 @@ More content
             .as_bytes(),
         );
 
-        super::clean_targets(
+        super::clear_targets(
             "snippet::",
             "end::",
             vec![String::from("# ")],
@@ -1095,7 +1101,7 @@ More content
     }
 
     #[test]
-    fn clean_target_starting_with_snippet() {
+    fn clear_target_starting_with_snippet() {
         let mut target = NamedTempFile::new().unwrap();
         target.write(
             r#"# snippet::foo
@@ -1104,7 +1110,7 @@ More content
             .as_bytes(),
         );
 
-        super::clean_targets(
+        super::clear_targets(
             "snippet::",
             "end::",
             vec![String::from("# ")],
@@ -1116,8 +1122,8 @@ More content
     }
 
     #[test]
-    fn clean_target_should_require_at_least_one_prefix() {
-        let validation_result = super::clean(CleanSettings {
+    fn clear_target_should_require_at_least_one_prefix() {
+        let validation_result = super::clear(ClearSettings {
             begin: String::from("snippet::"),
             end: String::from("end::"),
             comment_prefixes: vec![],
@@ -1141,8 +1147,8 @@ More content
     }
 
     #[test]
-    fn clean_target_should_require_non_empty_begin_and_end() {
-        let validation_result = super::clean(CleanSettings {
+    fn clear_target_should_require_non_empty_begin_and_end() {
+        let validation_result = super::clear(ClearSettings {
             begin: String::from(""),
             end: String::from(""),
             comment_prefixes: vec![String::from("# ")],
@@ -1170,8 +1176,8 @@ More content
     }
 
     #[test]
-    fn clean_target_should_require_targets_or_output_dir() {
-        let validation_result = super::clean(CleanSettings {
+    fn clear_target_should_require_targets_or_output_dir() {
+        let validation_result = super::clear(ClearSettings {
             begin: String::from("snippet::"),
             end: String::from("end::"),
             comment_prefixes: vec![String::from("# ")],

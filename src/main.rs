@@ -1,19 +1,38 @@
 use config::{Config, Environment, File, Source};
 use snippext::{
-    run, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, DEFAULT_SOURCE_FILES,
-    DEFAULT_TEMPLATE_IDENTIFIER,
+    clear, ClearSettings,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER,
+    extract,
+    init, InitSettings,
+    SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate
 };
 use std::collections::HashMap;
+use std::io::Write;
 use structopt::StructOpt;
 
 use std::path::PathBuf;
+
+// TODO priorities
+// 1. refactor to subcommands
+//      . init - generate config with prompts
+//      . extract - extract snippets
+//      . clear - clear snippets from targets
+// 2. updating target files should read lines instead of whole file
+// 3. add file name and path attributes
+// 4. validate error messages
+// 5. docs
+// 6. publish to crates.io
+// 7. create bin / script to download and install
+
+
+
 
 // static DEFAULT_CONFIG: &'static str = include_str!("default_snippext.yaml");
 
 // split into subcommands?? does extract combine generate and write?
 // 1. generate - output to dir
 // 2. write - write to target files
-// 3. clean - clean up generate or files
+// 3. clear - clear up generate or files
 // 4. init - generate config file
 
 // use constants that can also be used as defaults
@@ -28,19 +47,60 @@ fn main() -> SnippextResult<()> {
     //     env_logger::init();
     // }
 
-    // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
-    // Precedence of options
-    // If you specify an option by using one of the environment variables described in this topic,
-    // it overrides any value loaded from a profile in the configuration file.
-    // If you specify an option by using a parameter on the AWS CLI command line, it overrides any
-    // value from either the corresponding environment variable or a profile in the configuration file.
+    match opt.cmd {
+        Command::Init(initOpt) => {
+            let init_settings = if !initOpt.default {
+                None
+            } else {
+                Some(init_settings_from_prompt()?)
+            };
+            init(init_settings)
+        }
+        Command::Extract(extractOpt) => {
+            let settings = build_settings(extractOpt)?;
+            extract(settings)
+        }
+        Command::Clear(clearOpt) => {
+            let settings = build_clear_settings(clearOpt)?;
+            clear(settings)
+        }
+    }
 
-    let settings = build_settings(opt)?;
-
-    return run(settings);
 }
 
-fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
+fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
+    Ok(SnippextSettings {
+        begin: "".to_string(),
+        end: "".to_string(),
+        extension: "".to_string(),
+        comment_prefixes: Default::default(),
+        templates: Default::default(),
+        sources: vec![],
+        output_dir: None,
+        targets: None
+    })
+}
+
+fn build_init_settings(opt: InitOpt) -> SnippextResult<InitSettings> {
+    let mut s = Config::default();
+    let mut settings: InitSettings = s.try_into()?;
+    return Ok(settings);
+}
+
+fn build_clear_settings(opt: ClearOpt) -> SnippextResult<ClearSettings> {
+    let mut s = Config::default();
+    let mut settings: ClearSettings = s.try_into()?;
+    return Ok(settings);
+}
+
+// https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
+// Precedence of options
+// If you specify an option by using one of the environment variables described in this topic,
+// it overrides any value loaded from a profile in the configuration file.
+// If you specify an option by using a parameter on the AWS CLI command line, it overrides any
+// value from either the corresponding environment variable or a profile in the configuration file.
+// TODO: update fn to build_snippext_settings which should be extract settings?
+fn build_settings(opt: ExtractOpt) -> SnippextResult<SnippextSettings> {
     let mut s = Config::default();
 
     if let Some(config) = opt.config {
@@ -119,14 +179,29 @@ fn build_settings(opt: Opt) -> SnippextResult<SnippextSettings> {
 enum Command {
     Init(InitOpt),
     Extract(ExtractOpt),
-    Clean(CleanOpt),
+    Clear(ClearOpt),
 }
 
 // TODO: environment variable fallback here or via config?
 // should document it here regardless
-#[derive(Clone, StructOpt, Debug)]
+#[derive(StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
 struct Opt {
+
+    #[structopt(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Clone, StructOpt, Debug)]
+#[structopt(about = "TODO: add some details")]
+struct InitOpt {
+    #[structopt(long, help = "TODO: ...")]
+    pub default: bool,
+}
+
+#[derive(Clone, StructOpt, Debug)]
+#[structopt(about = "TODO: add some details")]
+struct ExtractOpt {
     #[structopt(short, long, parse(from_os_str), help = "Config file to use")]
     config: Option<PathBuf>,
 
@@ -162,19 +237,19 @@ struct Opt {
 
     // TODO: require if for output_dir an targets. one must be provided.
     #[structopt(
-        short,
-        long,
-        required_unless = "targets",
-        help = "directory in which the files will be generated"
+    short,
+    long,
+    required_unless = "targets",
+    help = "directory in which the files will be generated"
     )]
     output_dir: Option<String>,
 
     // globs
     #[structopt(
-        short = "T",
-        long,
-        required_unless = "output_dir",
-        help = "The local directories that contain the files to be spliced with the code snippets."
+    short = "T",
+    long,
+    required_unless = "output_dir",
+    help = "The local directories that contain the files to be spliced with the code snippets."
     )]
     targets: Option<Vec<String>>,
 
@@ -189,18 +264,7 @@ struct Opt {
 
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(about = "TODO: add some details")]
-struct InitOpt {
-    #[structopt(long, help = "TODO: ...")]
-    pub default: bool,
-}
-
-#[derive(Clone, StructOpt, Debug)]
-#[structopt(about = "TODO: add some details")]
-struct ExtractOpt {}
-
-#[derive(Clone, StructOpt, Debug)]
-#[structopt(about = "TODO: add some details")]
-struct CleanOpt {
+struct ClearOpt {
     #[structopt(short, long, parse(from_os_str), help = "Config file to use")]
     config: Option<PathBuf>,
 
@@ -222,15 +286,27 @@ struct CleanOpt {
     targets: Option<Vec<String>>,
 }
 
+fn prompt(name:&str) -> String {
+    let mut line = String::new();
+    print!("{}", name);
+    std::io::stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut line).expect("Error: Could not read a line");
+
+    return line.trim().to_string()
+}
+
+
+// TODO: method to build ClearSettings from ClearOpt/CLI args
+
 #[cfg(test)]
 mod tests {
-    use crate::Opt;
+    use crate::{ExtractOpt, Opt};
     use std::collections::HashSet;
     use std::path::PathBuf;
 
     #[test]
     fn default_config_file() {
-        let opt = Opt {
+        let opt = ExtractOpt {
             config: None,
             begin: None,
             end: None,
@@ -252,7 +328,7 @@ mod tests {
 
     #[test]
     fn verify_cli_args() {
-        let opt = Opt {
+        let opt = ExtractOpt {
             config: None,
             begin: Some(String::from("snippext::")),
             end: Some(String::from("finish::")),
@@ -305,7 +381,7 @@ mod tests {
     fn support_overrides() {
         dotenv::from_path("./tests/.env.test").unwrap();
 
-        let opt = Opt {
+        let opt = ExtractOpt {
             config: Some(PathBuf::from("./tests/custom_snippext.yaml")),
             begin: None,
             end: None,

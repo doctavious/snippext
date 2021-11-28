@@ -5,7 +5,7 @@ use crate::error::SnippextError;
 use crate::SnippextResult;
 use std::process::Command;
 
-pub fn checkout_files(
+pub(crate) fn checkout_files(
     remote: String,
     branch: Option<String>,
     cone_patterns: Option<Vec<String>>,
@@ -56,4 +56,20 @@ pub fn checkout_files(
     }
 
     Ok(())
+}
+
+pub(crate) fn get_remote_url() -> SnippextResult<String> {
+    let output = Command::new("git")
+        .arg("remote")
+        .arg("get-url")
+        .arg("--all origin")
+        .current_dir(".")
+        .output()
+        .map_err(SnippextError::from)?;
+
+    let remote_url = String::from_utf8(output.stdout)?;
+
+    // TODO: parse
+
+    Ok(remote_url)
 }

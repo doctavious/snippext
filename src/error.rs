@@ -1,4 +1,6 @@
 use std::path::StripPrefixError;
+use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 // TODO: do a pass on error messages and make sure they're decent
@@ -29,11 +31,17 @@ pub enum SnippextError {
     #[error("Serde json error: `{0}`")]
     SerdeJson(#[from] serde_json::Error),
 
+    #[error("Serde yaml error: `{0}`")]
+    SerdeYaml(#[from] serde_yaml::Error),
+
     #[error("Snippet not found in file")]
     SnippetNotFound(),
 
     #[error("Stripe prefix error: `{0}`")]
     StripeError(#[from] StripPrefixError),
+
+    #[error("UTF-8 error: `{0}`")]
+    Utf8Error(#[from] FromUtf8Error),
 
     /// Settings validation errors
     #[error("Settings error: `{0:?}`")]
