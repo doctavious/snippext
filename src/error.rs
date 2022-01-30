@@ -1,5 +1,4 @@
 use std::path::StripPrefixError;
-use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use inquire::error::InquireError;
 use thiserror::Error;

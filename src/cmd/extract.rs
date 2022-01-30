@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::fs;
-use clap::{ArgMatches, Parser, Subcommand};
-use std::path::{Path, PathBuf};
+use clap::Parser;
+use std::path::PathBuf;
 use config::{Config, Environment, File};
-use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, extract, extract_snippets, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, update_target_file_snippet};
+use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, extract, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
 
 #[derive(Clone, Debug, Parser)]
 #[clap()]
@@ -46,7 +45,7 @@ pub struct ExtractOpt {
     #[clap(
         short,
         long,
-        required_unless = "targets",
+        required_unless_present = "targets",
         help = "directory in which the files will be generated"
     )]
     pub output_dir: Option<String>,
@@ -55,7 +54,7 @@ pub struct ExtractOpt {
     #[clap(
         short = 'T',
         long,
-        required_unless = "output_dir",
+        required_unless_present = "output_dir",
         help = "The local directories that contain the files to be spliced with the code snippets."
     )]
     pub targets: Option<Vec<String>>,
@@ -182,6 +181,7 @@ mod tests {
         };
 
         let settings = super::build_settings(opt).unwrap();
+        // TODO: add asserts
         println!("{:?}", settings);
     }
 

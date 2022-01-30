@@ -1,4 +1,4 @@
-use clap::{ArgMatches, Parser, Subcommand};
+use clap::Parser;
 use std::fs;
 use std::io::BufReader;
 use std::io::BufRead;
@@ -30,7 +30,7 @@ pub struct ClearOpt {
     #[clap(
         short = 'T',
         long,
-        required_unless = "output_dir",
+        required_unless_present = "output_dir",
         help = "The local directories that contain the files to be spliced with the code snippets."
     )]
     pub targets: Option<Vec<String>>,
@@ -102,7 +102,7 @@ fn clear_targets(
     targets: Vec<String>,
 ) -> SnippextResult<()> {
     for target in targets {
-        let mut f = fs::File::open(&target)?;
+        let f = fs::File::open(&target)?;
         let reader = BufReader::new(f);
 
         let mut omit = false;

@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
-use clap::{ArgMatches, Parser, Subcommand};
-use config::Config;
+use clap::Parser;
 use inquire::{Confirm, required, Select, Text};
-use snippext::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, init, InitSettings, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
+use snippext::{
+    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, init, SnippetSource, SnippextResult,
+    SnippextSettings, SnippextTemplate
+};
 
 #[derive(Clone, Debug, Parser)]
 #[clap()]
@@ -10,7 +13,6 @@ pub struct InitOpt {
     #[clap(long, help = "TODO: ...")]
     pub default: bool,
 }
-
 
 
 pub fn execute(init_opt: InitOpt) -> SnippextResult<()> {
@@ -179,9 +181,3 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     })
 }
 
-// TODO: do we need this?
-fn build_init_settings(opt: InitOpt) -> SnippextResult<InitSettings> {
-    let mut s = Config::default();
-    let mut settings: InitSettings = s.try_into()?;
-    return Ok(settings);
-}

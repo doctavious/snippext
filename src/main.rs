@@ -1,12 +1,7 @@
-use clap::{ArgMatches, Parser, Subcommand};
-use config::{Config, Environment, File, Source};
-use inquire::{Confirm, required, Select, Text};
-use snippext::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER, extract, init, InitSettings, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
-use std::collections::{HashMap, HashSet};
+use clap::Parser;
+use snippext::SnippextResult;
 use std::io::Write;
-use std::iter::FromIterator;
-use std::path::PathBuf;
-use crate::cmd::clear::{clear, ClearOpt, ClearSettings};
+use crate::cmd::clear::ClearOpt;
 use crate::cmd::{clear, Command, extract, init};
 use crate::cmd::extract::{ExtractOpt};
 use crate::cmd::init::InitOpt;

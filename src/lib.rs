@@ -21,9 +21,8 @@ use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 
 use crate::error::SnippextError;
-use config::Source;
 use handlebars::{no_escape, Handlebars};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
