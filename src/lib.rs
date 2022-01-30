@@ -34,19 +34,19 @@ use unindent::unindent;
 pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
 
 // TODO: this might not be needed
-const DEFAULT_SNIPPEXT_CONFIG: &str = include_str!("./default_snippext_config.yaml");
-const DEFAULT_CONFIG: &'static str = "snippext";
-const DEFAULT_COMMENT_PREFIXES: &'static [&'static str] = &["// ", "# ", "<!-- "];
-const DEFAULT_BEGIN: &'static str = "snippet::";
-const DEFAULT_END: &'static str = "end::";
-const DEFAULT_INCLUDE: &'static str = "snippet::include::";
+pub const DEFAULT_SNIPPEXT_CONFIG: &str = include_str!("./default_snippext_config.yaml");
+pub const DEFAULT_CONFIG: &'static str = "snippext";
+pub const DEFAULT_COMMENT_PREFIXES: &'static [&'static str] = &["// ", "# ", "<!-- "];
+pub const DEFAULT_BEGIN: &'static str = "snippet::";
+pub const DEFAULT_END: &'static str = "end::";
+pub const DEFAULT_INCLUDE: &'static str = "snippet::include::";
 // snippet::start::
 // snippet::end::
 const DEFAULT_REPLACE: &'static str = "snippet::replace::"; // TODO: do we want this?
-const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
-const DEFAULT_FILE_EXTENSION: &'static str = "md";
+pub const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
+pub const DEFAULT_FILE_EXTENSION: &'static str = "md";
 pub const DEFAULT_SOURCE_FILES: &'static str = "**";
-const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
+pub const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
 const SNIPPEXT_TEMPLATE_ATTRIBUTE: &'static str = "snippext_template";
 pub const DEFAULT_TEMPLATE_IDENTIFIER: &'static str = "default";
 
@@ -237,64 +237,7 @@ impl SnippetSource {
     }
 }
 
-pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
-    validate_snippext_settings(&snippext_settings)?;
 
-    let source_files = get_filenames(&snippext_settings)?;
-    for source_file in source_files {
-        let snippets = extract_snippets(
-            &snippext_settings.comment_prefixes,
-            snippext_settings.begin.to_owned(),
-            snippext_settings.end.to_owned(),
-            source_file.full_path.as_path(),
-        )?;
-
-        if snippets.is_empty() {
-            continue;
-        }
-
-        // TODO: print to stdout if output_dir and targets are both none?
-        // if &snippext_settings.output_dir.is_none() && &snippext_settings.targets.is_none() {
-        //
-        // }
-
-        // TODO: output_dir optional
-        // TODO: targets
-        // TODO: stdout if neither is provided
-        if let Some(output_dir) = &snippext_settings.output_dir {
-            for snippet in &snippets {
-                let x: &[_] = &['.', '/'];
-                let output_path = Path::new(output_dir.as_str())
-                    .join(
-                        source_file
-                            .relative_path
-                            .to_string_lossy()
-                            .trim_start_matches(x),
-                    )
-                    .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension(snippext_settings.extension.as_str());
-
-                fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
-                fs::write(output_path, result).unwrap();
-            }
-        }
-
-        if let Some(targets) = &snippext_settings.targets {
-            for target in targets {
-                for snippet in &snippets {
-                    update_target_file_snippet(
-                        Path::new(target).to_path_buf(),
-                        &snippet,
-                        &snippext_settings,
-                    );
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
 
 /// find appropriate Snippext Template using the following rules
 ///
@@ -402,6 +345,65 @@ pub fn update_target_string_snippet(
             }
         }
     }
+    Ok(())
+}
+
+pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
+    validate_snippext_settings(&snippext_settings)?;
+
+    let source_files = get_filenames(&snippext_settings)?;
+    for source_file in source_files {
+        let snippets = extract_snippets(
+            &snippext_settings.comment_prefixes,
+            snippext_settings.begin.to_owned(),
+            snippext_settings.end.to_owned(),
+            source_file.full_path.as_path(),
+        )?;
+
+        if snippets.is_empty() {
+            continue;
+        }
+
+        // TODO: print to stdout if output_dir and targets are both none?
+        // if &snippext_settings.output_dir.is_none() && &snippext_settings.targets.is_none() {
+        //
+        // }
+
+        // TODO: output_dir optional
+        // TODO: targets
+        // TODO: stdout if neither is provided
+        if let Some(output_dir) = &snippext_settings.output_dir {
+            for snippet in &snippets {
+                let x: &[_] = &['.', '/'];
+                let output_path = Path::new(output_dir.as_str())
+                    .join(
+                        source_file
+                            .relative_path
+                            .to_string_lossy()
+                            .trim_start_matches(x),
+                    )
+                    .join(sanitize(snippet.identifier.to_owned()))
+                    .with_extension(snippext_settings.extension.as_str());
+
+                fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+                let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
+                fs::write(output_path, result).unwrap();
+            }
+        }
+
+        if let Some(targets) = &snippext_settings.targets {
+            for target in targets {
+                for snippet in &snippets {
+                    update_target_file_snippet(
+                        Path::new(target).to_path_buf(),
+                        &snippet,
+                        &snippext_settings,
+                    );
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -660,105 +662,16 @@ pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
     Ok(())
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ClearSettings {
-    pub begin: String,
-    pub end: String,
-    pub comment_prefixes: Vec<String>,
-    pub output_dir: Option<String>,
-    pub targets: Option<Vec<String>>,
-}
 
-fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
-    let mut failures = vec![];
 
-    if settings.begin.is_empty() {
-        failures.push("begin must not be empty".to_string())
-    }
 
-    if settings.end.is_empty() {
-        failures.push("end must not be empty".to_string())
-    }
 
-    if settings.comment_prefixes.is_empty() {
-        failures.push("Must provide at least one comment prefix".to_string())
-    }
 
-    if settings.targets.is_none() && settings.output_dir.is_none() {
-        failures.push("Must specify targets or output_dir".to_string())
-    }
-
-    return if failures.is_empty() {
-        Ok(())
-    } else {
-        Err(SnippextError::ValidationError(failures))
-    };
-}
-
-/// remove snippets from target files
-pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
-    validate_clear_settings(&settings)?;
-
-    if let Some(targets) = settings.targets {
-        clear_targets(
-            settings.begin.as_str(),
-            settings.end.as_str(),
-            settings.comment_prefixes,
-            targets,
-        );
-    }
-
-    // if let Some(output_dir) = settings.output_dir {
-    //     fs::remove_dir_all(output_dir)?;
-    // }
-
-    Ok(())
-}
-
-// TODO: move write out or provide way to test
-fn clear_targets(
-    begin: &str,
-    end: &str,
-    comment_prefixes: Vec<String>,
-    targets: Vec<String>,
-) -> SnippextResult<()> {
-    for target in targets {
-        let mut f = File::open(&target)?;
-        let reader = BufReader::new(f);
-
-        let mut omit = false;
-        let mut new_lines: Vec<String> = Vec::new();
-        // https://github.com/temporalio/snipsync/blob/891805910946cca06de074a77cec27bffdfc4cc9/src/Sync.js#L372
-        for line in reader.lines() {
-            let l = line?;
-
-            for prefix in &comment_prefixes {
-                if l.contains(String::from(prefix.to_owned() + begin).as_str()) {
-                    omit = true;
-                    break;
-                }
-                if !omit {
-                    new_lines.push(l.clone());
-                }
-                if l.contains(String::from(prefix.to_owned() + end).as_str()) {
-                    omit = false;
-                }
-            }
-        }
-
-        let new_content = new_lines
-            .into_iter()
-            .fold(String::new(), |content, s| content + s.as_str() + "\n");
-        fs::write(&target, new_content.as_bytes())?;
-    }
-
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
     use crate::error::SnippextError;
-    use crate::{ClearSettings, SnippetSource, SnippextSettings, SnippextTemplate};
+    use crate::{SnippetSource, SnippextSettings, SnippextTemplate};
     use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::io::Write;
@@ -1071,132 +984,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn clear_target() {
-        let mut target = NamedTempFile::new().unwrap();
-        target.write(
-            r#"# Some content
-# snippet::foo
-foo
-# end::foo
-
-More content
-"#
-            .as_bytes(),
-        );
-
-        super::clear_targets(
-            "snippet::",
-            "end::",
-            vec![String::from("# ")],
-            vec![String::from(target.path().to_string_lossy())],
-        );
-
-        let actual = fs::read_to_string(target.path()).unwrap();
-        let expected = r#"# Some content
-
-More content
-"#;
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn clear_target_starting_with_snippet() {
-        let mut target = NamedTempFile::new().unwrap();
-        target.write(
-            r#"# snippet::foo
-# end::foo
-"#
-            .as_bytes(),
-        );
-
-        super::clear_targets(
-            "snippet::",
-            "end::",
-            vec![String::from("# ")],
-            vec![String::from(target.path().to_string_lossy())],
-        );
-
-        let actual = fs::read_to_string(target.path()).unwrap();
-        assert_eq!("", actual);
-    }
-
-    #[test]
-    fn clear_target_should_require_at_least_one_prefix() {
-        let validation_result = super::clear(ClearSettings {
-            begin: String::from("snippet::"),
-            end: String::from("end::"),
-            comment_prefixes: vec![],
-            output_dir: None,
-            targets: Some(vec!["".to_string()]),
-        });
-
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("Must provide at least one comment prefix"),
-                    failures.get(0).unwrap().to_string()
-                )
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
-    }
-
-    #[test]
-    fn clear_target_should_require_non_empty_begin_and_end() {
-        let validation_result = super::clear(ClearSettings {
-            begin: String::from(""),
-            end: String::from(""),
-            comment_prefixes: vec![String::from("# ")],
-            output_dir: None,
-            targets: Some(vec!["".to_string()]),
-        });
-
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(2, failures.len());
-                assert_eq!(
-                    String::from("begin must not be empty"),
-                    failures.get(0).unwrap().to_string()
-                );
-                assert_eq!(
-                    String::from("end must not be empty"),
-                    failures.get(1).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
-    }
-
-    #[test]
-    fn clear_target_should_require_targets_or_output_dir() {
-        let validation_result = super::clear(ClearSettings {
-            begin: String::from("snippet::"),
-            end: String::from("end::"),
-            comment_prefixes: vec![String::from("# ")],
-            output_dir: None,
-            targets: None,
-        });
-
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("Must specify targets or output_dir"),
-                    failures.get(0).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
-    }
 }

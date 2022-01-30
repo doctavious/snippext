@@ -1,6 +1,7 @@
 use std::path::StripPrefixError;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
+use inquire::error::InquireError;
 use thiserror::Error;
 
 // TODO: do a pass on error messages and make sure they're decent
@@ -17,6 +18,9 @@ pub enum SnippextError {
     /// Error that may occur while I/O operations.
     #[error("IO error: `{0}`")]
     IoError(#[from] std::io::Error),
+
+    #[error("Invalid prompt: `{0}`")]
+    PromptError(#[from] InquireError),
 
     /// Glob pattern error
     #[error("{0}")]
