@@ -2,14 +2,14 @@ begin: "snippet::"
 end: "end::"
 extension: "md"
 comment_prefixes:
-- "// "
-- "<!-- "
+  - "// "
+  - "<!-- "
 templates:
   default:
     content: "{{snippet}}"
     default: true
 sources:
-# extract from local files
-- files:
-    - "**"
+  # extract from local files
+  - files:
+      - "**"
 output_dir: "./generated-snippets/"

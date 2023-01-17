@@ -8,9 +8,9 @@ use snippext::{
 };
 
 #[derive(Clone, Debug, Parser)]
-#[clap()]
+#[command()]
 pub struct InitOpt {
-    #[clap(long, help = "TODO: ...")]
+    #[arg(long, help = "TODO: ...")]
     pub default: bool,
 }
 
@@ -45,9 +45,9 @@ pub fn execute(init_opt: InitOpt) -> SnippextResult<()> {
 //
 //     prompt_one_with(question.into(), &mut stdout, &mut events)
 // }
-fn init_settings_from_prompt_internal() {
-
-}
+// fn init_settings_from_prompt_internal(backend: requestty::ui::backend, events: requestty::ui::events) {
+//
+// }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     // TODO: look at render config options

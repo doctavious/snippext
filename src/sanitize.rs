@@ -38,7 +38,7 @@ fn sanitize_with_options<S: AsRef<str>>(name: S, options: Options) -> String {
     let name = CONTROL_RE.replace_all(&name, "");
     let name = RESERVED_RE.replace(&name, "");
 
-    let collect = |name: ::std::borrow::Cow<str>| {
+    let collect = |name: std::borrow::Cow<str>| {
         if name.len() > 255 {
             let mut end = 255;
             loop {
@@ -166,8 +166,8 @@ mod tests {
             );
         }
 
-        let long = ::std::iter::repeat('a').take(300).collect::<String>();
-        let shorter = ::std::iter::repeat('a').take(255).collect::<String>();
+        let long = std::iter::repeat('a').take(300).collect::<String>();
+        let shorter = std::iter::repeat('a').take(255).collect::<String>();
         assert_eq!(super::sanitize(long), shorter);
     }
 }

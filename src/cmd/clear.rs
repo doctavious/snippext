@@ -3,31 +3,31 @@ use std::fs;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::path::PathBuf;
-use config::{Config, Environment, File};
+use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 use snippext::error::SnippextError;
 use snippext::SnippextResult;
 
 #[derive(Clone, Debug, Parser)]
-#[clap()]
+#[command()]
 pub struct ClearOpt {
-    #[clap(short, long, parse(from_os_str), help = "Config file to use")]
+    #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[clap(short, long, help = "flag to mark beginning of a snippet")]
+    #[arg(short, long, help = "flag to mark beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[clap(short, long, help = "flag to mark ending of a snippet")]
+    #[arg(short, long, help = "flag to mark ending of a snippet")]
     pub end: Option<String>,
 
     // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
     // comment prefix
-    #[clap(short = 'p', long, help = "Prefixes to use for comments")]
+    #[arg(short = 'p', long, help = "Prefixes to use for comments")]
     pub comment_prefixes: Option<Vec<String>>,
 
     // globs
-    #[clap(
+    #[arg(
         short = 'T',
         long,
         required_unless_present = "output_dir",
@@ -50,34 +50,34 @@ pub fn execute(clear_opt: ClearOpt) -> SnippextResult<()> {
 }
 
 fn build_clear_settings(opt: ClearOpt) -> SnippextResult<ClearSettings> {
-    let mut s = Config::default();
+    let mut builder = Config::builder();
 
     if let Some(config) = opt.config {
-        s.merge(File::from(config)).unwrap();
+        builder = builder.add_source(File::from(config));
     } else {
         // TODO: use constant
-        s.merge(File::with_name("snippext").required(false)).unwrap();
+        builder = builder.add_source(File::with_name("snippext").required(false));
     }
 
-    s.merge(Environment::with_prefix("snippext")).unwrap();
+    builder = builder.add_source(Environment::with_prefix("snippext"));
 
     if let Some(begin) = opt.begin {
-        s.set("begin", begin);
+        builder = builder.set_override("begin", begin)?;
     }
 
     if let Some(end) = opt.end {
-        s.set("end", end);
+        builder = builder.set_override("end", end)?;
     }
 
     if let Some(comment_prefixes) = opt.comment_prefixes {
-        s.set("comment_prefixes", comment_prefixes);
+        builder = builder.set_override("comment_prefixes", comment_prefixes)?;
     }
 
     if let Some(targets) = opt.targets {
-        s.set("targets", targets);
+        builder = builder.set_override("targets", targets)?;
     }
 
-    let mut settings: ClearSettings = s.try_into()?;
+    let settings: ClearSettings = builder.build()?.try_deserialize()?;
     return Ok(settings);
 }
 
@@ -167,7 +167,8 @@ mod tests {
     use std::fs;
     use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
-    use snippext::error::SnippextError; // TODO: why cant we use crate:error here?
+    use snippext::error::SnippextError;
+    use crate::clear::ClearSettings; // TODO: why cant we use crate:error here?
 
     #[test]
     fn clear_target() {

@@ -2,47 +2,51 @@ use std::collections::HashMap;
 use clap::Parser;
 use std::path::PathBuf;
 use config::{Config, Environment, File};
-use snippext::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, extract, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate};
+use snippext::{
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER,
+    extract, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate
+};
+
 
 #[derive(Clone, Debug, Parser)]
-#[clap()]
+#[command()]
 pub struct ExtractOpt {
-    #[clap(short, long, parse(from_os_str), help = "Config file to use")]
+    #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[clap(short, long, help = "flag to mark beginning of a snippet")]
+    #[arg(short, long, help = "flag to mark beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[clap(short, long, help = "flag to mark ending of a snippet")]
+    #[arg(short, long, help = "flag to mark ending of a snippet")]
     pub end: Option<String>,
 
-    #[clap(short = 'x', long, help = "extension for generated files")]
+    #[arg(short = 'x', long, help = "extension for generated files")]
     pub extension: Option<String>,
 
     // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
     // comment prefix
-    #[clap(short = 'p', long, help = "Prefixes to use for comments")]
+    #[arg(short = 'p', long, help = "Prefixes to use for comments")]
     pub comment_prefixes: Option<Vec<String>>,
 
     // TODO: update?
-    #[clap(short, long, help = "")]
+    #[arg(short, long, help = "")]
     pub template: Option<String>,
 
-    #[clap(short, long, help = "")]
+    #[arg(short, long, help = "")]
     pub repository_url: Option<String>,
 
-    #[clap(short = 'B', long, requires = "repository_url", help = "")]
+    #[arg(short = 'B', long, requires = "repository_url", help = "")]
     pub repository_branch: Option<String>,
 
-    #[clap(short = 'C', long, help = "")]
+    #[arg(short = 'C', long, help = "")]
     pub repository_commit: Option<String>,
 
-    #[clap(short = 'D', long, help = "Directory remote repository is cloned into")]
+    #[arg(short = 'D', long, help = "Directory remote repository is cloned into")]
     pub repository_directory: Option<String>,
 
     // TODO: require if for output_dir an targets. one must be provided.
-    #[clap(
+    #[arg(
         short,
         long,
         required_unless_present = "targets",
@@ -51,7 +55,7 @@ pub struct ExtractOpt {
     pub output_dir: Option<String>,
 
     // globs
-    #[clap(
+    #[arg(
         short = 'T',
         long,
         required_unless_present = "output_dir",
@@ -64,7 +68,7 @@ pub struct ExtractOpt {
     // aka files
     // list of globs and default to all??
     // default to **
-    #[clap(short, long, help = "TODO: ...")]
+    #[arg(short, long, help = "TODO: ...")]
     pub sources: Option<Vec<String>>,
 }
 
@@ -81,33 +85,31 @@ pub fn execute(extract_opt: ExtractOpt) -> SnippextResult<()> {
 // value from either the corresponding environment variable or a profile in the configuration file.
 // TODO: update fn to build_snippext_settings which should be extract settings?
 fn build_settings(opt: ExtractOpt) -> SnippextResult<SnippextSettings> {
-    let mut s = Config::default();
+    let mut builder = Config::builder();
 
     if let Some(config) = opt.config {
-        s.merge(File::from(config)).unwrap();
+        builder = builder.add_source(File::from(config));
     } else {
         // TODO: use constant
-        s.merge(File::with_name("snippext").required(false))
-            .unwrap();
+        builder = builder.add_source(File::with_name("snippext").required(false));
     }
 
-    // TODO: this can probably come from structopt?
-    s.merge(Environment::with_prefix("snippext")).unwrap();
+    builder = builder.add_source(Environment::with_prefix("snippext"));
 
     if let Some(begin) = opt.begin {
-        s.set("begin", begin);
+        builder = builder.set_override("begin", begin)?;
     }
 
     if let Some(end) = opt.end {
-        s.set("end", end);
+        builder = builder.set_override("end", end)?;
     }
 
     if let Some(extension) = opt.extension {
-        s.set("extension", extension);
+        builder = builder.set_override("extension", extension)?;
     }
 
     if let Some(comment_prefixes) = opt.comment_prefixes {
-        s.set("comment_prefixes", comment_prefixes);
+        builder = builder.set_override("comment_prefixes", comment_prefixes)?;
     }
 
     // if let Some(template) = opt.template {
@@ -115,14 +117,14 @@ fn build_settings(opt: ExtractOpt) -> SnippextResult<SnippextSettings> {
     // }
 
     if let Some(output_dir) = opt.output_dir {
-        s.set("output_dir", output_dir);
+        builder = builder.set_override("output_dir", output_dir)?;
     }
 
     if let Some(targets) = opt.targets {
-        s.set("targets", targets);
+        builder = builder.set_override("targets", targets)?;
     }
 
-    let mut settings: SnippextSettings = s.try_into()?;
+    let mut settings: SnippextSettings = builder.build()?.try_deserialize()?;
 
     if let Some(template) = opt.template {
         settings.templates = HashMap::from([(

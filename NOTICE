@@ -1,0 +1,5 @@
+
+
+based on https://github.com/dtolnay/indoc/tree/master/unindent but slightly modified
+
+from https://github.com/kardeiz/sanitize-filename with some minor modifications

@@ -39,13 +39,13 @@ mod cmd;
 // TODO: environment variable fallback here or via config?
 // should document it here regardless
 #[derive(Parser, Debug)]
-#[clap(about, version, author)]
+#[command(about, version, author)]
 struct Opt {
 
-    #[clap(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 
-    #[clap(long, help = "TODO: ...")]
+    #[arg(long, help = "TODO: ...")]
     pub debug: bool,
 }
 
