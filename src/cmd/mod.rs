@@ -1,9 +1,9 @@
 use crate::{ClearOpt, ExtractOpt, InitOpt};
-use clap::{ArgMatches, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 pub mod clear;
-pub mod init;
 pub mod extract;
+pub mod init;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {

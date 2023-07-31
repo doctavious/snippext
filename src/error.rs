@@ -1,7 +1,8 @@
+use inquire::error::InquireError;
 use std::path::StripPrefixError;
 use std::string::FromUtf8Error;
-use inquire::error::InquireError;
 use thiserror::Error;
+use url::ParseError;
 
 // TODO: do a pass on error messages and make sure they're decent
 #[derive(Error, Debug)]
@@ -49,4 +50,19 @@ pub enum SnippextError {
     /// Settings validation errors
     #[error("Settings error: `{0:?}`")]
     ValidationError(Vec<String>),
+
+    #[error("{0}")]
+    GeneralError(String),
+
+    #[error(transparent)]
+    UrlParseError(#[from] ParseError),
+
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error(transparent)]
+    ReqwestHeaderError(#[from] reqwest::header::ToStrError),
+
+    #[error(transparent)]
+    DateTimeParseError(#[from] chrono::ParseError)
 }

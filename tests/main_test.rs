@@ -28,11 +28,12 @@ fn should_successfully_extract_from_local_sources_directory() {
         )])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
+        None,
     ))
     .unwrap();
 
     let main_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
     let main_content_expected = r#"fn main() {
 
     println!("printing...")
@@ -41,11 +42,11 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(main_content_expected, main_content_actual);
 
     let main_nested_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.txt")).unwrap();
     assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.txt"))
             .unwrap();
     let sample_fn_1_content_expected = r#"fn sample_fn_1() {
 
@@ -54,13 +55,78 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(sample_fn_1_content_expected, sample_fn_1_content_actual);
 
     let sample_fn_2_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2.txt"))
             .unwrap();
     let sample_fn_2_content_expected = r#"fn sample_fn_2() {
 
 }
 "#;
     assert_eq!(sample_fn_2_content_expected, sample_fn_2_content_actual);
+}
+
+#[test]
+fn error_when_extracting_from_unavailable_remote() {
+    let dir = tempdir().unwrap();
+
+    let result = extract(SnippextSettings::new(
+        HashSet::from([String::from("// ")]),
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_remote(
+            String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
+            String::from("main"),
+            None,
+            Some(format!(
+                "{}/remote-source-test/",
+                dir.path().to_string_lossy()
+            )),
+            vec![String::from("/tests/**/*")],
+        )],
+        Some(format!(
+            "{}/generated-snippets/",
+            dir.path().to_string_lossy()
+        )),
+        None,
+        None,
+    ));
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_error_when_snippet_is_not_closed() {
+    let dir = tempdir().unwrap();
+
+    let result = extract(SnippextSettings::new(
+        HashSet::from([String::from("// ")]),
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/snippet_left_open.rs",
+        )])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+        None,
+    ));
+
+    assert!(result.is_err());
+    println!("snippet wasnt closed...{:?}", result);
 }
 
 #[test]
@@ -90,6 +156,7 @@ fn should_successfully_extract_from_remote() {
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
+        None,
         None,
     ))
     .unwrap();
@@ -127,11 +194,12 @@ fn should_successfully_extract_from_local_sources_file() {
         )])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
+        None,
     ))
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
             .unwrap();
 
     assert_eq!("puts \"Hello, Ruby!\"\n", content);
@@ -167,6 +235,7 @@ fn should_update_specified_targets() {
             .join("./target.md")
             .to_string_lossy()
             .to_string()]),
+        None,
     ))
     .unwrap();
 
@@ -210,11 +279,12 @@ fn should_support_template_with_attributes() {
         )])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
+        None,
     ))
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
     let expected = r#"```rust
 fn main() {
 
@@ -264,6 +334,7 @@ fn support_target_snippet_specifies_template() {
             .join("./specify_template.md")
             .to_string_lossy()
             .to_string()]),
+        None,
     ))
     .unwrap();
 
@@ -302,11 +373,12 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         )])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
+        None,
     ))
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
     let expected = r#"```
 fn main() {
 
@@ -337,6 +409,7 @@ fn should_support_files_with_no_snippets() {
             "./tests/samples/no_snippets.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
     ))
     .unwrap();
@@ -371,6 +444,7 @@ fn invalid_glob() {
         vec![SnippetSource::new_local(vec![String::from("[&")])],
         Some(dir.path().to_string_lossy().to_string()),
         None,
+        None,
     ));
 
     assert!(result.is_err());
@@ -404,6 +478,7 @@ fn glob_returns_no_files() {
             "./tests/samples/*.md",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
     ))
     .unwrap();

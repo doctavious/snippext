@@ -30,15 +30,21 @@ pub(crate) fn checkout_files(
         String::from("./")
     };
 
-    clone_command
+    let clone_output = clone_command
         .arg(remote)
         .arg(&checkout_directory)
         .current_dir("./")
         .output()
         .map_err(SnippextError::from)?;
 
+    if !clone_output.status.success() {
+        return Err(SnippextError::GeneralError(String::from_utf8(
+            clone_output.stderr,
+        )?));
+    }
+
     if cone_patterns.is_some() {
-        Command::new("git")
+        let sparse_checkout_init = Command::new("git")
             .arg("sparse-checkout")
             .arg("init")
             .arg("--cone")
@@ -46,13 +52,25 @@ pub(crate) fn checkout_files(
             .output()
             .map_err(SnippextError::from)?;
 
-        Command::new("git")
+        if !sparse_checkout_init.status.success() {
+            return Err(SnippextError::GeneralError(String::from_utf8(
+                sparse_checkout_init.stderr,
+            )?));
+        }
+
+        let sparse_checkout_set = Command::new("git")
             .arg("sparse-checkout")
             .arg("set")
             .arg(cone_patterns.unwrap().join(" "))
             .current_dir(&checkout_directory)
             .output()
             .map_err(SnippextError::from)?;
+
+        if !sparse_checkout_set.status.success() {
+            return Err(SnippextError::GeneralError(String::from_utf8(
+                sparse_checkout_set.stderr,
+            )?));
+        }
     }
 
     Ok(())
@@ -66,6 +84,12 @@ pub(crate) fn get_remote_url() -> SnippextResult<String> {
         .current_dir(".")
         .output()
         .map_err(SnippextError::from)?;
+
+    if !output.status.success() {
+        return Err(SnippextError::GeneralError(String::from_utf8(
+            output.stderr,
+        )?));
+    }
 
     let remote_url = String::from_utf8(output.stdout)?;
 

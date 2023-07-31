@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet};
 use clap::Parser;
-use inquire::{Confirm, required, Select, Text};
+use inquire::{required, Confirm, Select, Text};
 use snippext::{
-    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
-    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, init, SnippetSource, SnippextResult,
-    SnippextSettings, SnippextTemplate
+    init, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, DEFAULT_BEGIN,
+    DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SOURCE_FILES,
+    DEFAULT_TEMPLATE,
 };
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -13,7 +13,6 @@ pub struct InitOpt {
     #[arg(long, help = "TODO: ...")]
     pub default: bool,
 }
-
 
 pub fn execute(init_opt: InitOpt) -> SnippextResult<()> {
     let init_settings = if init_opt.default {
@@ -77,7 +76,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .map(|s| s.to_string())
         .collect();
 
-
     // TODO: support multiple templates (id / default / template)
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
     loop {
@@ -100,14 +98,16 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
             .with_help_message("e.g. Music Store")
             .prompt()?;
 
-
         // mark default? can we be smart of if already has a default then no need to ask.
         // if only one template then just mark that as default
 
-        templates.insert(identifier, SnippextTemplate {
-            content: template,
-            default: false
-        });
+        templates.insert(
+            identifier,
+            SnippextTemplate {
+                content: template,
+                default: false,
+            },
+        );
 
         let add_another_template = Confirm::new("Add another template?")
             .with_default(false)
@@ -123,9 +123,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
-
-        let source_type = Select::new("Type of source?", vec!["local", "remote"])
-            .prompt()?;
+        let source_type = Select::new("Type of source?", vec!["local", "remote"]).prompt()?;
 
         if source_type.eq("local") {
             // TODO: loop or comma separated globs?
@@ -177,7 +175,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         templates: Default::default(),
         sources: vec![],
         output_dir,
-        targets: None
+        targets: None,
+        link_format: None,
     })
 }
-

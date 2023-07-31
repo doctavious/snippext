@@ -116,3 +116,13 @@ what to do for local files? maybe see if git remote returns anything if yes then
 review structure of https://github.com/rust-lang/mdBook/blob/master/src/lib.rs
 
 switch over to https://github.com/Lutetium-Vanadium/requestty which has a way to do tests https://github.com/Lutetium-Vanadium/requestty/blob/master/tests/helpers/mod.rs
+
+
+https://github.com/SimonCropp/MarkdownSnippets - has decent version of link to source
+- https://github.com/SimonCropp/MarkdownSnippets
+- https://github.com/SimonCropp/MarkdownSnippets
+- this also allows to include full file
+- this also allows to include from url
+
+
+snipsync has a flag `enable_code_dedenting` to toggle trimming leading spaces

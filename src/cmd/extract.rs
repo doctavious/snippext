@@ -1,12 +1,11 @@
-use std::collections::HashMap;
 use clap::Parser;
-use std::path::PathBuf;
 use config::{Config, Environment, File};
 use snippext::{
+    extract, LinkFormat, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate,
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER,
-    extract, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate
 };
-
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -33,16 +32,16 @@ pub struct ExtractOpt {
     #[arg(short, long, help = "")]
     pub template: Option<String>,
 
-    #[arg(short, long, help = "")]
+    #[arg(short, long, value_name = "URL",  help = "")]
     pub repository_url: Option<String>,
 
-    #[arg(short = 'B', long, requires = "repository_url", help = "")]
+    #[arg(short = 'B', long, requires = "repository_url", value_name = "BRANCH", help = "")]
     pub repository_branch: Option<String>,
 
-    #[arg(short = 'C', long, help = "")]
+    #[arg(short = 'C', long, value_name = "COMMIT", help = "")]
     pub repository_commit: Option<String>,
 
-    #[arg(short = 'D', long, help = "Directory remote repository is cloned into")]
+    #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     pub repository_directory: Option<String>,
 
     // TODO: require if for output_dir an targets. one must be provided.
@@ -70,6 +69,18 @@ pub struct ExtractOpt {
     // default to **
     #[arg(short, long, help = "TODO: ...")]
     pub sources: Option<Vec<String>>,
+
+    // value_parser
+    #[arg(
+        short = 'l',
+        long,
+        value_name = "FORMAT",
+        value_enum,
+        help = "Defines the format of snippet source links that appear under each snippet. Links \
+        will not be included if not specified."
+    )]
+    pub link_format: Option<LinkFormat>,
+    // url prefix
 }
 
 pub fn execute(extract_opt: ExtractOpt) -> SnippextResult<()> {
@@ -124,6 +135,10 @@ fn build_settings(opt: ExtractOpt) -> SnippextResult<SnippextSettings> {
         builder = builder.set_override("targets", targets)?;
     }
 
+    if let Some(link_format) = opt.link_format {
+        builder = builder.set_override("link_format", link_format.to_string())?;
+    }
+
     let mut settings: SnippextSettings = builder.build()?.try_deserialize()?;
 
     if let Some(template) = opt.template {
@@ -157,12 +172,11 @@ fn build_settings(opt: ExtractOpt) -> SnippextResult<SnippextSettings> {
     return Ok(settings);
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::ExtractOpt;
     use std::collections::HashSet;
     use std::path::PathBuf;
-    use crate::ExtractOpt;
 
     #[test]
     fn default_config_file() {
@@ -180,6 +194,7 @@ mod tests {
             output_dir: None,
             targets: None,
             sources: Some(vec![]),
+            link_format: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -203,6 +218,7 @@ mod tests {
             sources: Some(vec![String::from("**/*.rs")]),
             output_dir: Some(String::from("./snippext/")),
             targets: Some(vec![String::from("README.md")]),
+            link_format: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -256,6 +272,7 @@ mod tests {
             output_dir: None,
             targets: None,
             sources: None,
+            link_format: None,
         };
 
         let settings = super::build_settings(opt).unwrap();

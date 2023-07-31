@@ -9,3 +9,4 @@ fn sample_fn_1() {
 fn sample_fn_2() {
 
 }
+// end::fn_2

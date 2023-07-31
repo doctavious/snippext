@@ -1,10 +1,10 @@
+use crate::cmd::clear::ClearOpt;
+use crate::cmd::extract::ExtractOpt;
+use crate::cmd::init::InitOpt;
+use crate::cmd::{clear, extract, init, Command};
 use clap::Parser;
 use snippext::SnippextResult;
 use std::io::Write;
-use crate::cmd::clear::ClearOpt;
-use crate::cmd::{clear, Command, extract, init};
-use crate::cmd::extract::{ExtractOpt};
-use crate::cmd::init::InitOpt;
 
 mod cmd;
 
@@ -13,15 +13,13 @@ mod cmd;
 //      . init - generate config with prompts
 //      . extract - extract snippets
 //      . clear - clear snippets from targets
-// 2. updating target files should read lines instead of whole file
-// 3. add file name and path attributes
-// 4. validate error messages
-// 5. docs
-// 6. publish to crates.io
-// 7. create bin / script to download and install
-
-
-
+// 2. updating target files should read lines instead of whole file - done
+// 3. add file name and path attributes - done
+// 4. we should keep snippet name when writing out snippet to taret file
+// 5. validate error messages
+// 6. docs
+// 7. publish to crates.io
+// 8. create bin / script to download and install
 
 // static DEFAULT_CONFIG: &'static str = include_str!("default_snippext.yaml");
 
@@ -41,7 +39,6 @@ mod cmd;
 #[derive(Parser, Debug)]
 #[command(about, version, author)]
 struct Opt {
-
     #[command(subcommand)]
     cmd: Command,
 
@@ -95,25 +92,22 @@ fn init_logger(debug: bool) {
     // builder.init();
 }
 
-
-
-fn prompt(name:&str) -> String {
+fn prompt(name: &str) -> String {
     let mut line = String::new();
     print!("{}", name);
     std::io::stdout().flush().unwrap();
-    std::io::stdin().read_line(&mut line).expect("Error: Could not read a line");
+    std::io::stdin()
+        .read_line(&mut line)
+        .expect("Error: Could not read a line");
 
-    return line.trim().to_string()
+    return line.trim().to_string();
 }
-
 
 // TODO: method to build ClearSettings from ClearOpt/CLI args
 
 #[cfg(test)]
 mod tests {
+    use crate::cmd::extract::ExtractOpt;
     use std::collections::HashSet;
     use std::path::PathBuf;
-    use crate::cmd::extract::ExtractOpt;
-
-
 }

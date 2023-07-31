@@ -112,3 +112,11 @@ TODO: add a note about nested snippets  - Notice that none of the lines with the
 
 TODO: add a note about how start and end snippext tags in target must be on separate lines
 
+
+## Clear Snippets
+
+To remove snippets from target files
+
+```bash
+
+```

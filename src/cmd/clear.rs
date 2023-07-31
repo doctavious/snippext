@@ -1,12 +1,12 @@
 use clap::Parser;
-use std::fs;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::path::PathBuf;
-use config::{Config, ConfigError, Environment, File};
+use config::{Config, Environment, File};
 use serde::{Deserialize, Serialize};
 use snippext::error::SnippextError;
 use snippext::SnippextResult;
+use std::fs;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -44,6 +44,7 @@ pub struct ClearSettings {
     pub targets: Option<Vec<String>>,
 }
 
+/// Removes snippets from target files
 pub fn execute(clear_opt: ClearOpt) -> SnippextResult<()> {
     let settings = build_clear_settings(clear_opt)?;
     clear(settings)
@@ -162,13 +163,12 @@ fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ClearSettings, SnippetSource, SnippextSettings, SnippextTemplate};
+    use crate::clear::ClearSettings;
+    use snippext::error::SnippextError;
     use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::io::Write;
-    use tempfile::{tempdir, NamedTempFile};
-    use snippext::error::SnippextError;
-    use crate::clear::ClearSettings; // TODO: why cant we use crate:error here?
+    use tempfile::{tempdir, NamedTempFile}; // TODO: why cant we use crate:error here?
 
     #[test]
     fn clear_target() {
@@ -181,7 +181,7 @@ foo
 
 More content
 "#
-                .as_bytes(),
+            .as_bytes(),
         );
 
         super::clear_targets(
@@ -206,7 +206,7 @@ More content
             r#"# snippet::foo
 # end::foo
 "#
-                .as_bytes(),
+            .as_bytes(),
         );
 
         super::clear_targets(

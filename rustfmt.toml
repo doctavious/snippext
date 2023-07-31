@@ -1,3 +1,8 @@
+max_width = 100
+edition = "2021"
+
+#imports_granularity = "Crate"
+#group_imports = "StdExternalCrate"
 
 ignore = [
     "tests/samples",

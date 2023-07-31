@@ -7,8 +7,17 @@ comment_prefixes:
 - "<!-- "
 templates:
   default:
-    template: "{{snippet}}"
+    template: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"
     default: true
+  default_with_links:
+    template: "{{snippet}}"
+    default: false
+  code:
+    template: "```{{lang}}\n{{snippet}}```\n"
+    default: false
+  code_with_source_links:
+    template: "```{{lang}}\n{{snippet}}```\n<a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>\n"
+    default: false
 sources:
 # extract from local files
 - files:

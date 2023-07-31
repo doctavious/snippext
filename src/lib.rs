@@ -14,6 +14,7 @@ mod git;
 mod sanitize;
 mod unindent;
 
+use clap::{Parser, ValueEnum};
 use glob::glob;
 
 use regex::Regex;
@@ -21,17 +22,25 @@ use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
 
 use crate::error::SnippextError;
+use clap::builder::PossibleValue;
 use handlebars::{no_escape, Handlebars};
 use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::fs::File;
+use std::fs::{File};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use config::Config;
+use std::str::FromStr;
+use std::{fmt, fs};
+use std::fmt::write;
+use std::time::SystemTime;
+use chrono::{DateTime, Utc};
+use reqwest::blocking::Client;
+use reqwest::header::{EXPIRES, HeaderValue, LAST_MODIFIED};
+use url::Url;
 use unindent::unindent;
+use filetime::{set_file_mtime, FileTime};
 
-pub type SnippextResult<T> = core::result::Result<T, SnippextError>;
+pub type SnippextResult<T> = Result<T, SnippextError>;
 
 // TODO: this might not be needed
 pub const DEFAULT_SNIPPEXT_CONFIG: &str = include_str!("./default_snippext_config.yaml");
@@ -58,17 +67,25 @@ pub struct Snippet {
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
     pub text: String,
-    pub closed: bool,
     pub attributes: HashMap<String, String>,
+    pub start_line: usize,
+    pub end_line: usize,
 }
 
 impl Snippet {
-    pub fn new(identifier: String, attributes: HashMap<String, String>) -> Self {
+    pub fn new(
+        identifier: String,
+        text: String,
+        attributes: HashMap<String, String>,
+        start_line: usize,
+        end_line: usize,
+    ) -> Self {
         Self {
             identifier,
-            text: "".to_string(),
-            closed: false,
+            text,
             attributes,
+            start_line,
+            end_line,
         }
     }
 
@@ -95,6 +112,18 @@ impl SnippextTemplate {
         }
 
         data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
+        // https://github.com/temporalio/snipsync/blob/fef6170acacc6dd351c4ab5784cccaafa80d93d5/src/Sync.js#L68
+        // https://github.com/SimonCropp/MarkdownSnippets/blob/fae28ec759089641d3bf89a90211776de97d8899/src/MarkdownSnippets/Processing/SnippetMarkdownHandling.cs#L62
+        // <a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>
+        // TODO: need url_prefix
+        if let Some(link_format) = &snippext_settings.link_format {
+            data.insert("source_links_enabled".to_string(), "true".to_string());
+            data.insert(
+                "source_link".to_string(),
+                SnippextTemplate::build_source_link(&snippet, link_format),
+            );
+        }
+
         for attribute in &snippet.attributes {
             data.insert(attribute.0.to_string(), attribute.1.to_string());
         }
@@ -111,6 +140,23 @@ impl SnippextTemplate {
 
         Ok(rendered)
     }
+
+    // TODO: need path to complete source link
+    // path = path[targetDirectory.Length..];
+    fn build_source_link(snippet: &Snippet, link_format: &LinkFormat) -> String {
+        match link_format {
+            LinkFormat::GitHub => format!("{}#L{}-L{}", "", snippet.start_line, snippet.end_line),
+            LinkFormat::GitLab => format!("{}#L{}-{}", "", snippet.start_line, snippet.end_line),
+            LinkFormat::BitBucket => {
+                format!("{}#lines={}:{}", "", snippet.start_line, snippet.end_line)
+            }
+            LinkFormat::Gitea => format!("{}#L{}-L{}", "", snippet.start_line, snippet.end_line),
+            LinkFormat::TFS => format!(
+                "{}&line={}&lineEnd={}",
+                "", snippet.start_line, snippet.end_line
+            ),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -123,6 +169,7 @@ pub struct SnippextSettings {
     pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
     pub targets: Option<Vec<String>>,
+    pub link_format: Option<LinkFormat>,
 }
 
 impl SnippextSettings {
@@ -155,6 +202,7 @@ impl SnippextSettings {
             )])],
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
             targets: None,
+            link_format: None,
         }
     }
 
@@ -179,6 +227,7 @@ impl SnippextSettings {
         sources: Vec<SnippetSource>,
         output_dir: Option<String>,
         targets: Option<Vec<String>>,
+        link_format: Option<LinkFormat>,
     ) -> Self {
         Self {
             begin,
@@ -189,10 +238,13 @@ impl SnippextSettings {
             sources,
             output_dir,
             targets,
+            link_format,
         }
     }
 }
 
+
+// TODO: might be better as an enum
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SnippetSource {
     pub repository: Option<String>,
@@ -201,6 +253,7 @@ pub struct SnippetSource {
     pub cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
     pub directory: Option<String>,
     pub files: Vec<String>,
+    pub url: Option<String>,
 }
 
 impl SnippetSource {
@@ -212,6 +265,7 @@ impl SnippetSource {
             cone_patterns: None,
             directory: None,
             files,
+            url: None,
         }
     }
 
@@ -229,15 +283,61 @@ impl SnippetSource {
             cone_patterns: None,
             directory,
             files,
+            url: None,
         }
     }
 
     pub fn is_remote(&self) -> bool {
         self.repository.is_some()
     }
+
+    pub fn is_url(&self) -> bool {
+        self.url.is_some()
+    }
 }
 
+#[derive(Clone, Debug, Deserialize, Parser, Serialize)]
+pub enum LinkFormat {
+    GitHub,
+    GitLab,
+    Gitea,
+    BitBucket,
+    TFS,
+}
 
+impl ValueEnum for LinkFormat {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            LinkFormat::GitHub,
+            LinkFormat::GitLab,
+            LinkFormat::Gitea,
+            LinkFormat::BitBucket,
+            LinkFormat::TFS,
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(match self {
+            LinkFormat::GitHub => PossibleValue::new("github"),
+            LinkFormat::GitLab => PossibleValue::new("gitlab"),
+            LinkFormat::Gitea => PossibleValue::new("gitea"),
+            LinkFormat::BitBucket => PossibleValue::new("bitbucket"),
+            LinkFormat::TFS => PossibleValue::new("tfs"),
+        })
+    }
+}
+
+impl fmt::Display for LinkFormat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LinkFormat::GitHub => write!(f, "github"),
+            LinkFormat::GitLab => write!(f, "gitlab"),
+            LinkFormat::Gitea => write!(f, "gitea"),
+            LinkFormat::BitBucket => write!(f, "bitbucket"),
+            LinkFormat::TFS => write!(f, "tfs"),
+        }
+    }
+}
 
 /// find appropriate Snippext Template using the following rules
 ///
@@ -348,6 +448,19 @@ pub fn update_target_string_snippet(
     Ok(())
 }
 
+pub struct SnippetExtractionState {
+    pub key: String,
+    pub start_line: usize,
+    pub lines: String,
+    pub attributes: HashMap<String, String>,
+}
+
+impl SnippetExtractionState {
+    pub fn append_line(&mut self, line: &str) {
+        self.lines.push_str(line)
+    }
+}
+
 pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_snippext_settings(&snippext_settings)?;
 
@@ -383,7 +496,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                             .trim_start_matches(x),
                     )
                     .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension(snippext_settings.extension.as_str());
+                    .with_extension("txt");
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
                 let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
@@ -398,7 +511,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         Path::new(target).to_path_buf(),
                         &snippet,
                         &snippext_settings,
-                    );
+                    )?;
                 }
             }
         }
@@ -411,48 +524,79 @@ pub fn extract_snippets(
     comment_prefixes: &HashSet<String>,
     begin_pattern: String,
     end_pattern: String,
-    filename: &Path,
+    path: &Path,
 ) -> SnippextResult<Vec<Snippet>> {
-    let f = File::open(filename)?;
+    let f = File::open(path)?;
     let reader = BufReader::new(f);
 
+    let mut state = Vec::default();
+    let mut current_line_number = 0;
     let mut snippets: Vec<Snippet> = Vec::new();
+
     for line in reader.lines() {
+        current_line_number += 1;
         let l = line?;
 
         let begin_ident = matches(&l, comment_prefixes, &begin_pattern);
         if let Some(begin_ident) = begin_ident {
+            let mut attributes = HashMap::from([
+                ("path".to_string(), path.to_string_lossy().to_string()),
+                ("filename".to_string(), path.file_name().unwrap().to_string_lossy().to_string())
+            ]);
             // TODO: I feel like this is the long hard way to do this...
-            let mut attributes = HashMap::new();
             let last_square_bracket_pos = begin_ident.rfind('[');
             if let Some(last_square_bracket_pos) = last_square_bracket_pos {
                 let identifier = &begin_ident.as_str()[..last_square_bracket_pos];
-                let attributes = extract_attributes(begin_ident.as_str());
-                let snippet = Snippet::new(identifier.to_string(), attributes);
-                snippets.push(snippet);
+                attributes.extend(extract_attributes(begin_ident.as_str()));
+                state.push(SnippetExtractionState {
+                    key: identifier.to_string(),
+                    start_line: current_line_number,
+                    lines: String::new(),
+                    attributes,
+                });
             } else {
-                let snippet = Snippet::new(begin_ident, attributes);
-                snippets.push(snippet);
+                state.push(SnippetExtractionState {
+                    key: begin_ident,
+                    start_line: current_line_number,
+                    lines: String::new(),
+                    attributes,
+                });
             }
 
+            continue;
+        }
+
+        // currently not in snippet
+        if state.is_empty() {
             continue;
         }
 
         let end_ident = matches(&l, &comment_prefixes, &end_pattern);
-        if let Some(end_ident) = end_ident {
-            for snippet in snippets.iter_mut() {
-                if snippet.identifier == end_ident {
-                    snippet.closed = true
-                }
+        if end_ident.is_some() {
+            if let Some(state) = state.pop() {
+                snippets.push(Snippet::new(
+                    state.key,
+                    state.lines,
+                    state.attributes,
+                    state.start_line,
+                    current_line_number,
+                ));
             }
-            continue;
-        }
-        for snippet in snippets.iter_mut() {
-            if snippet.closed {
-                continue;
+        } else {
+            for e in state.iter_mut() {
+                e.append_line((l.clone() + "\n").as_str())
             }
-            snippet.text = String::from(snippet.text.as_str()) + l.as_str() + "\n"
         }
+    }
+
+    if !state.is_empty() {
+        let snippet = state.pop().unwrap();
+        return Err(SnippextError::GeneralError(format!(
+            "Snippet '{}' was not closed in file {} starting at line {}",
+            &snippet.key,
+            &path.to_string_lossy(),
+            &snippet.start_line
+        )));
     }
 
     Ok(snippets)
@@ -498,7 +642,49 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
                 source.branch.clone(),
                 source.cone_patterns.clone(),
                 source.directory.clone(),
-            );
+            )?;
+        }
+
+        // TODO: remove unwraps
+        if let Some(url) = &source.url {
+            // TODO: swap unwrap with map to error
+            let url_file_path = Url::from_str(url.as_str())?.to_file_path().unwrap();
+            if url_file_path.exists() {
+                // TODO: see if current file is less than expiry if so break out
+                if url_file_path.metadata().unwrap().modified().unwrap() > SystemTime::now() {
+
+                }
+            }
+
+            let client = Client::new();
+            let head = client.head(url).send()?;
+            if !head.status().is_success() {
+                // log and continue
+            }
+
+            // last modified header
+            // expires header
+            let last_modified = head.headers().get(LAST_MODIFIED);
+            let expires = head.headers().get(EXPIRES);
+
+            if url_file_path.try_exists().is_ok() {
+                if let Some(last_modified) = last_modified {
+                    let url_modified: DateTime<Utc> = DateTime::from_str(last_modified.to_str().unwrap()).unwrap();
+                    let url_file_modified: DateTime<Utc> = url_file_path.metadata().unwrap().modified().unwrap().into();
+                    if url_modified == url_file_modified {
+                        // break / continue. no need to download
+                    }
+
+                    fs::remove_file(&url_file_path)?;
+                }
+            }
+
+            let url_response = client.get(url).send()?;
+            if url_response.status().is_success() {
+                fs::write(url_file_path, url_response.text()?)?;
+                // TODO: do we need to set file metadata? filetime set_file_mtime
+            }
+
         }
 
         for file in &source.files {
@@ -506,7 +692,11 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
                 // TODO: encapsulate this somewhere
                 let x: &[_] = &['.', '/'];
                 (
-                    format!("{}/{}", dir.trim_end_matches('/'), file.clone().trim_start_matches(x)),
+                    format!(
+                        "{}/{}",
+                        dir.trim_end_matches('/'),
+                        file.clone().trim_start_matches(x)
+                    ),
                     dir,
                 )
             } else {
@@ -542,6 +732,57 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
     }
 
     Ok(source_files)
+}
+
+fn download_url(url: &String) -> SnippextResult<PathBuf> {
+    let url_file_path = Url::from_str(url.as_str())?
+        .to_file_path()
+        .map_err(|_| SnippextError::GeneralError(format!("failed to convert url {} to file path", url)))?;
+
+    if let Ok(file_metadata) = url_file_path.metadata() {
+        let file_modified = file_metadata.modified().ok();
+        if file_modified.is_some_and(|t| t > SystemTime::now()) {
+            return Ok(url_file_path);
+        }
+    }
+
+    let client = Client::new();
+    let head = client.head(url).send()?;
+    if !head.status().is_success() {
+        // TODO: log
+        return Err(SnippextError::GeneralError(format!("Failed to download details from {}", url)));
+    }
+
+    if let Ok(file_metadata) = url_file_path.metadata() {
+        if let Ok(file_created) = file_metadata.created() {
+            let web_modified = header_to_systemtime(head.headers().get(LAST_MODIFIED));
+            if web_modified.is_some_and(|t| t < file_created) {
+                return Ok(url_file_path);
+            }
+        }
+
+        fs::remove_file(&url_file_path)?;
+    }
+
+    let mut response = client.get(url).send()?;
+    if response.status().is_success() {
+        let mut file = File::create(&url_file_path)?;
+        response.copy_to(&mut file)?;
+
+        // TODO: do we need to do this? Would this be different then head?
+        let web_expiration = header_to_systemtime(response.headers().get(EXPIRES));
+        if let Some(expires) = web_expiration {
+            set_file_mtime(&url_file_path, FileTime::from(expires))?;
+        }
+    }
+
+    Ok(url_file_path)
+}
+
+fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime> {
+    let header_value_str = header_value?.to_str().ok()?;
+    let date_time: DateTime<Utc> = chrono::DateTime::from_str(header_value_str).ok()?;
+    Some(date_time.into())
 }
 
 // TODO: return tuple (prefix and identifier) or struct?
@@ -662,12 +903,6 @@ pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
     Ok(())
 }
 
-
-
-
-
-
-
 #[cfg(test)]
 mod tests {
     use crate::error::SnippextError;
@@ -694,6 +929,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            None,
             None,
         );
 
@@ -729,6 +965,7 @@ mod tests {
             HashMap::new(),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            None,
             None,
         );
 
@@ -774,6 +1011,7 @@ mod tests {
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -818,6 +1056,7 @@ mod tests {
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -852,6 +1091,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            None,
             None,
         );
 
@@ -888,6 +1128,7 @@ mod tests {
             vec![],
             Some(String::from("./snippets/")),
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -922,6 +1163,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![])],
             Some(String::from("./snippets/")),
+            None,
             None,
         );
 
@@ -963,8 +1205,10 @@ mod tests {
                 cone_patterns: None,
                 directory: None,
                 files: vec![String::from("**")],
+                url: None,
             }],
             Some(String::from("./snippets/")),
+            None,
             None,
         );
 
@@ -983,5 +1227,4 @@ mod tests {
             }
         }
     }
-
 }
