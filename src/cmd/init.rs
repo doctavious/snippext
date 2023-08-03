@@ -1,11 +1,12 @@
+use std::collections::{HashMap, HashSet};
 use clap::Parser;
 use inquire::{required, Confirm, Select, Text};
-use snippext::{
+use crate::{
     init, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, DEFAULT_BEGIN,
     DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SOURCE_FILES,
     DEFAULT_TEMPLATE,
 };
-use std::collections::{HashMap, HashSet};
+
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -177,5 +178,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         output_dir,
         targets: None,
         link_format: None,
+        url_prefix: None,
     })
 }

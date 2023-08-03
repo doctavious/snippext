@@ -1,6 +1,6 @@
-use inquire::error::InquireError;
 use std::path::StripPrefixError;
 use std::string::FromUtf8Error;
+use inquire::error::InquireError;
 use thiserror::Error;
 use url::ParseError;
 

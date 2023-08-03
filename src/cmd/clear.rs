@@ -1,12 +1,12 @@
-use clap::Parser;
-use config::{Config, Environment, File};
-use serde::{Deserialize, Serialize};
-use snippext::error::SnippextError;
-use snippext::SnippextResult;
 use std::fs;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::PathBuf;
+use clap::Parser;
+use config::{Config, Environment, File};
+use serde::{Deserialize, Serialize};
+use crate::error::SnippextError;
+use crate::SnippextResult;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -163,12 +163,11 @@ fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::clear::ClearSettings;
-    use snippext::error::SnippextError;
-    use std::collections::{HashMap, HashSet};
+    use crate::cmd::clear::ClearSettings;
+    use crate::error::SnippextError;
     use std::fs;
     use std::io::Write;
-    use tempfile::{tempdir, NamedTempFile}; // TODO: why cant we use crate:error here?
+    use tempfile::{NamedTempFile}; // TODO: why cant we use crate:error here?
 
     #[test]
     fn clear_target() {

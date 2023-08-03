@@ -1,9 +1,10 @@
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
+use std::process::Command;
+
 use crate::error::SnippextError;
 use crate::SnippextResult;
-use std::process::Command;
 
 pub(crate) fn checkout_files(
     remote: String,
