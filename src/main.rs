@@ -1,12 +1,10 @@
-use crate::cmd::clear::ClearOpt;
-use crate::cmd::extract::ExtractOpt;
-use crate::cmd::init::InitOpt;
-use crate::cmd::{clear, extract, init, Command};
 use clap::Parser;
-use snippext::SnippextResult;
-use std::io::Write;
+use tracing::{Level};
+use tracing_subscriber;
 
-mod cmd;
+use snippext::cmd::{clear, extract, init, Command};
+use snippext::SnippextResult;
+
 
 // TODO priorities
 // 1. refactor to subcommands
@@ -42,7 +40,7 @@ struct Opt {
     #[command(subcommand)]
     cmd: Command,
 
-    #[arg(long, help = "TODO: ...")]
+    #[arg(long, help = "")]
     pub debug: bool,
 }
 
@@ -59,55 +57,16 @@ fn main() -> SnippextResult<()> {
 }
 
 fn init_logger(debug: bool) {
-    // TODO: implement and then use logger instead of println
+    let level = if debug {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
 
-    // TODO: add debug
-    // if opt.debug {
-    //     std::env::set_var("RUST_LOG", "debug");
-    //     env_logger::init();
-    // }
-
-    // let mut builder = Builder::new();
-    //
-    // builder.format(|formatter, record| {
-    //     writeln!(
-    //         formatter,
-    //         "{} [{}] ({}): {}",
-    //         Local::now().format("%Y-%m-%d %H:%M:%S"),
-    //         record.level(),
-    //         record.target(),
-    //         record.args()
-    //     )
-    // });
-    //
-    // if let Ok(var) = env::var("RUST_LOG") {
-    //     builder.parse_filters(&var);
-    // } else {
-    //     // if no RUST_LOG provided, default to logging at the Info level
-    //     builder.filter(None, LevelFilter::Info);
-    //     // Filter extraneous html5ever not-implemented messages
-    //     builder.filter(Some("html5ever"), LevelFilter::Error);
-    // }
-    //
-    // builder.init();
+    tracing_subscriber::fmt().with_max_level(level).init();
 }
-
-fn prompt(name: &str) -> String {
-    let mut line = String::new();
-    print!("{}", name);
-    std::io::stdout().flush().unwrap();
-    std::io::stdin()
-        .read_line(&mut line)
-        .expect("Error: Could not read a line");
-
-    return line.trim().to_string();
-}
-
-// TODO: method to build ClearSettings from ClearOpt/CLI args
 
 #[cfg(test)]
 mod tests {
-    use crate::cmd::extract::ExtractOpt;
-    use std::collections::HashSet;
-    use std::path::PathBuf;
+
 }
