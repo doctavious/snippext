@@ -1,4 +1,4 @@
-use snippext::{extract, SnippetSource, SnippextSettings, SnippextTemplate};
+use snippext::{extract, LinkFormat, SnippetSource, SnippextSettings, SnippextTemplate};
 use std::collections::{HashMap, HashSet};
 
 use tempfile::tempdir;
@@ -6,8 +6,10 @@ use tempfile::tempdir;
 use snippext::error::SnippextError;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tracing_test::traced_test;
 
 #[test]
+#[traced_test]
 fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
@@ -27,6 +29,7 @@ fn should_successfully_extract_from_local_sources_directory() {
             "./tests/samples/*",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
         None,
     ))
@@ -80,7 +83,7 @@ fn error_when_extracting_from_unavailable_remote() {
                 default: true,
             },
         )]),
-        vec![SnippetSource::new_remote(
+        vec![SnippetSource::new_git(
             String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
             String::from("main"),
             None,
@@ -94,6 +97,7 @@ fn error_when_extracting_from_unavailable_remote() {
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
+        None,
         None,
         None,
     ));
@@ -123,6 +127,7 @@ fn should_error_when_snippet_is_not_closed() {
         Some(dir.path().to_string_lossy().to_string()),
         None,
         None,
+        None,
     ));
 
     assert!(result.is_err());
@@ -145,7 +150,7 @@ fn should_successfully_extract_from_remote() {
                 default: true,
             },
         )]),
-        vec![SnippetSource::new_remote(
+        vec![SnippetSource::new_git(
             String::from("https://github.com/doctavious/snippext.git"),
             String::from("main"),
             None,
@@ -156,6 +161,7 @@ fn should_successfully_extract_from_remote() {
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
+        None,
         None,
         None,
     ))
@@ -193,6 +199,7 @@ fn should_successfully_extract_from_local_sources_file() {
             "./tests/samples/custom_prefix.rb",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
         None,
     ))
@@ -236,6 +243,7 @@ fn should_update_specified_targets() {
             .to_string_lossy()
             .to_string()]),
         None,
+        None,
     ))
     .unwrap();
 
@@ -278,6 +286,7 @@ fn should_support_template_with_attributes() {
             "./tests/samples/main.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
         None,
     ))
@@ -335,6 +344,7 @@ fn support_target_snippet_specifies_template() {
             .to_string_lossy()
             .to_string()]),
         None,
+        None,
     ))
     .unwrap();
 
@@ -374,6 +384,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         Some(dir.path().to_string_lossy().to_string()),
         None,
         None,
+        None,
     ))
     .unwrap();
 
@@ -411,6 +422,7 @@ fn should_support_files_with_no_snippets() {
         Some(dir.path().to_string_lossy().to_string()),
         None,
         None,
+        None,
     ))
     .unwrap();
 
@@ -443,6 +455,7 @@ fn invalid_glob() {
         )]),
         vec![SnippetSource::new_local(vec![String::from("[&")])],
         Some(dir.path().to_string_lossy().to_string()),
+        None,
         None,
         None,
     ));
@@ -480,6 +493,7 @@ fn glob_returns_no_files() {
         Some(dir.path().to_string_lossy().to_string()),
         None,
         None,
+        None,
     ))
     .unwrap();
 
@@ -492,4 +506,76 @@ fn glob_returns_no_files() {
         .collect();
 
     assert_eq!(0, files.len());
+}
+
+#[test]
+fn support_source_links() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        HashSet::from([String::from("# ")]),
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/samples/custom_prefix.rb",
+        )])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+        Some(LinkFormat::GitHub),
+        None,
+    ))
+        .unwrap();
+
+    let content =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
+            .unwrap();
+
+    assert_eq!(
+        "```puts \"Hello, Ruby!\"\n```\n<a href='/tests/samples/custom_prefix.rb#L2-L4' title='Snippet source file'>source</a>",
+        content
+    );
+}
+
+#[test]
+fn source_links_should_support_prefix() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        HashSet::from([String::from("# ")]),
+        String::from("snippet::"),
+        String::from("end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/samples/custom_prefix.rb",
+        )])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+        Some(LinkFormat::GitHub),
+        Some("http://github.com/foo".into()),
+    ))
+        .unwrap();
+
+    let content =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
+            .unwrap();
+
+    assert_eq!(
+        "```puts \"Hello, Ruby!\"\n```\n<a href='http://github.com/foo/tests/samples/custom_prefix.rb#L2-L4' title='Snippet source file'>source</a>",
+        content
+    );
 }

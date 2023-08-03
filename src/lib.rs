@@ -10,35 +10,37 @@
 //! [even more advanced explanations if necessary]
 
 pub mod error;
-mod git;
-mod sanitize;
-mod unindent;
+pub mod git;
+pub mod unindent;
+pub mod sanitize;
+pub mod cmd;
 
-use clap::{Parser, ValueEnum};
-use glob::glob;
-
-use regex::Regex;
-use sanitize::sanitize;
-use serde::{Deserialize, Serialize};
-
-use crate::error::SnippextError;
-use clap::builder::PossibleValue;
-use handlebars::{no_escape, Handlebars};
 use std::collections::{HashMap, HashSet};
+use std::default::Default;
 use std::fs::{File};
+use std::{fmt, fs};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fmt, fs};
-use std::fmt::write;
 use std::time::SystemTime;
+
 use chrono::{DateTime, Utc};
+use clap::{Parser, ValueEnum};
+use clap::builder::PossibleValue;
+use filetime::{set_file_mtime, FileTime};
+use glob::glob;
+use handlebars::{no_escape, Handlebars};
+use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{EXPIRES, HeaderValue, LAST_MODIFIED};
+use serde::{Deserialize, Serialize};
 use url::Url;
-use unindent::unindent;
-use filetime::{set_file_mtime, FileTime};
+
+use crate::error::SnippextError;
+use crate::unindent::unindent;
+use crate::sanitize::sanitize;
+
 
 pub type SnippextResult<T> = Result<T, SnippextError>;
 
@@ -66,15 +68,19 @@ pub struct Snippet {
 
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
+    /// The path the snippet was read from.
+    pub path: PathBuf,
     pub text: String,
     pub attributes: HashMap<String, String>,
     pub start_line: usize,
     pub end_line: usize,
+
 }
 
 impl Snippet {
     pub fn new(
         identifier: String,
+        path: PathBuf,
         text: String,
         attributes: HashMap<String, String>,
         start_line: usize,
@@ -82,6 +88,7 @@ impl Snippet {
     ) -> Self {
         Self {
             identifier,
+            path,
             text,
             attributes,
             start_line,
@@ -111,16 +118,26 @@ impl SnippextTemplate {
             data.extend(target_attributes.unwrap());
         }
 
+        // TODO: do we want to make unindent optional?
         data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
         // https://github.com/temporalio/snipsync/blob/fef6170acacc6dd351c4ab5784cccaafa80d93d5/src/Sync.js#L68
         // https://github.com/SimonCropp/MarkdownSnippets/blob/fae28ec759089641d3bf89a90211776de97d8899/src/MarkdownSnippets/Processing/SnippetMarkdownHandling.cs#L62
         // <a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>
-        // TODO: need url_prefix
         if let Some(link_format) = &snippext_settings.link_format {
             data.insert("source_links_enabled".to_string(), "true".to_string());
+
+            let source_link = SnippextTemplate::build_source_link(
+                &snippet,
+                link_format,
+                snippext_settings.url_prefix.to_owned().unwrap_or_default(),
+            );
+
             data.insert(
                 "source_link".to_string(),
-                SnippextTemplate::build_source_link(&snippet, link_format),
+                format!(
+                    "<a href='{}' title='Snippet source file'>source</a>",
+                    source_link
+                ),
             );
         }
 
@@ -128,7 +145,7 @@ impl SnippextTemplate {
             data.insert(attribute.0.to_string(), attribute.1.to_string());
         }
 
-        let template = get_template(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), &snippext_settings)?;
+        let template = get_template(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), snippext_settings)?;
         return template.render(&data);
     }
 
@@ -141,19 +158,24 @@ impl SnippextTemplate {
         Ok(rendered)
     }
 
-    // TODO: need path to complete source link
-    // path = path[targetDirectory.Length..];
-    fn build_source_link(snippet: &Snippet, link_format: &LinkFormat) -> String {
+    fn build_source_link(snippet: &Snippet, link_format: &LinkFormat, url_prefix: String) -> String {
+        let mut path = url_prefix;
+        if !path.ends_with("/") {
+            path.push_str("/")
+        }
+
+        path.push_str(snippet.path.to_str().unwrap_or_default());
+
         match link_format {
-            LinkFormat::GitHub => format!("{}#L{}-L{}", "", snippet.start_line, snippet.end_line),
-            LinkFormat::GitLab => format!("{}#L{}-{}", "", snippet.start_line, snippet.end_line),
+            LinkFormat::GitHub => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
+            LinkFormat::GitLab => format!("{}#L{}-{}", path, snippet.start_line, snippet.end_line),
             LinkFormat::BitBucket => {
-                format!("{}#lines={}:{}", "", snippet.start_line, snippet.end_line)
+                format!("{}#lines={}:{}", path, snippet.start_line, snippet.end_line)
             }
-            LinkFormat::Gitea => format!("{}#L{}-L{}", "", snippet.start_line, snippet.end_line),
+            LinkFormat::Gitea => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
             LinkFormat::TFS => format!(
                 "{}&line={}&lineEnd={}",
-                "", snippet.start_line, snippet.end_line
+                path, snippet.start_line, snippet.end_line
             ),
         }
     }
@@ -170,6 +192,7 @@ pub struct SnippextSettings {
     pub output_dir: Option<String>,
     pub targets: Option<Vec<String>>,
     pub link_format: Option<LinkFormat>,
+    pub url_prefix: Option<String>,
 }
 
 impl SnippextSettings {
@@ -203,6 +226,7 @@ impl SnippextSettings {
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
             targets: None,
             link_format: None,
+            url_prefix: None,
         }
     }
 
@@ -228,6 +252,7 @@ impl SnippextSettings {
         output_dir: Option<String>,
         targets: Option<Vec<String>>,
         link_format: Option<LinkFormat>,
+        url_prefix: Option<String>,
     ) -> Self {
         Self {
             begin,
@@ -239,6 +264,7 @@ impl SnippextSettings {
             output_dir,
             targets,
             link_format,
+            url_prefix,
         }
     }
 }
@@ -269,7 +295,7 @@ impl SnippetSource {
         }
     }
 
-    pub fn new_remote(
+    pub fn new_git(
         repository: String,
         branch: String,
         commit: Option<String>,
@@ -284,6 +310,18 @@ impl SnippetSource {
             directory,
             files,
             url: None,
+        }
+    }
+
+    pub fn new_url(url: String) -> Self {
+        Self {
+            repository: None,
+            branch: None,
+            commit: None,
+            cone_patterns: None,
+            directory: None,
+            files: Vec::default(),
+            url: Some(url),
         }
     }
 
@@ -576,6 +614,7 @@ pub fn extract_snippets(
             if let Some(state) = state.pop() {
                 snippets.push(Snippet::new(
                     state.key,
+                    path.to_path_buf(),
                     state.lines,
                     state.attributes,
                     state.start_line,
@@ -629,6 +668,9 @@ struct SourceFile {
     pub relative_path: PathBuf,
 }
 
+
+
+// TODO: we should instead be collecting snippets
 // TODO: This code is absolute shit. Clean this up
 // Need both the absolute path and the relative path so that for when we output generated files
 // we only include relative directories within the output directory.
@@ -645,46 +687,10 @@ fn get_filenames(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>>
             )?;
         }
 
-        // TODO: remove unwraps
         if let Some(url) = &source.url {
-            // TODO: swap unwrap with map to error
-            let url_file_path = Url::from_str(url.as_str())?.to_file_path().unwrap();
-            if url_file_path.exists() {
-                // TODO: see if current file is less than expiry if so break out
-                if url_file_path.metadata().unwrap().modified().unwrap() > SystemTime::now() {
-
-                }
-            }
-
-            let client = Client::new();
-            let head = client.head(url).send()?;
-            if !head.status().is_success() {
-                // log and continue
-            }
-
-            // last modified header
-            // expires header
-            let last_modified = head.headers().get(LAST_MODIFIED);
-            let expires = head.headers().get(EXPIRES);
-
-            if url_file_path.try_exists().is_ok() {
-                if let Some(last_modified) = last_modified {
-                    let url_modified: DateTime<Utc> = DateTime::from_str(last_modified.to_str().unwrap()).unwrap();
-                    let url_file_modified: DateTime<Utc> = url_file_path.metadata().unwrap().modified().unwrap().into();
-                    if url_modified == url_file_modified {
-                        // break / continue. no need to download
-                    }
-
-                    fs::remove_file(&url_file_path)?;
-                }
-            }
-
-            let url_response = client.get(url).send()?;
-            if url_response.status().is_success() {
-                fs::write(url_file_path, url_response.text()?)?;
-                // TODO: do we need to set file metadata? filetime set_file_mtime
-            }
-
+            let path = download_url(url)?;
+            // source_files.append(path.to_string_lossy().to_string());
+            // TODO: what to do with path
         }
 
         for file in &source.files {
@@ -911,6 +917,7 @@ mod tests {
     use std::fs;
     use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
+    use tracing::info;
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
     #[test]
@@ -931,13 +938,13 @@ mod tests {
             Some(String::from("./snippets/")),
             None,
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
-                println!("{:?}", failures);
                 assert_eq!(5, failures.len());
                 assert!(failures.contains(&String::from("begin must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
@@ -965,6 +972,7 @@ mod tests {
             HashMap::new(),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            None,
             None,
             None,
         );
@@ -1012,6 +1020,7 @@ mod tests {
             Some(String::from("./snippets/")),
             None,
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -1057,6 +1066,7 @@ mod tests {
             Some(String::from("./snippets/")),
             None,
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -1091,6 +1101,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            None,
             None,
             None,
         );
@@ -1129,6 +1140,7 @@ mod tests {
             Some(String::from("./snippets/")),
             None,
             None,
+            None,
         );
 
         let validation_result = super::extract(settings);
@@ -1163,6 +1175,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![])],
             Some(String::from("./snippets/")),
+            None,
             None,
             None,
         );
@@ -1208,6 +1221,7 @@ mod tests {
                 url: None,
             }],
             Some(String::from("./snippets/")),
+            None,
             None,
             None,
         );
