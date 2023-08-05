@@ -1,11 +1,9 @@
-use clap::{Parser};
-use tracing::{Level};
-use tracing_subscriber;
-
+use clap::Parser;
+use snippext::cli::Command;
 use snippext::cmd::{clear, extract, init};
 use snippext::{cli, SnippextResult};
-use snippext::cli::Command;
-
+use tracing::Level;
+use tracing_subscriber;
 
 // TODO priorities
 // 1. refactor to subcommands
@@ -28,7 +26,6 @@ use snippext::cli::Command;
 // 3. clear - clear up generate or files
 // 4. init - generate config file
 
-
 fn main() -> SnippextResult<()> {
     let opt = cli::Args::parse();
 
@@ -42,16 +39,10 @@ fn main() -> SnippextResult<()> {
 }
 
 fn init_logger(debug: bool) {
-    let level = if debug {
-        Level::DEBUG
-    } else {
-        Level::INFO
-    };
+    let level = if debug { Level::DEBUG } else { Level::INFO };
 
     tracing_subscriber::fmt().with_max_level(level).init();
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

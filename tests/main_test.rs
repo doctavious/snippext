@@ -1,14 +1,15 @@
 use std::collections::{HashMap, HashSet};
-use tempfile::tempdir;
-use snippext::error::SnippextError;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing_test::traced_test;
-use walkdir::WalkDir;
+
 use snippext::cmd::extract::extract;
+use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::templates::SnippextTemplate;
 use snippext::types::{LinkFormat, SnippetSource};
+use tempfile::tempdir;
+use tracing_test::traced_test;
+use walkdir::WalkDir;
 
 #[test]
 #[traced_test]
@@ -47,7 +48,8 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(main_content_expected, main_content_actual);
 
     let main_nested_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.txt")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.txt"))
+            .unwrap();
     assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
@@ -527,7 +529,9 @@ fn support_source_links() {
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
-                content: String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+                content: String::from(
+                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
+                ),
                 default: true,
             },
         )]),
@@ -539,7 +543,7 @@ fn support_source_links() {
         Some(LinkFormat::GitHub),
         None,
     ))
-        .unwrap();
+    .unwrap();
 
     let content =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
@@ -563,7 +567,9 @@ fn source_links_should_support_prefix() {
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
-                content: String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+                content: String::from(
+                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
+                ),
                 default: true,
             },
         )]),
@@ -575,7 +581,7 @@ fn source_links_should_support_prefix() {
         Some(LinkFormat::GitHub),
         Some("http://github.com/foo".into()),
     ))
-        .unwrap();
+    .unwrap();
 
     let content =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))

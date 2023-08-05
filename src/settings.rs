@@ -1,11 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+
 use serde::{Deserialize, Serialize};
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_OUTPUT_DIR, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
-use crate::SnippextResult;
+
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
+    DEFAULT_OUTPUT_DIR, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
+};
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
+use crate::SnippextResult;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SnippextSettings {

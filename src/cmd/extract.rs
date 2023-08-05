@@ -5,26 +5,26 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
+
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use config::{Config, Environment};
-use filetime::{FileTime, set_file_mtime};
+use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
 use regex::Regex;
 use reqwest::blocking::Client;
-use reqwest::header::{EXPIRES, HeaderValue, LAST_MODIFIED};
+use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
 use tempfile::TempDir;
 use tracing::{info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
-use crate::{git, SnippextResult, SnippextSettings};
 use crate::constants::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
-
+use crate::{git, SnippextResult, SnippextSettings};
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -48,16 +48,32 @@ pub struct Args {
     // TODO: make vec default to ["// ", "<!-- "]
     // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
     // comment prefix
-    #[arg(short = 'p', long, value_name = "PREFIXES", help = "Prefixes to use for comments")]
+    #[arg(
+        short = 'p',
+        long,
+        value_name = "PREFIXES",
+        help = "Prefixes to use for comments"
+    )]
     pub comment_prefixes: Option<Vec<String>>,
 
-    #[arg(short, long, value_name = "DIR", help = "Directory where templates exists. File names act as keys")]
+    #[arg(
+        short,
+        long,
+        value_name = "DIR",
+        help = "Directory where templates exists. File names act as keys"
+    )]
     pub templates: Option<String>,
 
-    #[arg(short, long, value_name = "URL",  help = "")]
+    #[arg(short, long, value_name = "URL", help = "")]
     pub repository_url: Option<String>,
 
-    #[arg(short = 'B', long, requires = "repository_url", value_name = "BRANCH", help = "")]
+    #[arg(
+        short = 'B',
+        long,
+        requires = "repository_url",
+        value_name = "BRANCH",
+        help = ""
+    )]
     pub repository_branch: Option<String>,
 
     #[arg(short = 'C', long, value_name = "COMMIT", help = "")]
@@ -65,7 +81,6 @@ pub struct Args {
 
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     // pub repository_directory: Option<String>,
-
     #[arg(
         short,
         long,
@@ -92,7 +107,6 @@ pub struct Args {
     // default to **
     #[arg(short, long, help = "TODO: ...")]
     pub sources: Vec<String>,
-
 
     /// Urls to files to be included as snippets.
     /// Each url will be accessible using the file name as a key.
@@ -131,7 +145,6 @@ impl SnippetExtractionState {
         self.lines.push_str(line)
     }
 }
-
 
 struct SourceFile {
     pub full_path: PathBuf,
@@ -291,9 +304,7 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     for source in &settings.sources {
         if source.is_remote() {
             let repo = source.repository.as_ref().unwrap();
-            let download_dir = TempDir::new()?.into_path()
-                .to_string_lossy()
-                .to_string();
+            let download_dir = TempDir::new()?.into_path().to_string_lossy().to_string();
 
             git::checkout_files(
                 &repo,
@@ -303,15 +314,17 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
             )?;
 
             let dir_length = download_dir.len();
-            let patterns = source.files.iter()
+            let patterns = source
+                .files
+                .iter()
                 .map(|f| Pattern::new(f))
                 .filter_map(|p| p.ok())
                 .collect::<Vec<Pattern>>();
 
             for entry in WalkDir::new(&download_dir)
                 .into_iter()
-                .filter_map(|e| e.ok()) {
-
+                .filter_map(|e| e.ok())
+            {
                 let path = &entry.path().to_string_lossy().to_string();
                 let relative_path_str = &path[dir_length..];
 
@@ -322,7 +335,6 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
                     });
                 }
             }
-
         } else if let Some(url) = &source.url {
             let path = download_url(url)?;
             source_files.push(SourceFile {
@@ -343,7 +355,8 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
 
                 for entry in paths {
                     let path = entry.unwrap();
-                    let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str()) {
+                    let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str())
+                    {
                         prefix.to_path_buf()
                     } else {
                         path.clone()
@@ -363,11 +376,10 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     Ok(source_files)
 }
 
-
 fn download_url(url: &String) -> SnippextResult<PathBuf> {
-    let url_file_path = Url::from_str(url.as_str())?
-        .to_file_path()
-        .map_err(|_| SnippextError::GeneralError(format!("failed to convert url {} to file path", url)))?;
+    let url_file_path = Url::from_str(url.as_str())?.to_file_path().map_err(|_| {
+        SnippextError::GeneralError(format!("failed to convert url {} to file path", url))
+    })?;
 
     if let Ok(file_metadata) = url_file_path.metadata() {
         let file_modified = file_metadata.modified().ok();
@@ -380,7 +392,10 @@ fn download_url(url: &String) -> SnippextResult<PathBuf> {
     let head = client.head(url).send()?;
     if !head.status().is_success() {
         // TODO: log
-        return Err(SnippextError::GeneralError(format!("Failed to download details from {}", url)));
+        return Err(SnippextError::GeneralError(format!(
+            "Failed to download details from {}",
+            url
+        )));
     }
 
     if let Ok(file_metadata) = url_file_path.metadata() {
@@ -415,7 +430,6 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
     Some(date_time.into())
 }
 
-
 fn extract_snippets(
     comment_prefixes: &HashSet<String>,
     begin_pattern: String,
@@ -437,7 +451,10 @@ fn extract_snippets(
         if let Some(begin_ident) = begin_ident {
             let mut attributes = HashMap::from([
                 ("path".to_string(), path.to_string_lossy().to_string()),
-                ("filename".to_string(), path.file_name().unwrap().to_string_lossy().to_string())
+                (
+                    "filename".to_string(),
+                    path.file_name().unwrap().to_string_lossy().to_string(),
+                ),
             ]);
             // TODO: I feel like this is the long hard way to do this...
             let last_square_bracket_pos = begin_ident.rfind('[');
@@ -547,7 +564,8 @@ pub fn update_target_string_snippet(
                 prefix.as_str().to_owned()
                     + snippet_settings.begin.as_str()
                     + snippet.identifier.as_str(),
-            ).as_str(),
+            )
+            .as_str(),
         ) {
             // TODO: extract attribute from snippet
             // TODO: should find/use template
@@ -569,8 +587,10 @@ pub fn update_target_string_snippet(
                             prefix.as_str().to_owned()
                                 + snippet_settings.end.as_str()
                                 + snippet.identifier.as_str(),
-                        ).as_str(),
-                    ).unwrap_or(source.len());
+                        )
+                        .as_str(),
+                    )
+                    .unwrap_or(source.len());
                 source.replace_range(
                     content_starting_index..end_index,
                     format!("\n{}", result).as_str(),
@@ -652,11 +672,17 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         let templates_path = Path::new(template.as_str());
         info!("template path {:?}", templates_path);
         if !templates_path.exists() {
-            return Err(SnippextError::GeneralError(format!("Template {} does not exist", template)));
+            return Err(SnippextError::GeneralError(format!(
+                "Template {} does not exist",
+                template
+            )));
         }
 
         if !templates_path.is_dir() {
-            return Err(SnippextError::GeneralError(format!("Template {} should be a directory", template)));
+            return Err(SnippextError::GeneralError(format!(
+                "Template {} should be a directory",
+                template
+            )));
         }
 
         let mut templates = HashMap::new();
@@ -682,7 +708,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
                 SnippextTemplate {
                     content,
                     default: file_name == DEFAULT_TEMPLATE_IDENTIFIER,
-                }
+                },
             );
         }
 
@@ -721,12 +747,14 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 mod tests {
     use std::collections::{HashMap, HashSet};
     use std::path::PathBuf;
+
     use tracing::info;
+
+    use super::Args;
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
     use crate::templates::SnippextTemplate;
     use crate::types::SnippetSource;
-    use super::Args;
 
     #[test]
     fn default_config_file() {

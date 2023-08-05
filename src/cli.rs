@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+
 use crate::cmd::*;
 
 // use constants that can also be used as defaults
@@ -24,8 +25,3 @@ pub enum Command {
     Extract(extract::Args),
     Init(init::Args),
 }
-
-
-
-
-

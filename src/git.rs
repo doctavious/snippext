@@ -2,6 +2,7 @@
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
 use std::process::Command;
+
 use crate::error::SnippextError;
 use crate::SnippextResult;
 

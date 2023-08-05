@@ -1,10 +1,11 @@
 use std::fs;
-use std::io::BufRead;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+
 use clap::Parser;
 use config::{Config, Environment, File};
 use serde::{Deserialize, Serialize};
+
 use crate::error::SnippextError;
 use crate::SnippextResult;
 
@@ -163,11 +164,13 @@ fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cmd::clear::ClearSettings;
-    use crate::error::SnippextError;
     use std::fs;
     use std::io::Write;
-    use tempfile::{NamedTempFile}; // TODO: why cant we use crate:error here?
+
+    use tempfile::NamedTempFile;
+
+    use crate::cmd::clear::ClearSettings;
+    use crate::error::SnippextError; // TODO: why cant we use crate:error here?
 
     #[test]
     fn clear_target() {

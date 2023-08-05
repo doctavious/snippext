@@ -9,16 +9,16 @@
 //! [at least one code example that users can copy/paste to try it]
 //! [even more advanced explanations if necessary]
 
+pub mod cli;
+pub mod cmd;
+pub mod constants;
 pub mod error;
 pub mod git;
-pub mod unindent;
 pub mod sanitize;
-pub mod cmd;
-pub mod cli;
 pub mod settings;
-pub mod constants;
-pub mod types;
 pub mod templates;
+pub mod types;
+pub mod unindent;
 
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;

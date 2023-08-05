@@ -1,12 +1,14 @@
 use std::collections::HashMap;
-use handlebars::{Handlebars, no_escape};
+
+use handlebars::{no_escape, Handlebars};
 use serde::{Deserialize, Serialize};
+
 use crate::constants::SNIPPEXT_TEMPLATE_ATTRIBUTE;
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::{LinkFormat, Snippet};
-use crate::SnippextResult;
 use crate::unindent::unindent;
+use crate::SnippextResult;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SnippextTemplate {
@@ -65,7 +67,11 @@ impl SnippextTemplate {
         Ok(rendered)
     }
 
-    fn build_source_link(snippet: &Snippet, link_format: &LinkFormat, url_prefix: String) -> String {
+    fn build_source_link(
+        snippet: &Snippet,
+        link_format: &LinkFormat,
+        url_prefix: String,
+    ) -> String {
         let mut path = url_prefix;
         if !path.ends_with("/") {
             path.push_str("/")

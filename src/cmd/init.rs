@@ -1,13 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+
 use clap::Parser;
 use inquire::{required, Confirm, Select, Text};
 use serde::{Deserialize, Serialize};
-use crate::{SnippextResult, SnippextSettings};
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
+
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
+    DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
+};
 use crate::templates::SnippextTemplate;
 use crate::types::SnippetSource;
-
+use crate::{SnippextResult, SnippextSettings};
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -32,7 +36,6 @@ pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
     fs::write("./snippext.yaml", content)?;
     Ok(())
 }
-
 
 pub fn execute(init_opt: Args) -> SnippextResult<()> {
     let init_settings = if init_opt.default {

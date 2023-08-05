@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
+
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,6 @@ pub struct Snippet {
     pub attributes: HashMap<String, String>,
     pub start_line: usize,
     pub end_line: usize,
-
 }
 
 impl Snippet {
@@ -124,4 +124,3 @@ impl fmt::Display for LinkFormat {
         }
     }
 }
-

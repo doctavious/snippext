@@ -1,5 +1,6 @@
 use std::path::StripPrefixError;
 use std::string::FromUtf8Error;
+
 use inquire::error::InquireError;
 use thiserror::Error;
 use url::ParseError;
@@ -64,5 +65,5 @@ pub enum SnippextError {
     ReqwestHeaderError(#[from] reqwest::header::ToStrError),
 
     #[error(transparent)]
-    DateTimeParseError(#[from] chrono::ParseError)
+    DateTimeParseError(#[from] chrono::ParseError),
 }
