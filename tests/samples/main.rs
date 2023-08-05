@@ -1,8 +1,8 @@
-// snippet::main[lang=rust]
+// snippet::start::main[lang=rust]
 fn main() {
 
-    // snippet::nested
+    // snippet::start::nested
     println!("printing...")
-    // end::nested
+    // snippet::end::nested
 }
-// end::main
+// snippet::end::main

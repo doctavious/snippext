@@ -1,4 +1,4 @@
 
-# snippet::ruby
+# snippet::start::ruby
 puts "Hello, Ruby!"
-# end::ruby
+# snippet::end::ruby

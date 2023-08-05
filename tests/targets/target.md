@@ -1,8 +1,8 @@
 This is some static content
 
-<!-- snippet::main -->
-<!-- end::main -->
+<!-- snippet::start::main -->
+<!-- snippet::end::main -->
 
-<!-- snippet::fn_1 -->
+<!-- snippet::start::fn_1 -->
 some content
-<!-- end::fn_1 -->
+<!-- snippet::end::fn_1 -->

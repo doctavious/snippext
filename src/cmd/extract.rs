@@ -786,7 +786,7 @@ mod tests {
     fn verify_cli_args() {
         let opt = Args {
             config: None,
-            begin: Some(String::from("snippext::")),
+            begin: Some(String::from("snippext::begin::")),
             end: Some(String::from("finish::")),
             extension: Some(String::from("txt")),
             comment_prefixes: Some(vec![String::from("# ")]),
@@ -805,7 +805,7 @@ mod tests {
 
         let settings = super::build_settings(opt).unwrap();
 
-        assert_eq!("snippext::", settings.begin);
+        assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!("txt", settings.extension);
         assert_eq!(
@@ -916,8 +916,8 @@ mod tests {
     fn at_least_one_template_is_required() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::new(),
             vec![SnippetSource::new_local(vec![String::from("**")])],
@@ -947,8 +947,8 @@ mod tests {
     fn one_template_must_be_marked_default_when_multiple_templates_exist() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([
                 (
@@ -993,8 +993,8 @@ mod tests {
     fn multiple_default_templates_cannot_exist() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([
                 (
@@ -1039,8 +1039,8 @@ mod tests {
     fn at_least_one_comment_prefix_is_required() {
         let settings = SnippextSettings::new(
             HashSet::new(),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([(
                 "default".to_string(),
@@ -1076,8 +1076,8 @@ mod tests {
     fn sources_must_not_be_empty() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([(
                 "default".to_string(),
@@ -1113,8 +1113,8 @@ mod tests {
     fn sources_must_have_at_least_one_files_entry() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([(
                 "default".to_string(),
@@ -1151,8 +1151,8 @@ mod tests {
     fn repository_must_be_provided_if_other_remote_sources_are_provided() {
         let settings = SnippextSettings::new(
             HashSet::from([String::from("# ")]),
-            String::from("snippet::"),
-            String::from("end::"),
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
             String::from("md"),
             HashMap::from([(
                 "default".to_string(),

@@ -18,8 +18,8 @@ fn should_successfully_extract_from_local_sources_directory() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -77,8 +77,8 @@ fn error_when_extracting_from_unavailable_remote() {
 
     let result = extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -115,8 +115,8 @@ fn should_error_when_snippet_is_not_closed() {
 
     let result = extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -143,8 +143,8 @@ fn should_successfully_extract_from_remote() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -194,8 +194,8 @@ fn should_successfully_extract_from_local_sources_file() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("# ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -233,8 +233,8 @@ fn should_update_specified_targets() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// "), String::from("<!-- ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -259,18 +259,18 @@ fn should_update_specified_targets() {
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
     let expected = r#"This is some static content
 
-<!-- snippet::main -->
+<!-- snippet::start::main -->
 fn main() {
 
     println!("printing...")
 }
-<!-- end::main -->
+<!-- snippet::end::main -->
 
-<!-- snippet::fn_1 -->
+<!-- snippet::start::fn_1 -->
 fn sample_fn_1() {
 
 }
-<!-- end::fn_1 -->
+<!-- snippet::end::fn_1 -->
 "#;
     assert_eq!(expected, actual);
 }
@@ -281,8 +281,8 @@ fn should_support_template_with_attributes() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -325,8 +325,8 @@ fn support_target_snippet_specifies_template() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// "), String::from("<!-- ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([
             (
@@ -359,14 +359,14 @@ fn support_target_snippet_specifies_template() {
 
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./specify_template.md")).unwrap();
     let expected = r#"Specify template
-<!-- snippet::main[snippext_template=code] -->
+<!-- snippet::start::main[snippext_template=code] -->
 ```rust
 fn main() {
 
     println!("printing...")
 }
 ```
-<!-- end::main -->
+<!-- snippet::end::main -->
 "#;
     assert_eq!(expected, actual);
 }
@@ -377,8 +377,8 @@ fn should_treat_unknown_template_variables_as_empty_string() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -415,8 +415,8 @@ fn should_support_files_with_no_snippets() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -452,8 +452,8 @@ fn invalid_glob() {
 
     let result = extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -486,8 +486,8 @@ fn glob_returns_no_files() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("// ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -523,8 +523,8 @@ fn support_source_links() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("# ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),
@@ -561,8 +561,8 @@ fn source_links_should_support_prefix() {
 
     extract(SnippextSettings::new(
         HashSet::from([String::from("# ")]),
-        String::from("snippet::"),
-        String::from("end::"),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
         String::from("md"),
         HashMap::from([(
             "default".to_string(),

@@ -1,5 +1,5 @@
-begin: "snippet::"
-end: "end::"
+begin: "snippet::start::"
+end: "snippet::end::"
 extension: "adoc"
 comment_prefixes:
   - "// "
