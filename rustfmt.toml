@@ -1,9 +1,13 @@
-max_width = 100
 edition = "2021"
-
-#imports_granularity = "Crate"
-#group_imports = "StdExternalCrate"
+max_width = 100
+reorder_imports = true
 
 ignore = [
     "tests/samples",
 ]
+
+# Nightly only features
+# unstable_features = true
+ imports_granularity = "Module"
+ group_imports = "StdExternalCrate"
+# indent_style = "Block"

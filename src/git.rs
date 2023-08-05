@@ -2,15 +2,14 @@
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
 use std::process::Command;
-
 use crate::error::SnippextError;
 use crate::SnippextResult;
 
 pub(crate) fn checkout_files(
-    remote: String,
+    remote: &String,
     branch: Option<String>,
     cone_patterns: Option<Vec<String>>,
-    dir: Option<String>,
+    dir: &String,
 ) -> SnippextResult<()> {
     // if cone_patterns are specified lets do a no-checkout clone with a sparse-checkout
     // otherwise just do a regular clone
@@ -25,16 +24,10 @@ pub(crate) fn checkout_files(
         clone_command.arg("--branch").arg(branch);
     }
 
-    let checkout_directory = if let Some(dir) = dir {
-        dir
-    } else {
-        String::from("./")
-    };
-
     let clone_output = clone_command
         .arg(remote)
-        .arg(&checkout_directory)
-        .current_dir("./")
+        .arg(".")
+        .current_dir(&dir)
         .output()
         .map_err(SnippextError::from)?;
 
@@ -49,7 +42,7 @@ pub(crate) fn checkout_files(
             .arg("sparse-checkout")
             .arg("init")
             .arg("--cone")
-            .current_dir(&checkout_directory)
+            .current_dir(&dir)
             .output()
             .map_err(SnippextError::from)?;
 
@@ -63,7 +56,7 @@ pub(crate) fn checkout_files(
             .arg("sparse-checkout")
             .arg("set")
             .arg(cone_patterns.unwrap().join(" "))
-            .current_dir(&checkout_directory)
+            .current_dir(&dir)
             .output()
             .map_err(SnippextError::from)?;
 

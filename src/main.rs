@@ -1,9 +1,10 @@
-use clap::Parser;
+use clap::{Parser};
 use tracing::{Level};
 use tracing_subscriber;
 
-use snippext::cmd::{clear, extract, init, Command};
-use snippext::SnippextResult;
+use snippext::cmd::{clear, extract, init};
+use snippext::{cli, SnippextResult};
+use snippext::cli::Command;
 
 
 // TODO priorities
@@ -13,7 +14,7 @@ use snippext::SnippextResult;
 //      . clear - clear snippets from targets
 // 2. updating target files should read lines instead of whole file - done
 // 3. add file name and path attributes - done
-// 4. we should keep snippet name when writing out snippet to taret file
+// 4. we should keep snippet name when writing out snippet to target file
 // 5. validate error messages
 // 6. docs
 // 7. publish to crates.io
@@ -27,32 +28,16 @@ use snippext::SnippextResult;
 // 3. clear - clear up generate or files
 // 4. init - generate config file
 
-// use constants that can also be used as defaults
-// https://github.com/TeXitoi/structopt/issues/226
-
-// TODO: add config.rs?
-
-// TODO: environment variable fallback here or via config?
-// should document it here regardless
-#[derive(Parser, Debug)]
-#[command(about, version, author)]
-struct Opt {
-    #[command(subcommand)]
-    cmd: Command,
-
-    #[arg(long, help = "")]
-    pub debug: bool,
-}
 
 fn main() -> SnippextResult<()> {
-    let opt: Opt = Opt::parse();
+    let opt = cli::Args::parse();
 
     init_logger(opt.debug);
 
     match opt.cmd {
-        Command::Init(init_opt) => init::execute(init_opt),
-        Command::Extract(extract_opt) => extract::execute(extract_opt),
-        Command::Clear(clear_opt) => clear::execute(clear_opt),
+        Command::Init(args) => init::execute(args),
+        Command::Extract(args) => extract::execute(args),
+        Command::Clear(args) => clear::execute(args),
     }
 }
 

@@ -1,12 +1,14 @@
-use snippext::{extract, LinkFormat, SnippetSource, SnippextSettings, SnippextTemplate};
 use std::collections::{HashMap, HashSet};
-
 use tempfile::tempdir;
-
 use snippext::error::SnippextError;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing_test::traced_test;
+use walkdir::WalkDir;
+use snippext::cmd::extract::extract;
+use snippext::settings::SnippextSettings;
+use snippext::templates::SnippextTemplate;
+use snippext::types::{LinkFormat, SnippetSource};
 
 #[test]
 #[traced_test]
@@ -87,10 +89,10 @@ fn error_when_extracting_from_unavailable_remote() {
             String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
             String::from("main"),
             None,
-            Some(format!(
-                "{}/remote-source-test/",
-                dir.path().to_string_lossy()
-            )),
+            // Some(format!(
+            //     "{}/remote-source-test/",
+            //     dir.path().to_string_lossy()
+            // )),
             vec![String::from("/tests/**/*")],
         )],
         Some(format!(
@@ -131,7 +133,6 @@ fn should_error_when_snippet_is_not_closed() {
     ));
 
     assert!(result.is_err());
-    println!("snippet wasnt closed...{:?}", result);
 }
 
 #[test]
@@ -154,8 +155,8 @@ fn should_successfully_extract_from_remote() {
             String::from("https://github.com/doctavious/snippext.git"),
             String::from("main"),
             None,
-            Some(format!("{}/snippext/", dir.path().to_string_lossy())),
-            vec![String::from("/tests/**/*")],
+            // Some(format!("{}/snippext/", dir.path().to_string_lossy())),
+            vec![String::from("/tests/samples/*")],
         )],
         Some(format!(
             "{}/generated-snippets/",
@@ -166,6 +167,12 @@ fn should_successfully_extract_from_remote() {
         None,
     ))
     .unwrap();
+
+    for entry in WalkDir::new(Path::new(&dir.path()).join("generated-snippets")) {
+        if let Ok(entry) = entry {
+            println!("{:?}", entry.path());
+        }
+    }
 
     let main_content_actual = fs::read_to_string(
         Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),

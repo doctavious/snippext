@@ -1,21 +1,40 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use clap::Parser;
 use inquire::{required, Confirm, Select, Text};
-use crate::{
-    init, SnippetSource, SnippextResult, SnippextSettings, SnippextTemplate, DEFAULT_BEGIN,
-    DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SOURCE_FILES,
-    DEFAULT_TEMPLATE,
-};
+use serde::{Deserialize, Serialize};
+use crate::{SnippextResult, SnippextSettings};
+use crate::constants::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
+use crate::templates::SnippextTemplate;
+use crate::types::SnippetSource;
 
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
-pub struct InitOpt {
+pub struct Args {
     #[arg(long, help = "TODO: ...")]
     pub default: bool,
 }
 
-pub fn execute(init_opt: InitOpt) -> SnippextResult<()> {
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct InitSettings {
+    pub default: bool,
+}
+
+/// Configure Snippext settings
+pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
+    let content = if let Some(settings) = settings {
+        serde_yaml::to_string(&settings)?
+    } else {
+        DEFAULT_SNIPPEXT_CONFIG.to_string()
+    };
+
+    fs::write("./snippext.yaml", content)?;
+    Ok(())
+}
+
+
+pub fn execute(init_opt: Args) -> SnippextResult<()> {
     let init_settings = if init_opt.default {
         None
     } else {

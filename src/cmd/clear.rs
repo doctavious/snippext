@@ -10,7 +10,7 @@ use crate::SnippextResult;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
-pub struct ClearOpt {
+pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
@@ -45,12 +45,12 @@ pub struct ClearSettings {
 }
 
 /// Removes snippets from target files
-pub fn execute(clear_opt: ClearOpt) -> SnippextResult<()> {
+pub fn execute(clear_opt: Args) -> SnippextResult<()> {
     let settings = build_clear_settings(clear_opt)?;
     clear(settings)
 }
 
-fn build_clear_settings(opt: ClearOpt) -> SnippextResult<ClearSettings> {
+fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
     let mut builder = Config::builder();
 
     if let Some(config) = opt.config {
