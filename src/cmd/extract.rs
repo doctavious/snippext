@@ -173,7 +173,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         }
 
         if let Some(output_dir) = &snippext_settings.output_dir {
-            for snippet in &snippets {
+            for (_, snippet) in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
                     .join(
@@ -203,26 +203,12 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                     }
                 };
 
-                // TODO: do this when collecting snippets
-                let snippets_map = snippets.iter()
-                    .map(|s| (s.identifier.clone(), s))
-                    .collect();
-
                 for entry in globs {
                     process_target_file(
                         entry.unwrap(),
-                        &snippets_map,
+                        &snippets,
                         &snippext_settings,
                     )?;
-
-                    // let path = entry.unwrap();
-                    // for snippet in &snippets {
-                    //     update_target_file_snippet(
-                    //         path.to_path_buf(),
-                    //         &snippet,
-                    //         &snippext_settings,
-                    //     )?;
-                    // }
                 }
             }
         }
@@ -458,20 +444,20 @@ fn extract_snippets(
     begin_pattern: String,
     end_pattern: String,
     path: &Path,
-) -> SnippextResult<Vec<Snippet>> {
+) -> SnippextResult<HashMap<String, Snippet>> {
     let f = File::open(path)?;
     let reader = BufReader::new(f);
 
-    let mut state = Vec::default();
     let mut current_line_number = 0;
-    let mut snippets: Vec<Snippet> = Vec::new();
+    let mut state = Vec::new();
+    let mut snippets = HashMap::new();
 
     for line in reader.lines() {
         current_line_number += 1;
         let l = line?;
+        let current_line = l.trim();
 
-        let begin_ident = matches(&l, comment_prefixes, &begin_pattern);
-        if let Some(begin_ident) = begin_ident {
+        if is_line_snippet_tag(current_line, &comment_prefixes, &begin_pattern) {
             let mut attributes = HashMap::from([
                 ("path".to_string(), path.to_string_lossy().to_string()),
                 (
@@ -479,25 +465,22 @@ fn extract_snippets(
                     path.file_name().unwrap().to_string_lossy().to_string(),
                 ),
             ]);
-            // TODO: I feel like this is the long hard way to do this...
-            let last_square_bracket_pos = begin_ident.rfind('[');
-            if let Some(last_square_bracket_pos) = last_square_bracket_pos {
-                let identifier = &begin_ident.as_str()[..last_square_bracket_pos];
-                attributes.extend(extract_attributes(begin_ident.as_str()));
-                state.push(SnippetExtractionState {
-                    key: identifier.to_string(),
-                    start_line: current_line_number,
-                    lines: String::new(),
-                    attributes,
-                });
-            } else {
-                state.push(SnippetExtractionState {
-                    key: begin_ident,
-                    start_line: current_line_number,
-                    lines: String::new(),
-                    attributes,
-                });
+
+            let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, &begin_pattern) else {
+                // TODO: error
+                continue;
+            };
+
+            if let Some(snippet_attributes) = snippet_attributes {
+                attributes.extend(snippet_attributes);
             }
+
+            state.push(SnippetExtractionState {
+                key,
+                start_line: current_line_number,
+                lines: String::new(),
+                attributes,
+            });
 
             continue;
         }
@@ -507,17 +490,19 @@ fn extract_snippets(
             continue;
         }
 
-        let end_ident = matches(&l, &comment_prefixes, &end_pattern);
-        if end_ident.is_some() {
+        if is_line_snippet_tag(current_line, &comment_prefixes, &end_pattern) {
             if let Some(state) = state.pop() {
-                snippets.push(Snippet::new(
-                    state.key,
-                    path.to_path_buf(),
-                    state.lines,
-                    state.attributes,
-                    state.start_line,
-                    current_line_number,
-                ));
+                snippets.insert(
+                    state.key.clone(),
+                    Snippet::new(
+                        state.key,
+                        path.to_path_buf(),
+                        state.lines,
+                        state.attributes,
+                        state.start_line,
+                        current_line_number,
+                    )
+                );
             }
         } else {
             for e in state.iter_mut() {
@@ -539,14 +524,13 @@ fn extract_snippets(
     Ok(snippets)
 }
 
-fn extract_id_and_attributes(line: &str) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
-    let re = Regex::new("snippet::start::(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").unwrap();
+fn extract_id_and_attributes(line: &str, begin: &String) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
+    let re = Regex::new(format!("{begin}(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").as_str()).unwrap();
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
         let Some(key) = capture_groups.name("key") else {
             return Err(SnippextError::GeneralError(format!("could not extract key from {}", line)));
         };
-
 
         let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
             let mut attributes = HashMap::new();
@@ -569,28 +553,6 @@ fn extract_id_and_attributes(line: &str) -> SnippextResult<(String, Option<HashM
     Err(SnippextError::GeneralError(format!("could not extract snippet details from {}", line)))
 }
 
-// ^snippet::start::(?P<key>[\w-]*)(?P<attributes>\[[^]]+])?
-// (?<pair>(?<key>.+?)(?:=)(?<value>[^=]+)(?:,|$))
-/// Extract comma separated key value parts from source string
-/// format [k=v,k2=v2]
-fn extract_attributes(source: &str) -> HashMap<String, String> {
-    let mut attributes = HashMap::new();
-    let re = Regex::new("\\[([^]]+)]").unwrap();
-    let captured_kv = re.captures(source);
-    if captured_kv.is_some() {
-        for kv in captured_kv.unwrap().get(1).unwrap().as_str().split(",") {
-            let parts: Vec<&str> = kv.split("=").collect();
-            if parts.len() == 2 {
-                attributes.insert(
-                    parts.get(0).unwrap().to_string(),
-                    parts.get(1).unwrap().to_string(),
-                );
-            }
-        }
-    }
-
-    attributes
-}
 
 fn line_starts_with_prefix(line: &str, prefixes: &HashSet<String>) -> bool {
     for prefix in prefixes {
@@ -611,7 +573,7 @@ struct MissingSnippet<'a> {
 
 fn process_target_file(
     target: PathBuf,
-    snippets: &HashMap<String, &Snippet>,
+    snippets: &HashMap<String, Snippet>,
     settings: &SnippextSettings
 ) -> SnippextResult<()> {
 
@@ -628,9 +590,8 @@ fn process_target_file(
         let line = line?;
         let current_line = line.trim();
 
-        let line_starts_with_prefix = line_starts_with_prefix(current_line, &settings.comment_prefixes);
         if in_current_snippet.is_some() {
-            if line_starts_with_prefix && current_line.contains(&settings.end) {
+            if is_line_snippet_tag(current_line, &settings.comment_prefixes, &settings.end) {
                 new_file_lines.push(line.clone());
                 in_current_snippet = None;
             }
@@ -639,16 +600,13 @@ fn process_target_file(
         }
 
         new_file_lines.push(line.clone());
-        if !line_starts_with_prefix {
-            continue;
-        }
 
-        if !&current_line.contains(&settings.begin) {
+        if !is_line_snippet_tag(current_line, &settings.comment_prefixes, &settings.begin) {
             continue;
         }
 
         // TODO: log error
-        let Ok((key, attributes)) = extract_id_and_attributes(current_line) else {
+        let Ok((key, attributes)) = extract_id_and_attributes(current_line, &settings.begin) else {
             warn!("Failed to extract id/attributes from snippet. File {} line number {}",
                 target.to_string_lossy(),
                 line_number
@@ -676,56 +634,6 @@ fn process_target_file(
         new_file_lines.extend(result_lines);
         updated = true;
         in_current_snippet = Some(key);
-
-        // for prefix in &settings.comment_prefixes {
-        //     if !current_line.trim().starts_with(prefix) || !current_line.contains(&settings.end) {
-        //
-        //         continue;
-        //     }
-        //
-        //     if !current_line.trim().starts_with(prefix) || !current_line.contains(&settings.begin) {
-        //         continue;
-        //     }
-        //
-        //     // TODO: log error
-        //     let Ok((key, attributes)) = extract_id_and_attributes(current_line) else {
-        //       continue;
-        //     };
-        //
-        //     let Some(snippet) = snippets.get(key) else {
-        //         println!("snippet not found for {}", key);
-        //         continue;
-        //     };
-        //
-        //
-        //     // println!("prefix {} and begin {}", &prefix, &settings.begin);
-        //     // let snippet_key = &current_line[prefix.len() + settings.begin.len()..current_line.rfind("[").unwrap_or(current_line.len())];
-        //     // let Some(snippet) = snippets.get(snippet_key) else {
-        //     //     println!("snippet not found for {}", snippet_key);
-        //     //     continue;
-        //     // };
-        //     //
-        //     // println!("snippet found for {}", snippet_key);
-        //     //
-        //     // let attribute_start = current_line.rfind("[");
-        //     // let attributes = if attribute_start.is_some() {
-        //     //     Some(extract_attributes(&current_line))
-        //     // } else {
-        //     //     None
-        //     // };
-        //
-        //     let result = SnippextTemplate::render_template(
-        //         &snippet,
-        //         &settings,
-        //         attributes
-        //     )?;
-        //
-        //     let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
-        //
-        //     new_file_lines.extend(result_lines);
-        //     updated = true;
-        //     in_current_snippet = Some(key);
-        // }
     }
 
     if let Some(in_current_snippet) = in_current_snippet {
@@ -745,92 +653,17 @@ fn process_target_file(
     Ok(())
 }
 
-// TODO: This should probably read lines instead of entire file content
-//       currently we cant have the same snippet multiple times in the same file
-// TODO: should look for same comment prefixes?
-pub fn update_target_file_snippet(
-    source: PathBuf,
-    snippet: &Snippet,
-    snippet_settings: &SnippextSettings,
-) -> SnippextResult<()> {
-    let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    let updated = update_target_string_snippet(&mut source_content, snippet, snippet_settings)?;
-    if updated {
-        fs::write(source.to_path_buf(), source_content)?;
-    }
 
-    Ok(())
-}
-
-pub fn update_target_string_snippet(
-    source: &mut String,
-    snippet: &Snippet,
-    snippet_settings: &SnippextSettings,
-) -> SnippextResult<bool> {
-    let mut updated = false;
-    for prefix in &snippet_settings.comment_prefixes {
-        // TODO: create helper method for building prefix+being+ident string
-        if let Some(snippet_start_index) = source.find(
-            String::from(
-                prefix.as_str().to_owned()
-                    + snippet_settings.begin.as_str()
-                    + snippet.identifier.as_str(),
-            )
-            .as_str(),
-        ) {
-            // TODO: extract attribute from snippet
-            // TODO: should find/use template
-            if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
-
-                let snippet_include_content =
-                    &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
-                let attributes = if snippet_include_content.rfind('[').is_some() {
-                    Some(extract_attributes(snippet_include_content))
-                } else {
-                    None
-                };
-
-                let result =
-                    SnippextTemplate::render_template(snippet, snippet_settings, attributes)?;
-
-                // TODO: keep snippet comment
-
-                let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
-                let end_index = source
-                    .find(
-                        String::from(
-                            prefix.as_str().to_owned()
-                                + snippet_settings.end.as_str()
-                                + snippet.identifier.as_str(),
-                        )
-                        .as_str(),
-                    )
-                    .unwrap_or(source.len());
-                source.replace_range(
-                    content_starting_index..end_index,
-                    format!("\n{}", result).as_str(),
-                );
-                updated = true;
-            }
+fn is_line_snippet_tag(line: &str, prefixes: &HashSet<String>, pattern: &str) -> bool {
+    for prefix in prefixes {
+        let prefix = String::from(prefix.as_str()) + pattern;
+        if line.starts_with(&prefix) {
+            return true;
         }
     }
-
-    Ok(updated)
+    false
 }
 
-// TODO: return tuple (prefix and identifier) or struct?
-// Might not be necessary depending on how we want to enable doctavious
-fn matches(s: &str, comment_prefixes: &HashSet<String>, pattern: &str) -> Option<String> {
-    let trimmed = s.trim();
-    let len_diff = s.len() - trimmed.len();
-    for comment_prefix in comment_prefixes {
-        let prefix = String::from(comment_prefix.as_str()) + pattern;
-        if trimmed.starts_with(&prefix) {
-            return Some(s[prefix.len() + len_diff..].to_string());
-        }
-    }
-    None
-}
 
 // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
 // Precedence of options
@@ -944,7 +777,6 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
             repo_url.to_string(),
             opt.repository_branch.unwrap(),
             opt.repository_commit.clone(),
-            // opt.repository_directory.clone(),
             source_files,
         );
         snippet_sources.push(source);
