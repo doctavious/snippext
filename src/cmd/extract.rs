@@ -173,7 +173,6 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         }
 
         if let Some(output_dir) = &snippext_settings.output_dir {
-            println!("output directory {} / {}", output_dir, &snippets.len());
             for snippet in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
@@ -194,12 +193,36 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 
         if let Some(targets) = &snippext_settings.targets {
             for target in targets {
-                for snippet in &snippets {
-                    update_target_file_snippet(
-                        Path::new(target).to_path_buf(),
-                        &snippet,
+                let globs = match glob(target.as_str()) {
+                    Ok(paths) => paths,
+                    Err(error) => {
+                        return Err(SnippextError::GlobPatternError(format!(
+                            "Glob pattern error for `{}`. {}",
+                            target, error.msg
+                        )))
+                    }
+                };
+
+                // TODO: do this when collecting snippets
+                let snippets_map = snippets.iter()
+                    .map(|s| (s.identifier.clone(), s))
+                    .collect();
+
+                for entry in globs {
+                    process_target_file(
+                        entry.unwrap(),
+                        &snippets_map,
                         &snippext_settings,
                     )?;
+
+                    // let path = entry.unwrap();
+                    // for snippet in &snippets {
+                    //     update_target_file_snippet(
+                    //         path.to_path_buf(),
+                    //         &snippet,
+                    //         &snippext_settings,
+                    //     )?;
+                    // }
                 }
             }
         }
@@ -512,10 +535,41 @@ fn extract_snippets(
             &snippet.start_line
         )));
     }
-    println!("snippets extracted from {:?}", &path.to_string_lossy());
+
     Ok(snippets)
 }
 
+fn extract_id_and_attributes(line: &str) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
+    let re = Regex::new("snippet::start::(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").unwrap();
+    let captures = re.captures(line);
+    if let Some(capture_groups) = captures {
+        let Some(key) = capture_groups.name("key") else {
+            return Err(SnippextError::GeneralError(format!("could not extract key from {}", line)));
+        };
+
+
+        let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
+            let mut attributes = HashMap::new();
+            let trim_ends: &[_] = &['[', ']'];
+            let parts: Vec<&str> = match_attributes.as_str().trim_matches(trim_ends).split("=").collect();
+            if parts.len() == 2 {
+                attributes.insert(
+                    parts.get(0).unwrap().to_string(),
+                    parts.get(1).unwrap().to_string(),
+                );
+            }
+            Some(attributes)
+        } else {
+            None
+        };
+
+        return Ok((key.as_str().to_string(), attributes));
+    }
+
+    Err(SnippextError::GeneralError(format!("could not extract snippet details from {}", line)))
+}
+
+// ^snippet::start::(?P<key>[\w-]*)(?P<attributes>\[[^]]+])?
 // (?<pair>(?<key>.+?)(?:=)(?<value>[^=]+)(?:,|$))
 /// Extract comma separated key value parts from source string
 /// format [k=v,k2=v2]
@@ -538,6 +592,159 @@ fn extract_attributes(source: &str) -> HashMap<String, String> {
     attributes
 }
 
+fn line_starts_with_prefix(line: &str, prefixes: &HashSet<String>) -> bool {
+    for prefix in prefixes {
+        if line.starts_with(prefix) {
+            return true;
+        }
+    }
+
+    false
+}
+
+struct MissingSnippet<'a> {
+    key: String,
+    line_number: u32,
+    path: &'a PathBuf,
+}
+
+
+fn process_target_file(
+    target: PathBuf,
+    snippets: &HashMap<String, &Snippet>,
+    settings: &SnippextSettings
+) -> SnippextResult<()> {
+
+    let mut new_file_lines = Vec::new();
+    let mut updated = false;
+    let mut in_current_snippet = None;
+    let mut line_number = 0;
+    let mut missing_snippets = Vec::new();
+
+    let f = File::open(&target)?;
+    let reader = BufReader::new(f);
+    for line in reader.lines() {
+        line_number = line_number + 1;
+        let line = line?;
+        let current_line = line.trim();
+
+        let line_starts_with_prefix = line_starts_with_prefix(current_line, &settings.comment_prefixes);
+        if in_current_snippet.is_some() {
+            if line_starts_with_prefix && current_line.contains(&settings.end) {
+                new_file_lines.push(line.clone());
+                in_current_snippet = None;
+            }
+
+            continue;
+        }
+
+        new_file_lines.push(line.clone());
+        if !line_starts_with_prefix {
+            continue;
+        }
+
+        if !&current_line.contains(&settings.begin) {
+            continue;
+        }
+
+        // TODO: log error
+        let Ok((key, attributes)) = extract_id_and_attributes(current_line) else {
+            warn!("Failed to extract id/attributes from snippet. File {} line number {}",
+                target.to_string_lossy(),
+                line_number
+            );
+            continue;
+        };
+
+        let Some(snippet) = snippets.get(&key) else {
+            missing_snippets.push(MissingSnippet {
+                key,
+                line_number,
+                path: &target,
+            });
+            continue;
+        };
+
+        let result = SnippextTemplate::render_template(
+            &snippet,
+            &settings,
+            attributes
+        )?;
+
+        let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
+
+        new_file_lines.extend(result_lines);
+        updated = true;
+        in_current_snippet = Some(key);
+
+        // for prefix in &settings.comment_prefixes {
+        //     if !current_line.trim().starts_with(prefix) || !current_line.contains(&settings.end) {
+        //
+        //         continue;
+        //     }
+        //
+        //     if !current_line.trim().starts_with(prefix) || !current_line.contains(&settings.begin) {
+        //         continue;
+        //     }
+        //
+        //     // TODO: log error
+        //     let Ok((key, attributes)) = extract_id_and_attributes(current_line) else {
+        //       continue;
+        //     };
+        //
+        //     let Some(snippet) = snippets.get(key) else {
+        //         println!("snippet not found for {}", key);
+        //         continue;
+        //     };
+        //
+        //
+        //     // println!("prefix {} and begin {}", &prefix, &settings.begin);
+        //     // let snippet_key = &current_line[prefix.len() + settings.begin.len()..current_line.rfind("[").unwrap_or(current_line.len())];
+        //     // let Some(snippet) = snippets.get(snippet_key) else {
+        //     //     println!("snippet not found for {}", snippet_key);
+        //     //     continue;
+        //     // };
+        //     //
+        //     // println!("snippet found for {}", snippet_key);
+        //     //
+        //     // let attribute_start = current_line.rfind("[");
+        //     // let attributes = if attribute_start.is_some() {
+        //     //     Some(extract_attributes(&current_line))
+        //     // } else {
+        //     //     None
+        //     // };
+        //
+        //     let result = SnippextTemplate::render_template(
+        //         &snippet,
+        //         &settings,
+        //         attributes
+        //     )?;
+        //
+        //     let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
+        //
+        //     new_file_lines.extend(result_lines);
+        //     updated = true;
+        //     in_current_snippet = Some(key);
+        // }
+    }
+
+    if let Some(in_current_snippet) = in_current_snippet {
+        return Err(SnippextError::GeneralError(
+            format!("Expected to find end of snippet {}", in_current_snippet)
+        ));
+    }
+
+    // TODO: error if fail when missing snippets is true and missing snippets exist
+    // log($"WARN: The source file:{missing.File} includes a key {missing.Key}, however the snippet is missing. Make sure that the snippet is defined.");
+    // https://github.com/SimonCropp/MarkdownSnippets/blob/1a148e6b8a1054e7ccf8cffaa2280944d9dca1c7/src/MarkdownSnippets/MissingSnippetsException.cs#L4
+
+    if updated {
+        fs::write(target.to_path_buf(), new_file_lines.join("\n"))?;
+    }
+
+    Ok(())
+}
+
 // TODO: This should probably read lines instead of entire file content
 //       currently we cant have the same snippet multiple times in the same file
 // TODO: should look for same comment prefixes?
@@ -547,8 +754,11 @@ pub fn update_target_file_snippet(
     snippet_settings: &SnippextSettings,
 ) -> SnippextResult<()> {
     let mut source_content = fs::read_to_string(source.to_path_buf())?;
-    update_target_string_snippet(&mut source_content, snippet, snippet_settings)?;
-    fs::write(source.to_path_buf(), source_content)?;
+    let updated = update_target_string_snippet(&mut source_content, snippet, snippet_settings)?;
+    if updated {
+        fs::write(source.to_path_buf(), source_content)?;
+    }
+
     Ok(())
 }
 
@@ -556,7 +766,8 @@ pub fn update_target_string_snippet(
     source: &mut String,
     snippet: &Snippet,
     snippet_settings: &SnippextSettings,
-) -> SnippextResult<()> {
+) -> SnippextResult<bool> {
+    let mut updated = false;
     for prefix in &snippet_settings.comment_prefixes {
         // TODO: create helper method for building prefix+being+ident string
         if let Some(snippet_start_index) = source.find(
@@ -570,16 +781,20 @@ pub fn update_target_string_snippet(
             // TODO: extract attribute from snippet
             // TODO: should find/use template
             if let Some(snippet_start_tag_end_index) = source[snippet_start_index..].find("\n") {
-                let snippet_include_start =
+
+                let snippet_include_content =
                     &source[snippet_start_index..snippet_start_index + snippet_start_tag_end_index];
-                let attributes = if snippet_include_start.rfind('[').is_some() {
-                    Some(extract_attributes(snippet_include_start))
+                let attributes = if snippet_include_content.rfind('[').is_some() {
+                    Some(extract_attributes(snippet_include_content))
                 } else {
                     None
                 };
 
                 let result =
                     SnippextTemplate::render_template(snippet, snippet_settings, attributes)?;
+
+                // TODO: keep snippet comment
+
                 let content_starting_index = snippet_start_index + snippet_start_tag_end_index;
                 let end_index = source
                     .find(
@@ -595,10 +810,12 @@ pub fn update_target_string_snippet(
                     content_starting_index..end_index,
                     format!("\n{}", result).as_str(),
                 );
+                updated = true;
             }
         }
     }
-    Ok(())
+
+    Ok(updated)
 }
 
 // TODO: return tuple (prefix and identifier) or struct?
@@ -768,7 +985,6 @@ mod tests {
             repository_url: None,
             repository_branch: None,
             repository_commit: None,
-            // repository_directory: None,
             output_dir: None,
             targets: Vec::default(),
             sources: Vec::default(),

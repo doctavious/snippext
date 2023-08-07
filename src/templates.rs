@@ -23,8 +23,9 @@ impl SnippextTemplate {
         target_attributes: Option<HashMap<String, String>>,
     ) -> SnippextResult<String> {
         let mut data = HashMap::new();
-        if target_attributes.is_some() {
-            data.extend(target_attributes.unwrap());
+
+        if let Some(target_attributes) = target_attributes {
+            data.extend(target_attributes);
         }
 
         // TODO: do we want to make unindent optional?

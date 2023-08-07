@@ -7,9 +7,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
-    // snippet_start_tag
-    // snippet_end_tag
-
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
     pub identifier: String,
     /// The path the snippet was read from.

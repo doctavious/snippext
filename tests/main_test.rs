@@ -270,10 +270,61 @@ fn main() {
 fn sample_fn_1() {
 
 }
-<!-- snippet::end::fn_1 -->
-"#;
+<!-- snippet::end::fn_1 -->"#;
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
+    let dir = tempdir().unwrap();
+
+    fs::copy(
+        Path::new("./tests/targets/target.md"),
+        Path::new(&dir.path()).join("./target.md"),
+    )
+        .unwrap();
+
+    extract(SnippextSettings::new(
+        HashSet::from([String::from("// "), String::from("<!-- ")]),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from("{{snippet}}"),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/samples/main.rs",
+        )])],
+        Some(dir.path().to_string_lossy().to_string()),
+        Some(vec![Path::new(&dir.path())
+            .join("./target.md")
+            .to_string_lossy()
+            .to_string()]),
+        None,
+        None,
+    ))
+        .unwrap();
+
+    let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
+    let expected = r#"This is some static content
+
+<!-- snippet::start::main -->
+fn main() {
+
+    println!("printing...")
+}
+<!-- snippet::end::main -->
+
+<!-- snippet::start::fn_1 -->
+some content
+<!-- snippet::end::fn_1 -->"#;
+    assert_eq!(expected, actual);
+}
+
 
 #[test]
 fn should_support_template_with_attributes() {
@@ -366,8 +417,7 @@ fn main() {
     println!("printing...")
 }
 ```
-<!-- snippet::end::main -->
-"#;
+<!-- snippet::end::main -->"#;
     assert_eq!(expected, actual);
 }
 
