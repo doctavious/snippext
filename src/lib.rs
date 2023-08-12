@@ -19,6 +19,7 @@ pub mod settings;
 pub mod templates;
 pub mod types;
 pub mod unindent;
+mod files;
 
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;

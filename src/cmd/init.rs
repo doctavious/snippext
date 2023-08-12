@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use clap::Parser;
-use inquire::{required, Confirm, Select, Text};
+use inquire::{required, Confirm, Select, Text, Editor};
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
@@ -10,7 +10,7 @@ use crate::constants::{
     DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
 };
 use crate::templates::SnippextTemplate;
-use crate::types::SnippetSource;
+use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
 #[derive(Clone, Debug, Parser)]
@@ -74,26 +74,57 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     // TODO: look at render config options
 
+    // begin: "snippet::start::"
+    // end: "snippet::end::"
+    // extension: "md"
+    // comment_prefixes:
+    // - "// "
+    //     - "# "
+    //     - "<!-- "
+    // templates:
+    //     default:
+    //     template: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"
+    // default: true
+    // default_with_links:
+    //     template: "{{snippet}}"
+    // default: false
+    // code:
+    //     template: "```{{lang}}\n{{snippet}}```\n"
+    // default: false
+    // code_with_source_links:
+    //     template: "```{{lang}}\n{{snippet}}```\n<a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>\n"
+    // default: false
+    // sources:
+    // # extract from local files
+    //     - files:
+    // - "**"
+    // output_dir: "./generated-snippets/"
+
     let begin = Text::new("Begin tag:")
         .with_default(DEFAULT_BEGIN)
-        .with_help_message("e.g. Music Store")
+        .with_help_message("")
         .prompt()?;
 
     let end = Text::new("End tag:")
         .with_default(DEFAULT_END)
-        .with_help_message("e.g. Music Store")
+        .with_help_message("")
         .prompt()?;
 
     let extension = Text::new("Extension:")
         .with_default(DEFAULT_FILE_EXTENSION)
-        .with_help_message("e.g. Music Store")
+        .with_help_message("File extension for generated snippet")
         .prompt()?;
 
     // TODO: custom type or loop?
     // TODO: validation
+    // ? Comment prefixes: ("// ", "# ", "<!-- ")
+    // Comment prefixes: (["// ", "# ", "<!-- "]) with format display
     let comment_prefixes: Vec<String> = Text::new("Comment prefixes:")
-        .with_default(DEFAULT_COMMENT_PREFIXES.join(",").as_str())
-        .with_help_message("Please include appropriate number of spaces if applicable")
+        .with_default(DEFAULT_COMMENT_PREFIXES.iter().map(|i| format!("\"{i}\"")).collect::<Vec<String>>().join(", ").as_str())
+        .with_help_message(
+            "Provide comma separated list of comment prefixes which are used as starting \
+            strings for snippets"
+        )
         .prompt()?
         .split(",")
         .map(|s| s.to_string())
@@ -113,12 +144,12 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
             //         Ok(Validation::Valid)
             //     }
             // })
-            .with_help_message("e.g. Music Store")
+            .with_help_message("")
             .prompt()?;
 
-        let template = Text::new("Template content:")
-            .with_default(DEFAULT_TEMPLATE)
-            .with_help_message("e.g. Music Store")
+        let template = Editor::new("Template content:")
+            .with_predefined_text(DEFAULT_TEMPLATE)
+            .with_help_message("")
             .prompt()?;
 
         // mark default? can we be smart of if already has a default then no need to ask.
@@ -166,6 +197,8 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
             // sources.insert(SnippetSource::new_remote())
         }
 
+        // url
+
         let add_another_source = Confirm::new("Add another source?")
             .with_default(false)
             .with_help_message("")
@@ -177,8 +210,9 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     }
 
     let output_directory_prompt = Text::new("Output directory:")
-        .with_help_message("e.g. Music Store")
+        .with_help_message("Output directory to write generated snippets to.")
         .prompt()?;
+
     let output_dir = if output_directory_prompt.is_empty() {
         Some(output_directory_prompt)
     } else {
@@ -186,20 +220,34 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     };
 
     let targets = Text::new("targets:")
-        .with_default(DEFAULT_COMMENT_PREFIXES.join(",").as_str())
-        .with_help_message("e.g. Music Store")
+        .with_default("**")
+        .with_help_message(
+            "Glob patterns that specify files/directories to be spliced with extracted snippets"
+        )
         .prompt()?;
+
+    let link_format = Select::new("Source link format", LinkFormat::VARIANTS.to_vec())
+        .with_help_message(
+            "Press escape to skip selection"
+        )
+        .prompt_skippable()?;
+
+    let url_prefix = Text::new("URL Prefix")
+        .with_help_message(
+            ""
+        )
+        .prompt_skippable()?;
 
     Ok(SnippextSettings {
         begin,
         end,
         extension,
         comment_prefixes: HashSet::from_iter(comment_prefixes),
-        templates: Default::default(),
-        sources: vec![],
+        templates,
+        sources,
         output_dir,
-        targets: None,
-        link_format: None,
-        url_prefix: None,
+        targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
+        link_format,
+        url_prefix,
     })
 }

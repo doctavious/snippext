@@ -642,3 +642,41 @@ fn source_links_should_support_prefix() {
         content
     );
 }
+
+#[test]
+fn support_csharp_regions() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        HashSet::from([String::from("# ")]),
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
+        String::from("md"),
+        HashMap::from([(
+            "default".to_string(),
+            SnippextTemplate {
+                content: String::from(
+                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
+                ),
+                default: true,
+            },
+        )]),
+        vec![SnippetSource::new_local(vec![String::from(
+            "./tests/main.cs",
+        )])],
+        Some(dir.path().to_string_lossy().to_string()),
+        None,
+        Some(LinkFormat::GitHub),
+        None,
+    ))
+        .unwrap();
+
+    let content =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.txt"))
+            .unwrap();
+
+    assert_eq!(
+        "```Console.WriteLine(\"Hello World!\");\n```\n<a href='/tests/main.cs#L1-L3' title='Snippet source file'>source</a>",
+        content
+    );
+}

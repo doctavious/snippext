@@ -110,6 +110,16 @@ pub enum LinkFormat {
     TFS,
 }
 
+impl LinkFormat {
+    pub const VARIANTS: &'static [LinkFormat] = &[
+        Self::GitHub,
+        Self::GitLab,
+        Self::Gitea,
+        Self::BitBucket,
+        Self::TFS,
+    ];
+}
+
 impl fmt::Display for LinkFormat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
