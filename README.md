@@ -1,10 +1,10 @@
-# snippext
+# Snippext
 [![crates.io](https://img.shields.io/crates/v/snippext.svg)](https://crates.io/crates/snippext)
 [![Released API docs](https://docs.rs/snippext/badge.svg)](https://docs.rs/snippext)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![CI](https://github.com/doctavious/snippext/workflows/CI/badge.svg)](https://github.com/doctavious/snippext/actions?query=workflow%3ACI)
 
-Extract snippets from files.
+Extract snippets from source files and merge into your documentation.
 
 ## Snippets
 
@@ -30,7 +30,7 @@ fn main() {
 // end::main // (4)
 ```
 1. To indicate the start of a snippet, insert a comment line in the code.
-2. Assign an identifier to the snippet directive. In this example, the tag is named main. The snippet identifier will be sanitized
+2. Assign an identifier to the snippet directive. In this example, the tag is named main. The snippet identifier will be sanitized. Unique identifiers can contain letters, numbers, hyphens, and underscores.
 3. Within the brackets `[]` you can include a comma separated list of key/value pairs which are called `attributes` and can be used  in custom templates. 
 4. Insert another comment line where you want the snippet to end.
 5. You can also include nested snippets. The nested snippet comment will not be included in the extracted output.
