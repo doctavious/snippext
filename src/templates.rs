@@ -36,10 +36,12 @@ impl SnippextTemplate {
         if let Some(link_format) = &snippext_settings.link_format {
             data.insert("source_links_enabled".to_string(), "true".to_string());
 
+            let url_prefix = snippext_settings.url_prefix.to_owned().unwrap_or_default();
+            data.insert("url_prefix".to_string(), url_prefix.clone());
             let source_link = SnippextTemplate::build_source_link(
                 &snippet,
                 link_format,
-                snippext_settings.url_prefix.to_owned().unwrap_or_default(),
+                url_prefix,
             );
 
             // TODO: do we want to add a sup tag here or in the template?
