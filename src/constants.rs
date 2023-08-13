@@ -8,5 +8,5 @@ pub const DEFAULT_TEMPLATE: &'static str = "{{snippet}}";
 pub const DEFAULT_OUTPUT_FILE_EXTENSION: &'static str = "md";
 pub const DEFAULT_SOURCE_FILES: &'static str = "**";
 pub const DEFAULT_OUTPUT_DIR: &'static str = "./snippets/";
-pub const SNIPPEXT_TEMPLATE_ATTRIBUTE: &'static str = "snippext_template";
+pub const SNIPPEXT_TEMPLATE_ATTRIBUTE: &'static str = "template";
 pub const DEFAULT_TEMPLATE_IDENTIFIER: &'static str = "default";

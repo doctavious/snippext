@@ -1,3 +1,3 @@
 Specify template
-<!-- snippet::start::main[snippext_template=code] -->
+<!-- snippet::start::main[template=code] -->
 <!-- snippet::end::main -->

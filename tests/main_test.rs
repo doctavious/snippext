@@ -401,7 +401,7 @@ fn support_target_snippet_specifies_template() {
 
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./specify_template.md")).unwrap();
     let expected = r#"Specify template
-<!-- snippet::start::main[snippext_template=code] -->
+<!-- snippet::start::main[template=code] -->
 ```rust
 fn main() {
 
