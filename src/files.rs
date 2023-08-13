@@ -45,7 +45,7 @@ pub enum FileType {
 
 
 pub fn file_type(filename: &str) -> SnippextResult<Vec<FileType>> {
-    match extension(filename)?.as_str() {
+    match extension(filename).as_str() {
         "adoc" => Ok(vec![AsciiDoc]),
         "sh" => Ok(vec![Bash]),
         "c" => Ok(vec![C]),
@@ -262,17 +262,15 @@ fn get_comment_prefixes(extension: &str, tag: &str) -> SnippextResult<HashSet<St
     Ok(comments)
 }
 
-pub fn extension_from_path(path: &Path) -> SnippextResult<String> {
+pub fn extension_from_path(path: &Path) -> String {
     if let Some(ending) = path.extension() {
-        Ok(ending.to_string_lossy().to_string())
+        ending.to_string_lossy().to_string()
     } else {
-        Err(SnippextError::GeneralError(
-            format!("Could not determine file extension for {}", path.to_string_lossy()),
-        ))
+        "".into()
     }
 }
 
-pub fn extension(filename: &str) -> SnippextResult<String> {
+pub fn extension(filename: &str) -> String {
     extension_from_path(Path::new(filename))
 }
 

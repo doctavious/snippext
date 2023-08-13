@@ -12,74 +12,22 @@ use clap::Parser;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
-use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
 use serde_json::json;
 use tempfile::TempDir;
-use tracing::{info, warn};
+use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
 
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
+use crate::constants::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
-use crate::files::FileType;
-
-
-
-
-
-
-lazy_static!{
-
-    static ref MAP: HashMap<&'static str, &'static str> = vec![
-        ("adoc", "// "),
-        ("bash", "# "),
-        ("c", "// "),
-        ("cpp", "// "),
-        ("cs", "// "), // support regions (#region MyRegion / #endregion)
-        ("css", "/* "),
-        ("ex", "# "), // elixir
-        ("exs", "# "), // elixir
-        ("fs", "// "),
-        ("go", "// "),
-        ("h", "// "), // c,cpp,obj-c
-        ("html", "<!-- "),
-        ("hs", "-- "), // haskell
-        ("java", "// "),
-        ("js", "// "),
-        ("json5", "// "),
-        ("kt", "// "),
-        ("lsp", ";; "),
-        ("lua", "-- "),
-        ("m", "// "), // objective-c
-        ("md", "<!-- "),
-        ("php", "// "),
-        ("pl", "# "),
-        ("py", "# "),
-        ("rb", "# "),
-        ("rs", "// "),
-        // For RestructuredText its considered by some as bad practice to have text on same line
-        // but thats what we have to work with.
-        ("rst", ".. "),
-        ("scala", "// "),
-        ("sql", "-- "),
-        ("swift", "// "),
-        ("tf", "# "), // also supports //
-        ("toml", "# "),
-        ("ts", "// "),
-        ("vb", "' "), // support regions (#Region MyRegion / #End Region)
-        ("xml", "<!-- "),
-        ("yaml", "# "),
-        ("yml", "# "),
-    ].into_iter().collect();
-}
-
+use crate::cmd::is_line_snippet;
 
 // #[arg(last = true)]
 
@@ -117,17 +65,6 @@ pub struct Args {
         help = "extension for generated files. Defaults to txt when not specified."
     )]
     pub extension: Option<String>,
-
-    // TODO: make vec default to ["// ", "<!-- "]
-    // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
-    // comment prefix
-    #[arg(
-        short = 'p',
-        long,
-        value_name = "PREFIXES",
-        help = "Prefixes to use for comments"
-    )]
-    pub comment_prefixes: Option<Vec<String>>,
 
     #[arg(
         short,
@@ -284,6 +221,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         entry.unwrap(),
                         &snippets,
                         &snippext_settings,
+                        &mut cache,
                     )?;
                 }
             }
@@ -303,10 +241,6 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 
     if settings.end.is_empty() {
         failures.push(String::from("end must not be an empty string"));
-    }
-
-    if settings.comment_prefixes.is_empty() {
-        failures.push(String::from("comment_prefixes must not be empty"));
     }
 
     if settings.templates.is_empty() {
@@ -526,7 +460,7 @@ fn extract_snippets(
     let mut current_line_number = 0;
     let mut state = Vec::new();
     let mut snippets = HashMap::new();
-    let extension = files::extension_from_path(path)?;
+    let extension = files::extension_from_path(path);
 
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
@@ -580,10 +514,11 @@ fn extract_snippets(
 
         if let Some(_) = is_line_snippet(current_line, &snippet_end_prefixes) {
             if let Some(state) = state.pop() {
-                snippets.insert(
-                    state.key.clone(),
+                let id = state.key;
+                let old_value = snippets.insert(
+                    id.clone(),
                     Snippet::new(
-                        state.key,
+                        id.clone(),
                         path.to_path_buf(),
                         state.lines,
                         state.attributes,
@@ -591,6 +526,11 @@ fn extract_snippets(
                         current_line_number,
                     )
                 );
+
+                if old_value.is_some() {
+                    warn!("multiple snippets with id {} found", id.clone());
+                }
+
             }
         } else {
             for e in state.iter_mut() {
@@ -641,17 +581,6 @@ fn extract_id_and_attributes(line: &str, begin: &String) -> SnippextResult<(Stri
     Err(SnippextError::GeneralError(format!("could not extract snippet details from {}", line)))
 }
 
-
-fn line_starts_with_prefix(line: &str, prefixes: &HashSet<String>) -> bool {
-    for prefix in prefixes {
-        if line.starts_with(prefix) {
-            return true;
-        }
-    }
-
-    false
-}
-
 struct MissingSnippet<'a> {
     key: String,
     line_number: u32,
@@ -662,7 +591,8 @@ struct MissingSnippet<'a> {
 fn process_target_file(
     target: PathBuf,
     snippets: &HashMap<String, Snippet>,
-    settings: &SnippextSettings
+    settings: &SnippextSettings,
+    cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<()> {
 
     let mut new_file_lines = Vec::new();
@@ -670,6 +600,18 @@ fn process_target_file(
     let mut in_current_snippet = None;
     let mut line_number = 0;
     let mut missing_snippets = Vec::new();
+    let extension = files::extension_from_path(target.as_path());
+    let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
+        Entry::Occupied(entry) => entry.into_mut(),
+        Entry::Vacant(entry) => entry.insert((
+            files::get_snippet_start_prefixes(
+                extension.as_str().clone(),
+                settings.begin.as_str())?,
+            files::get_snippet_end_prefixes(
+                extension.clone().as_str(),
+                settings.end.as_str())?
+        ))
+    };
 
     let f = File::open(&target)?;
     let reader = BufReader::new(f);
@@ -679,7 +621,7 @@ fn process_target_file(
         let current_line = line.trim();
 
         if in_current_snippet.is_some() {
-            if is_line_snippet_tag(current_line, &settings.comment_prefixes, &settings.end) {
+            if is_line_snippet(current_line, &snippet_end_prefixes).is_some() {
                 new_file_lines.push(line.clone());
                 in_current_snippet = None;
             }
@@ -689,7 +631,7 @@ fn process_target_file(
 
         new_file_lines.push(line.clone());
 
-        if !is_line_snippet_tag(current_line, &settings.comment_prefixes, &settings.begin) {
+        if is_line_snippet(current_line, &snippet_start_prefixes).is_none() {
             continue;
         }
 
@@ -742,57 +684,6 @@ fn process_target_file(
 }
 
 
-fn is_line_snippet_tag(line: &str, prefixes: &HashSet<String>, pattern: &str) -> bool {
-    for prefix in prefixes {
-        let prefix = String::from(prefix.as_str()) + pattern;
-        if line.starts_with(&prefix) {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_line_snippet(line: &str, prefixes: &HashSet<String>) -> Option<String> {
-    for prefix in prefixes {
-        if line.starts_with(prefix) {
-            return Some(prefix.to_string());
-        }
-    }
-    None
-}
-
-fn create_snippet_start_prefixes(supported_file_types: Vec<FileType>, tag: &str) -> HashSet<String> {
-    let mut start_tags = HashSet::new();
-    for file_type in supported_file_types {
-        start_tags.extend(file_type.snippet_start_comments(tag.to_string()))
-    }
-    start_tags
-}
-
-// TODO: should this be on file type?
-fn is_line_start_snippet_comment(line: &str, supported_file_types: Vec<FileType>, tag: &str) -> bool {
-    for file_type in supported_file_types {
-        for comment in file_type.snippet_start_comments(tag.to_string()) {
-            if line.starts_with(&comment) {
-                return true;
-            }
-        }
-    }
-
-    false
-}
-
-fn is_line_end_snippet_comment(line: &str, supported_file_types: Vec<FileType>, tag: &str) -> bool {
-    for file_type in supported_file_types {
-        for comment in file_type.snippet_end_comments(tag.to_string()) {
-            if line.starts_with(&comment) {
-                return true;
-            }
-        }
-    }
-
-    false
-}
 
 // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
 // Precedence of options
@@ -815,28 +706,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
         .set_override_option("extension", opt.extension)?
-        .set_override_option("comment_prefixes", opt.comment_prefixes)?
         .set_override_option("output_dir", opt.output_dir)?;
-
-    // if let Some(begin) = opt.begin {
-    //     builder = builder.set_override("begin", begin)?;
-    // }
-    //
-    // if let Some(end) = opt.end {
-    //     builder = builder.set_override("end", end)?;
-    // }
-    //
-    // if let Some(extension) = opt.extension {
-    //     builder = builder.set_override("extension", extension)?;
-    // }
-
-    // if let Some(comment_prefixes) = opt.comment_prefixes {
-    //     builder = builder.set_override("comment_prefixes", comment_prefixes)?;
-    // }
-
-    // if let Some(output_dir) = opt.output_dir {
-    //     builder = builder.set_override("output_dir", output_dir)?;
-    // }
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -850,9 +720,9 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         builder = builder.set_override("url_prefix", url_prefix)?;
     }
 
+    println!("{:?}", opt.templates);
     if let Some(template) = opt.templates {
         let templates_path = Path::new(template.as_str());
-        info!("template path {:?}", templates_path);
         if !templates_path.exists() {
             return Err(SnippextError::GeneralError(format!(
                 "Template {} does not exist",
@@ -885,6 +755,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
                 continue;
             };
 
+
             templates.insert(
                 file_name.to_string_lossy().to_string(),
                 SnippextTemplate {
@@ -898,6 +769,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         let templates_json = serde_json::to_string(&json!({
             "templates": templates
         }))?;
+
         builder = builder.add_source(config::File::from_str(templates_json.as_str(), FileFormat::Json));
     }
 
@@ -930,65 +802,15 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     }))?;
     builder = builder.add_source(config::File::from_str(sources_json.as_str(), FileFormat::Json));
 
-
     let settings: SnippextSettings = builder.build()?.try_deserialize()?;
-
-    // if let Some(template) = opt.templates {
-    //     let templates_path = Path::new(template.as_str());
-    //     info!("template path {:?}", templates_path);
-    //     if !templates_path.exists() {
-    //         return Err(SnippextError::GeneralError(format!(
-    //             "Template {} does not exist",
-    //             template
-    //         )));
-    //     }
-    //
-    //     if !templates_path.is_dir() {
-    //         return Err(SnippextError::GeneralError(format!(
-    //             "Template {} should be a directory",
-    //             template
-    //         )));
-    //     }
-    //
-    //     let mut templates = HashMap::new();
-    //     for entry in fs::read_dir(templates_path)? {
-    //         let entry = entry?;
-    //         let path = entry.path();
-    //         if path.is_dir() {
-    //             warn!("Skipping template {} because it's a directory", template);
-    //             continue;
-    //         }
-    //         let Ok(content) = fs::read_to_string(&path) else {
-    //             warn!("unable to read template file {:?}", &path);
-    //             continue;
-    //         };
-    //
-    //         let Some(file_name) = path.file_stem() else {
-    //             warn!("Unable to get file stem for {:?}", &path);
-    //             continue;
-    //         };
-    //
-    //         templates.insert(
-    //             file_name.to_string_lossy().into(),
-    //             SnippextTemplate {
-    //                 content,
-    //                 default: file_name == DEFAULT_TEMPLATE_IDENTIFIER,
-    //             },
-    //         );
-    //     }
-    //
-    //     settings.templates = templates;
-    // }
 
     return Ok(settings);
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::path::PathBuf;
-
-    use tracing::info;
 
     use super::Args;
     use crate::error::SnippextError;
@@ -1029,7 +851,6 @@ mod tests {
             begin: Some(String::from("snippext::begin::")),
             end: Some(String::from("finish::")),
             extension: Some(String::from("txt")),
-            comment_prefixes: Some(vec![String::from("# ")]),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
             repository_branch: Some(String::from("main")),
@@ -1047,16 +868,12 @@ mod tests {
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!("txt", settings.extension);
-        assert_eq!(
-            HashSet::from([String::from("# ")]),
-            settings.comment_prefixes
-        );
 
-        assert_eq!(1, settings.templates.len());
-        assert_eq!("default", settings.templates.keys().next().unwrap());
-        let template = settings.templates.values().next().unwrap();
-        assert_eq!("````\n{{snippet}}\n```", template.content);
-        assert!(template.default);
+        assert_eq!(2, settings.templates.len());
+
+        let default_template = settings.templates.get("default").unwrap();
+        assert_eq!("````\n{{snippet}}\n```", default_template.content);
+        assert!(default_template.default);
         assert_eq!(Some(String::from("./snippext/")), settings.output_dir);
         assert_eq!(Some(vec![String::from("README.md")]), settings.targets);
 
@@ -1084,7 +901,6 @@ mod tests {
             begin: None,
             end: None,
             extension: Some(String::from("txt")),
-            comment_prefixes: None,
             templates: None,
             repository_url: None,
             repository_branch: None,
@@ -1112,7 +928,6 @@ mod tests {
     #[test]
     fn strings_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from(""),
             String::from(""),
             String::from(""),
@@ -1154,7 +969,6 @@ mod tests {
     #[test]
     fn at_least_one_template_is_required() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),
@@ -1185,7 +999,6 @@ mod tests {
     #[test]
     fn one_template_must_be_marked_default_when_multiple_templates_exist() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),
@@ -1231,7 +1044,6 @@ mod tests {
     #[test]
     fn multiple_default_templates_cannot_exist() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),
@@ -1275,46 +1087,8 @@ mod tests {
     }
 
     #[test]
-    fn at_least_one_comment_prefix_is_required() {
-        let settings = SnippextSettings::new(
-            HashSet::new(),
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
-            String::from("md"),
-            HashMap::from([(
-                "default".to_string(),
-                SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true,
-                },
-            )]),
-            vec![SnippetSource::new_local(vec![String::from("**")])],
-            Some(String::from("./snippets/")),
-            None,
-            None,
-            None,
-        );
-
-        let validation_result = super::extract(settings);
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("comment_prefixes must not be empty"),
-                    failures.get(0).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid snippextError");
-            }
-        }
-    }
-
-    #[test]
     fn sources_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),
@@ -1351,7 +1125,6 @@ mod tests {
     #[test]
     fn sources_must_have_at_least_one_files_entry() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),
@@ -1389,7 +1162,6 @@ mod tests {
     #[test]
     fn repository_must_be_provided_if_other_remote_sources_are_provided() {
         let settings = SnippextSettings::new(
-            HashSet::from([String::from("# ")]),
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             String::from("md"),

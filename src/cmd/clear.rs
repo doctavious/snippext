@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -7,7 +9,8 @@ use config::{Config, Environment, File};
 use serde::{Deserialize, Serialize};
 
 use crate::error::SnippextError;
-use crate::SnippextResult;
+use crate::{files, SnippextResult};
+use crate::cmd::is_line_snippet;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -15,17 +18,11 @@ pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[arg(short, long, help = "flag to mark beginning of a snippet")]
+    #[arg(short, long, help = "Flag to mark beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[arg(short, long, help = "flag to mark ending of a snippet")]
+    #[arg(short, long, help = "Flag to mark ending of a snippet")]
     pub end: Option<String>,
-
-    // TODO: make vec default to ["// ", "<!-- "]
-    // The tag::[] and end::[] directives should be placed after a line comment as defined by the language of the source file.
-    // comment prefix
-    #[arg(short = 'p', long, help = "Prefixes to use for comments")]
-    pub comment_prefixes: Option<Vec<String>>,
 
     // globs
     #[arg(
@@ -41,8 +38,7 @@ pub struct Args {
 pub struct ClearSettings {
     pub begin: String,
     pub end: String,
-    pub comment_prefixes: Vec<String>,
-    pub targets: Option<Vec<String>>,
+    pub targets: Vec<String>,
 }
 
 /// Removes snippets from target files
@@ -62,48 +58,33 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
     }
 
     builder = builder.add_source(Environment::with_prefix("snippext"));
-
-    if let Some(begin) = opt.begin {
-        builder = builder.set_override("begin", begin)?;
-    }
-
-    if let Some(end) = opt.end {
-        builder = builder.set_override("end", end)?;
-    }
-
-    if let Some(comment_prefixes) = opt.comment_prefixes {
-        builder = builder.set_override("comment_prefixes", comment_prefixes)?;
-    }
-
-    if let Some(targets) = opt.targets {
-        builder = builder.set_override("targets", targets)?;
-    }
+    builder = builder.set_override_option("begin", opt.begin)?
+        .set_override_option("end", opt.end)?
+        .set_override_option("targets",opt.targets)?;
 
     let settings: ClearSettings = builder.build()?.try_deserialize()?;
     return Ok(settings);
 }
 
-// TODO: this probably goes in lib?
 /// remove snippets from target files
 pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
     validate_clear_settings(&settings)?;
 
-    clear_targets(
-        settings.begin.as_str(),
-        settings.end.as_str(),
-        settings.comment_prefixes,
-        settings.targets.unwrap(),
-    )
-}
+    let mut cache: HashMap<String, (HashSet<String>, HashSet<String>)> = HashMap::new();
+    for target in settings.targets {
+        let extension = files::extension(target.as_str());
+        let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert((
+                files::get_snippet_start_prefixes(
+                    extension.as_str().clone(),
+                    settings.begin.as_str())?,
+                files::get_snippet_end_prefixes(
+                    extension.clone().as_str(),
+                    settings.end.as_str())?
+            ))
+        };
 
-// TODO: move write out or provide way to test
-fn clear_targets(
-    begin: &str,
-    end: &str,
-    comment_prefixes: Vec<String>,
-    targets: Vec<String>,
-) -> SnippextResult<()> {
-    for target in targets {
         let f = fs::File::open(&target)?;
         let reader = BufReader::new(f);
 
@@ -113,17 +94,18 @@ fn clear_targets(
         for line in reader.lines() {
             let l = line?;
 
-            for prefix in &comment_prefixes {
-                if l.contains(String::from(prefix.to_owned() + begin).as_str()) {
-                    omit = true;
-                    break;
-                }
-                if !omit {
-                    new_lines.push(l.clone());
-                }
-                if l.contains(String::from(prefix.to_owned() + end).as_str()) {
-                    omit = false;
-                }
+            if is_line_snippet(l.as_str(), &snippet_start_prefixes).is_some() {
+                omit = true;
+                continue
+            }
+
+            if is_line_snippet(l.as_str(), &snippet_end_prefixes).is_some() {
+                omit = false;
+                continue
+            }
+
+            if !omit {
+                new_lines.push(l.clone());
             }
         }
 
@@ -147,11 +129,7 @@ fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
         failures.push("end must not be empty".to_string())
     }
 
-    if settings.comment_prefixes.is_empty() {
-        failures.push("Must provide at least one comment prefix".to_string())
-    }
-
-    if settings.targets.is_none() {
+    if settings.targets.is_empty() {
         failures.push("Must specify targets".to_string())
     }
 
@@ -184,14 +162,13 @@ foo
 More content
 "#
             .as_bytes(),
-        );
+        ).unwrap();
 
-        super::clear_targets(
-            "snippet::",
-            "end::",
-            vec![String::from("# ")],
-            vec![String::from(target.path().to_string_lossy())],
-        );
+        super::clear(ClearSettings {
+            begin: "snippet::".to_string(),
+            end: "end::".to_string(),
+            targets: vec![String::from(target.path().to_string_lossy())],
+        }).unwrap();
 
         let actual = fs::read_to_string(target.path()).unwrap();
         let expected = r#"# Some content
@@ -209,41 +186,16 @@ More content
 # end::foo
 "#
             .as_bytes(),
-        );
+        ).unwrap();
 
-        super::clear_targets(
-            "snippet::",
-            "end::",
-            vec![String::from("# ")],
-            vec![String::from(target.path().to_string_lossy())],
-        );
+        super::clear(ClearSettings {
+            begin: "snippet::".to_string(),
+            end: "end::".to_string(),
+            targets: vec![String::from(target.path().to_string_lossy())],
+        }).unwrap();
 
         let actual = fs::read_to_string(target.path()).unwrap();
         assert_eq!("", actual);
-    }
-
-    #[test]
-    fn clear_target_should_require_at_least_one_prefix() {
-        let validation_result = super::clear(ClearSettings {
-            begin: String::from("snippet::"),
-            end: String::from("end::"),
-            comment_prefixes: vec![],
-            targets: Some(vec!["".to_string()]),
-        });
-
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("Must provide at least one comment prefix"),
-                    failures.get(0).unwrap().to_string()
-                )
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
     }
 
     #[test]
@@ -251,8 +203,7 @@ More content
         let validation_result = super::clear(ClearSettings {
             begin: String::from(""),
             end: String::from(""),
-            comment_prefixes: vec![String::from("# ")],
-            targets: Some(vec!["".to_string()]),
+            targets: vec!["".to_string()],
         });
 
         let error = validation_result.err().unwrap();
@@ -266,30 +217,6 @@ More content
                 assert_eq!(
                     String::from("end must not be empty"),
                     failures.get(1).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
-    }
-
-    #[test]
-    fn clear_target_should_require_targets_or_output_dir() {
-        let validation_result = super::clear(ClearSettings {
-            begin: String::from("snippet::"),
-            end: String::from("end::"),
-            comment_prefixes: vec![String::from("# ")],
-            targets: None,
-        });
-
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("Must specify targets"),
-                    failures.get(0).unwrap().to_string()
                 );
             }
             _ => {

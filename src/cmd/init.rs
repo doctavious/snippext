@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 
 use clap::Parser;
@@ -6,7 +6,7 @@ use inquire::{required, Confirm, Select, Text, Editor};
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_FILE_EXTENSION,
     DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
 };
 use crate::templates::SnippextTemplate;
@@ -43,33 +43,9 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
     } else {
         Some(init_settings_from_prompt()?)
     };
+
     init(init_settings)
 }
-
-// &mut ui::backend::TestBackend::new((1, 1).into()),
-
-// let mut backend = helpers::SnapshotOnFlushBackend::new((50, 20).into());
-// let mut events = TestEvents::new(vec![
-//     KeyCode::Char('t').into(),
-//     KeyCode::Char('r').into(),
-//     KeyCode::Enter.into(),
-//     KeyCode::Home.into(),
-//     KeyCode::Char('s').into(),
-//     KeyCode::Enter.into(),
-// ]);
-//
-// let ans = requestty::prompt_one_with(prompt, &mut backend, &mut events).unwrap();
-
-// pub fn prompt_one<'a, I: Into<Question<'a>>>(question: I) -> Result<Answer> {
-//     let stdout = std::io::stdout();
-//     let mut stdout = ui::backend::get_backend(stdout.lock());
-//     let mut events = ui::events::get_events();
-//
-//     prompt_one_with(question.into(), &mut stdout, &mut events)
-// }
-// fn init_settings_from_prompt_internal(backend: requestty::ui::backend, events: requestty::ui::events) {
-//
-// }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     // TODO: look at render config options
@@ -115,35 +91,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("File extension for generated snippet")
         .prompt()?;
 
-    // TODO: custom type or loop?
-    // TODO: validation
-    // ? Comment prefixes: ("// ", "# ", "<!-- ")
-    // Comment prefixes: (["// ", "# ", "<!-- "]) with format display
-    let comment_prefixes: Vec<String> = Text::new("Comment prefixes:")
-        .with_default(DEFAULT_COMMENT_PREFIXES.iter().map(|i| format!("\"{i}\"")).collect::<Vec<String>>().join(", ").as_str())
-        .with_help_message(
-            "Provide comma separated list of comment prefixes which are used as starting \
-            strings for snippets"
-        )
-        .prompt()?
-        .split(",")
-        .map(|s| s.to_string())
-        .collect();
-
     // TODO: support multiple templates (id / default / template)
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
     loop {
         let identifier = Text::new("Template identifier:")
             .with_validator(required!("This field is required"))
-            // .with_validator(&|id| {
-            //     let now = chrono::Utc::now().naive_utc().date();
-            //
-            //     if d.ge(&now) {
-            //         Ok(Validation::Invalid("Date must be in the past".into()))
-            //     } else {
-            //         Ok(Validation::Valid)
-            //     }
-            // })
             .with_help_message("")
             .prompt()?;
 
@@ -242,7 +194,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         begin,
         end,
         extension,
-        comment_prefixes: HashSet::from_iter(comment_prefixes),
         templates,
         sources,
         output_dir,
