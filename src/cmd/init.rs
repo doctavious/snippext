@@ -3,12 +3,8 @@ use std::fs;
 
 use clap::Parser;
 use inquire::{required, Confirm, Select, Text, Editor};
-use serde::{Deserialize, Serialize};
 
-use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_FILE_EXTENSION,
-    DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
-};
+use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
@@ -16,35 +12,19 @@ use crate::{SnippextResult, SnippextSettings};
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    #[arg(long, help = "TODO: ...")]
+    #[arg(long, help = "Use the default snippext config")]
     pub default: bool,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct InitSettings {
-    pub default: bool,
-}
-
-/// Configure Snippext settings
-pub fn init(settings: Option<SnippextSettings>) -> SnippextResult<()> {
-    let content = if let Some(settings) = settings {
-        serde_yaml::to_string(&settings)?
-    } else {
+pub fn execute(init_opt: Args) -> SnippextResult<()> {
+    let content = if init_opt.default {
         DEFAULT_SNIPPEXT_CONFIG.to_string()
+    } else {
+        serde_yaml::to_string(&init_settings_from_prompt()?)?
     };
 
     fs::write("./snippext.yaml", content)?;
     Ok(())
-}
-
-pub fn execute(init_opt: Args) -> SnippextResult<()> {
-    let init_settings = if init_opt.default {
-        None
-    } else {
-        Some(init_settings_from_prompt()?)
-    };
-
-    init(init_settings)
 }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
@@ -86,10 +66,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("")
         .prompt()?;
 
-    let output_extension = Text::new("Extension:")
-        .with_default(DEFAULT_FILE_EXTENSION)
-        .with_help_message("File extension for generated snippet")
-        .prompt()?;
 
     // TODO: support multiple templates (id / default / template)
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
@@ -167,6 +143,15 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let output_dir = if output_directory_prompt.is_empty() {
         Some(output_directory_prompt)
+    } else {
+        None
+    };
+
+    let output_extension = if output_dir.is_some() {
+        Some(Text::new("Output Extension:")
+            .with_default(DEFAULT_OUTPUT_FILE_EXTENSION)
+            .with_help_message("File extension for generated snippets")
+            .prompt()?)
     } else {
         None
     };

@@ -19,7 +19,6 @@ fn should_successfully_extract_from_local_sources_directory() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -31,6 +30,7 @@ fn should_successfully_extract_from_local_sources_directory() {
             "./tests/samples/*",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -77,7 +77,6 @@ fn error_when_extracting_from_unavailable_remote() {
     let result = extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -99,6 +98,7 @@ fn error_when_extracting_from_unavailable_remote() {
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -114,7 +114,6 @@ fn should_error_when_snippet_is_not_closed() {
     let result = extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -126,6 +125,7 @@ fn should_error_when_snippet_is_not_closed() {
             "./tests/snippet_left_open.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -141,7 +141,6 @@ fn should_successfully_extract_from_remote() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -160,6 +159,7 @@ fn should_successfully_extract_from_remote() {
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -191,7 +191,6 @@ fn should_successfully_extract_from_local_sources_file() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -203,6 +202,7 @@ fn should_successfully_extract_from_local_sources_file() {
             "./tests/samples/custom_prefix.rb",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -229,7 +229,6 @@ fn should_update_specified_targets() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -241,6 +240,7 @@ fn should_update_specified_targets() {
             "./tests/samples/*",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         Some(vec![Path::new(&dir.path())
             .join("./target.md")
             .to_string_lossy()
@@ -281,7 +281,6 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -293,6 +292,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
             "./tests/samples/main.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         Some(vec![Path::new(&dir.path())
             .join("./target.md")
             .to_string_lossy()
@@ -326,7 +326,6 @@ fn should_support_template_with_attributes() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -338,6 +337,7 @@ fn should_support_template_with_attributes() {
             "./tests/samples/main.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -369,7 +369,6 @@ fn support_target_snippet_specifies_template() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([
             (
                 "basic".to_string(),
@@ -389,6 +388,7 @@ fn support_target_snippet_specifies_template() {
         vec![SnippetSource::new_local(vec![String::from(
             "./tests/samples/main.rs",
         )])],
+        None,
         None,
         Some(vec![Path::new(&dir.path())
             .join("./specify_template.md")
@@ -419,7 +419,6 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -431,6 +430,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
             "./tests/samples/main.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -456,7 +456,6 @@ fn should_support_files_with_no_snippets() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -468,6 +467,7 @@ fn should_support_files_with_no_snippets() {
             "./tests/samples/no_snippets.rs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -492,7 +492,6 @@ fn invalid_glob() {
     let result = extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -502,6 +501,7 @@ fn invalid_glob() {
         )]),
         vec![SnippetSource::new_local(vec![String::from("[&")])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -525,7 +525,6 @@ fn glob_returns_no_files() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -537,6 +536,7 @@ fn glob_returns_no_files() {
             "./tests/samples/*.md",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         None,
         None,
@@ -561,7 +561,6 @@ fn support_source_links() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -575,6 +574,7 @@ fn support_source_links() {
             "./tests/samples/custom_prefix.rb",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         Some(LinkFormat::GitHub),
         None,
@@ -598,7 +598,6 @@ fn source_links_should_support_prefix() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -612,6 +611,7 @@ fn source_links_should_support_prefix() {
             "./tests/samples/custom_prefix.rb",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         Some(LinkFormat::GitHub),
         Some("http://github.com/foo".into()),
@@ -635,7 +635,6 @@ fn support_csharp_regions() {
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
-        String::from("md"),
         HashMap::from([(
             "default".to_string(),
             SnippextTemplate {
@@ -649,6 +648,7 @@ fn support_csharp_regions() {
             "./tests/main.cs",
         )])],
         Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
         None,
         Some(LinkFormat::GitHub),
         None,

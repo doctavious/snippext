@@ -94,18 +94,16 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
         for line in reader.lines() {
             let l = line?;
 
-            if is_line_snippet(l.as_str(), &snippet_start_prefixes).is_some() {
-                omit = true;
-                continue
-            }
-
             if is_line_snippet(l.as_str(), &snippet_end_prefixes).is_some() {
                 omit = false;
-                continue
             }
 
             if !omit {
                 new_lines.push(l.clone());
+            }
+
+            if is_line_snippet(l.as_str(), &snippet_start_prefixes).is_some() {
+                omit = true;
             }
         }
 
@@ -172,6 +170,8 @@ More content
 
         let actual = fs::read_to_string(target.path()).unwrap();
         let expected = r#"# Some content
+# snippet::foo
+# end::foo
 
 More content
 "#;
@@ -195,7 +195,10 @@ More content
         }).unwrap();
 
         let actual = fs::read_to_string(target.path()).unwrap();
-        assert_eq!("", actual);
+        let expected = r#"# snippet::foo
+# end::foo
+"#;
+        assert_eq!(expected, actual);
     }
 
     #[test]

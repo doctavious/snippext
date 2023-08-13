@@ -35,10 +35,6 @@ impl Snippet {
             end_line,
         }
     }
-
-    pub fn create_tag(&self, prefix: String, tag: String) -> String {
-        prefix + tag.as_str() + self.identifier.as_str()
-    }
 }
 
 // TODO: might be better as an enum

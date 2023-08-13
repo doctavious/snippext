@@ -42,6 +42,7 @@ impl SnippextTemplate {
                 snippext_settings.url_prefix.to_owned().unwrap_or_default(),
             );
 
+            // TODO: do we want to add a sup tag here or in the template?
             data.insert(
                 "source_link".to_string(),
                 format!(

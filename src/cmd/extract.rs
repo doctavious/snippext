@@ -21,7 +21,7 @@ use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
 
-use crate::constants::{DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER};
+use crate::constants::{DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
@@ -183,6 +183,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         }
 
         if let Some(output_dir) = &snippext_settings.output_dir {
+            let extension = snippext_settings.output_extension.as_deref().unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
             for (_, snippet) in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
@@ -193,7 +194,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                             .trim_start_matches(x),
                     )
                     .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension(&snippext_settings.output_extension);
+                    .with_extension(extension);
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
                 let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
@@ -299,8 +300,8 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         failures.push(String::from("output_dir or targets is required"));
     }
 
-    if settings.output_extension.is_empty() {
-        failures.push(String::from("extension must not be an empty string"));
+    if settings.output_extension.as_ref().is_some_and(|e| e.is_empty()) {
+        failures.push(String::from("output_extension must not be an empty string"));
     }
 
     return if !failures.is_empty() {
@@ -847,7 +848,6 @@ mod tests {
             config: None,
             begin: Some(String::from("snippext::begin::")),
             end: Some(String::from("finish::")),
-            output_extension: Some(String::from("txt")),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
             repository_branch: Some(String::from("main")),
@@ -855,6 +855,7 @@ mod tests {
             sources: vec![String::from("**/*.rs")],
             url_sources: Vec::default(),
             output_dir: Some(String::from("./snippext/")),
+            output_extension: Some(String::from("txt")),
             targets: vec![String::from("README.md")],
             link_format: None,
             url_prefix: None,
@@ -864,7 +865,7 @@ mod tests {
 
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
-        assert_eq!("txt", settings.output_extension);
+        assert_eq!(Some("txt".into()), settings.output_extension);
 
         println!("{:?}",settings.templates);
         assert_eq!(1, settings.templates.len());
@@ -919,14 +920,13 @@ mod tests {
             settings.output_dir
         );
         // cli arg overrides env
-        assert_eq!("txt", settings.output_extension);
+        assert_eq!(Some("txt".into()), settings.output_extension);
     }
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
     #[test]
     fn strings_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            String::from(""),
             String::from(""),
             String::from(""),
             HashMap::from([(
@@ -938,6 +938,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            Some(String::from("")),
             None,
             None,
             None,
@@ -956,7 +957,7 @@ mod tests {
                 assert!(failures.contains(&String::from(
                     "templates[0].content must not be an empty string"
                 )));
-                assert!(failures.contains(&String::from("extension must not be an empty string")));
+                assert!(failures.contains(&String::from("output_extension must not be an empty string")));
             }
             _ => {
                 panic!("invalid SnippextError");
@@ -969,10 +970,10 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::new(),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,
@@ -999,7 +1000,6 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::from([
                 (
                     "first".to_string(),
@@ -1018,6 +1018,7 @@ mod tests {
             ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,
@@ -1044,7 +1045,6 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::from([
                 (
                     "first".to_string(),
@@ -1063,6 +1063,7 @@ mod tests {
             ]),
             vec![SnippetSource::new_local(vec![String::from("**")])],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,
@@ -1089,7 +1090,6 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::from([(
                 "default".to_string(),
                 SnippextTemplate {
@@ -1099,6 +1099,7 @@ mod tests {
             )]),
             vec![],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,
@@ -1125,7 +1126,6 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::from([(
                 "default".to_string(),
                 SnippextTemplate {
@@ -1135,6 +1135,7 @@ mod tests {
             )]),
             vec![SnippetSource::new_local(vec![])],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,
@@ -1162,7 +1163,6 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            String::from("md"),
             HashMap::from([(
                 "default".to_string(),
                 SnippextTemplate {
@@ -1179,6 +1179,7 @@ mod tests {
                 url: None,
             }],
             Some(String::from("./snippets/")),
+            Some(String::from("md")),
             None,
             None,
             None,

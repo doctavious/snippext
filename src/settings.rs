@@ -4,10 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_FILE_EXTENSION,
-    DEFAULT_OUTPUT_DIR, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
-};
+use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
 use crate::SnippextResult;
@@ -19,7 +16,7 @@ pub struct SnippextSettings {
     pub templates: HashMap<String, SnippextTemplate>,
     pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
-    pub output_extension: String,
+    pub output_extension: Option<String>,
     pub targets: Option<Vec<String>>,
     pub link_format: Option<LinkFormat>,
     pub url_prefix: Option<String>,
@@ -48,7 +45,7 @@ impl SnippextSettings {
                 DEFAULT_SOURCE_FILES,
             )])],
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
-            output_extension: String::from(DEFAULT_FILE_EXTENSION),
+            output_extension: Some(String::from(DEFAULT_OUTPUT_FILE_EXTENSION)),
             targets: None,
             link_format: None,
             url_prefix: None,
@@ -70,10 +67,10 @@ impl SnippextSettings {
     pub fn new(
         begin: String,
         end: String,
-        output_extension: String,
         templates: HashMap<String, SnippextTemplate>,
         sources: Vec<SnippetSource>,
         output_dir: Option<String>,
+        output_extension: Option<String>,
         targets: Option<Vec<String>>,
         link_format: Option<LinkFormat>,
         url_prefix: Option<String>,
