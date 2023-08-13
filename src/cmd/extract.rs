@@ -60,13 +60,6 @@ pub struct Args {
     pub end: Option<String>,
 
     #[arg(
-        short = 'x',
-        long,
-        help = "extension for generated files. Defaults to txt when not specified."
-    )]
-    pub extension: Option<String>,
-
-    #[arg(
         short,
         long,
         value_name = "DIR",
@@ -99,6 +92,13 @@ pub struct Args {
                 targets is provided."
     )]
     pub output_dir: Option<String>,
+
+    #[arg(
+        short = 'x',
+        long,
+        help = "Extension for generated files. Defaults to txt when not specified."
+    )]
+    pub output_extension: Option<String>,
 
     // globs
     #[arg(
@@ -184,7 +184,6 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 
         if let Some(output_dir) = &snippext_settings.output_dir {
             for (_, snippet) in &snippets {
-                println!("{:?}", &snippet);
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
                     .join(
@@ -194,9 +193,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                             .trim_start_matches(x),
                     )
                     .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension("txt");
-
-                println!("{:?}", output_path);
+                    .with_extension(&snippext_settings.output_extension);
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
                 let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
@@ -280,10 +277,6 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         }
     }
 
-    if settings.extension.is_empty() {
-        failures.push(String::from("extension must not be an empty string"));
-    }
-
     if settings.sources.is_empty() {
         failures.push(String::from("sources must not be empty"));
     } else {
@@ -304,6 +297,10 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 
     if settings.output_dir.is_none() && settings.targets.is_none() {
         failures.push(String::from("output_dir or targets is required"));
+    }
+
+    if settings.output_extension.is_empty() {
+        failures.push(String::from("extension must not be an empty string"));
     }
 
     return if !failures.is_empty() {
@@ -705,8 +702,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     builder = builder.add_source(Environment::with_prefix("snippext"))
         .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
-        .set_override_option("extension", opt.extension)?
-        .set_override_option("output_dir", opt.output_dir)?;
+        .set_override_option("output_dir", opt.output_dir)?
+        .set_override_option("output_extension", opt.output_extension)?;
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -850,7 +847,7 @@ mod tests {
             config: None,
             begin: Some(String::from("snippext::begin::")),
             end: Some(String::from("finish::")),
-            extension: Some(String::from("txt")),
+            output_extension: Some(String::from("txt")),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
             repository_branch: Some(String::from("main")),
@@ -867,9 +864,10 @@ mod tests {
 
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
-        assert_eq!("txt", settings.extension);
+        assert_eq!("txt", settings.output_extension);
 
-        assert_eq!(2, settings.templates.len());
+        println!("{:?}",settings.templates);
+        assert_eq!(1, settings.templates.len());
 
         let default_template = settings.templates.get("default").unwrap();
         assert_eq!("````\n{{snippet}}\n```", default_template.content);
@@ -900,13 +898,13 @@ mod tests {
             config: Some(PathBuf::from("./tests/custom_snippext.yaml")),
             begin: None,
             end: None,
-            extension: Some(String::from("txt")),
             templates: None,
             repository_url: None,
             repository_branch: None,
             repository_commit: None,
             // repository_directory: None,
             output_dir: None,
+            output_extension: Some(String::from("txt")),
             targets: Vec::default(),
             sources: Vec::default(),
             url_sources: Vec::default(),
@@ -921,7 +919,7 @@ mod tests {
             settings.output_dir
         );
         // cli arg overrides env
-        assert_eq!("txt", settings.extension);
+        assert_eq!("txt", settings.output_extension);
     }
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2

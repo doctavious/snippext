@@ -1,6 +1,5 @@
 begin: "snippet::start::"
 end: "snippet::end::"
-extension: "md"
 templates:
   default:
     template: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"
@@ -19,4 +18,5 @@ sources:
 - files:
   - "**"
 output_dir: "./generated-snippets/"
+output_extension: "md"
 

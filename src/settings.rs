@@ -16,10 +16,10 @@ use crate::SnippextResult;
 pub struct SnippextSettings {
     pub begin: String,
     pub end: String,
-    pub extension: String,
     pub templates: HashMap<String, SnippextTemplate>,
     pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
+    pub output_extension: String,
     pub targets: Option<Vec<String>>,
     pub link_format: Option<LinkFormat>,
     pub url_prefix: Option<String>,
@@ -37,7 +37,6 @@ impl SnippextSettings {
         Self {
             begin: String::from(DEFAULT_BEGIN),
             end: String::from(DEFAULT_END),
-            extension: String::from(DEFAULT_FILE_EXTENSION),
             templates: HashMap::from([(
                 String::from("default"),
                 SnippextTemplate {
@@ -49,6 +48,7 @@ impl SnippextSettings {
                 DEFAULT_SOURCE_FILES,
             )])],
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
+            output_extension: String::from(DEFAULT_FILE_EXTENSION),
             targets: None,
             link_format: None,
             url_prefix: None,
@@ -70,7 +70,7 @@ impl SnippextSettings {
     pub fn new(
         begin: String,
         end: String,
-        extension: String,
+        output_extension: String,
         templates: HashMap<String, SnippextTemplate>,
         sources: Vec<SnippetSource>,
         output_dir: Option<String>,
@@ -81,10 +81,10 @@ impl SnippextSettings {
         Self {
             begin,
             end,
-            extension,
             templates,
             sources,
             output_dir,
+            output_extension,
             targets,
             link_format,
             url_prefix,

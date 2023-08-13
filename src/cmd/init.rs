@@ -86,7 +86,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("")
         .prompt()?;
 
-    let extension = Text::new("Extension:")
+    let output_extension = Text::new("Extension:")
         .with_default(DEFAULT_FILE_EXTENSION)
         .with_help_message("File extension for generated snippet")
         .prompt()?;
@@ -193,7 +193,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     Ok(SnippextSettings {
         begin,
         end,
-        extension,
+        output_extension,
         templates,
         sources,
         output_dir,

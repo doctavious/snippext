@@ -38,7 +38,7 @@ fn should_successfully_extract_from_local_sources_directory() {
     .unwrap();
 
     let main_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
     let main_content_expected = r#"fn main() {
 
     println!("printing...")
@@ -47,12 +47,12 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(main_content_expected, main_content_actual);
 
     let main_nested_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md"))
             .unwrap();
     assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.md"))
             .unwrap();
     let sample_fn_1_content_expected = r#"fn sample_fn_1() {
 
@@ -61,7 +61,7 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(sample_fn_1_content_expected, sample_fn_1_content_actual);
 
     let sample_fn_2_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2.md"))
             .unwrap();
     let sample_fn_2_content_expected = r#"fn sample_fn_2() {
 
@@ -210,7 +210,7 @@ fn should_successfully_extract_from_local_sources_file() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
             .unwrap();
 
     assert_eq!("puts \"Hello, Ruby!\"\n", content);
@@ -345,7 +345,7 @@ fn should_support_template_with_attributes() {
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
     let expected = r#"```rust
 fn main() {
 
@@ -438,7 +438,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.txt")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
     let expected = r#"```
 fn main() {
 
@@ -582,7 +582,7 @@ fn support_source_links() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
             .unwrap();
 
     assert_eq!(
@@ -619,7 +619,7 @@ fn source_links_should_support_prefix() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
             .unwrap();
 
     assert_eq!(
@@ -656,7 +656,7 @@ fn support_csharp_regions() {
         .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.txt"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.md"))
             .unwrap();
 
     assert_eq!(
