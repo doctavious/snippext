@@ -1,10 +1,6 @@
 begin: "snippet::start::"
 end: "snippet::end::"
 extension: "md"
-comment_prefixes:
-- "// "
-- "# "
-- "<!-- "
 templates:
   default:
     template: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"

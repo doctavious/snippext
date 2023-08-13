@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -17,7 +17,6 @@ fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -76,7 +75,6 @@ fn error_when_extracting_from_unavailable_remote() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -114,7 +112,6 @@ fn should_error_when_snippet_is_not_closed() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -142,7 +139,6 @@ fn should_successfully_extract_from_remote() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -193,7 +189,6 @@ fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("# ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -232,7 +227,6 @@ fn should_update_specified_targets() {
     .unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -285,7 +279,6 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         .unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -331,7 +324,6 @@ fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -375,7 +367,6 @@ fn support_target_snippet_specifies_template() {
     .unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// "), String::from("<!-- ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -426,7 +417,6 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -464,7 +454,6 @@ fn should_support_files_with_no_snippets() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -501,7 +490,6 @@ fn invalid_glob() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -535,7 +523,6 @@ fn glob_returns_no_files() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("// ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -572,7 +559,6 @@ fn support_source_links() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("# ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -610,7 +596,6 @@ fn source_links_should_support_prefix() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("# ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),
@@ -648,7 +633,6 @@ fn support_csharp_regions() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        HashSet::from([String::from("# ")]),
         String::from("snippet::start::"),
         String::from("snippet::end::"),
         String::from("md"),

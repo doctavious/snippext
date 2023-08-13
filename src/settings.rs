@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_COMMENT_PREFIXES, DEFAULT_END, DEFAULT_FILE_EXTENSION,
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_FILE_EXTENSION,
     DEFAULT_OUTPUT_DIR, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
 };
 use crate::templates::SnippextTemplate;
@@ -17,7 +17,6 @@ pub struct SnippextSettings {
     pub begin: String,
     pub end: String,
     pub extension: String,
-    pub comment_prefixes: HashSet<String>,
     pub templates: HashMap<String, SnippextTemplate>,
     pub sources: Vec<SnippetSource>,
     pub output_dir: Option<String>,
@@ -31,7 +30,6 @@ impl SnippextSettings {
     /// begin: [`DEFAULT_BEGIN`]
     /// end: [`DEFAULT_END`]
     /// extension: [`DEFAULT_FILE_EXTENSION`]
-    /// comment_prefixes: [`DEFAULT_COMMENT_PREFIXES`]
     /// template: [`DEFAULT_TEMPLATE`]
     /// sources: all files via [`DEFAULT_SOURCE_FILES`] glob
     /// output_dir: [`DEFAULT_OUTPUT_DIR`]
@@ -40,10 +38,6 @@ impl SnippextSettings {
             begin: String::from(DEFAULT_BEGIN),
             end: String::from(DEFAULT_END),
             extension: String::from(DEFAULT_FILE_EXTENSION),
-            comment_prefixes: DEFAULT_COMMENT_PREFIXES
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect(),
             templates: HashMap::from([(
                 String::from("default"),
                 SnippextTemplate {
@@ -74,7 +68,6 @@ impl SnippextSettings {
 
     // TODO: <S: Into<String>>
     pub fn new(
-        comment_prefixes: HashSet<String>,
         begin: String,
         end: String,
         extension: String,
@@ -89,7 +82,6 @@ impl SnippextSettings {
             begin,
             end,
             extension,
-            comment_prefixes,
             templates,
             sources,
             output_dir,
