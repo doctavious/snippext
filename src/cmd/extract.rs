@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -21,13 +21,15 @@ use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
 
-use crate::constants::{DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER};
+use crate::cmd::is_line_snippet;
+use crate::constants::{
+    DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER,
+};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
-use crate::cmd::is_line_snippet;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -35,17 +37,10 @@ pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[arg(
-        short,
-        long,
-        help = "flag to mark beginning of a snippet"
-    )]
+    #[arg(short, long, help = "flag to mark beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[arg(
-        short,
-        long,
-        help = "flag to mark ending of a snippet")]
+    #[arg(short, long, help = "flag to mark ending of a snippet")]
     pub end: Option<String>,
 
     #[arg(
@@ -59,12 +54,7 @@ pub struct Args {
     #[arg(long, value_name = "URL", help = "")]
     pub repository_url: Option<String>,
 
-    #[arg(
-        long,
-        requires = "repository_url",
-        value_name = "REF",
-        help = ""
-    )]
+    #[arg(long, requires = "repository_url", value_name = "REF", help = "")]
     pub repository_ref: Option<String>,
 
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
@@ -168,7 +158,10 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         }
 
         if let Some(output_dir) = &snippext_settings.output_dir {
-            let extension = snippext_settings.output_extension.as_deref().unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
+            let extension = snippext_settings
+                .output_extension
+                .as_deref()
+                .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
             for (_, snippet) in &snippets {
                 let x: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
@@ -200,12 +193,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                 };
 
                 for entry in globs {
-                    process_target_file(
-                        entry.unwrap(),
-                        &snippets,
-                        &snippext_settings,
-                        &mut cache,
-                    )?;
+                    process_target_file(entry.unwrap(), &snippets, &snippext_settings, &mut cache)?;
                 }
             }
         }
@@ -272,10 +260,12 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
             }
 
             if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
-                && (source.cone_patterns.is_some()
-                    || source.repository_ref.is_some())
+                && (source.cone_patterns.is_some() || source.repository_ref.is_some())
             {
-                failures.push(format!("sources[{}] specifies ref, cone_patterns without specifying repository", i));
+                failures.push(format!(
+                    "sources[{}] specifies ref, cone_patterns without specifying repository",
+                    i
+                ));
             }
         }
     }
@@ -284,7 +274,11 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         failures.push(String::from("output_dir or targets is required"));
     }
 
-    if settings.output_extension.as_ref().is_some_and(|e| e.is_empty()) {
+    if settings
+        .output_extension
+        .as_ref()
+        .is_some_and(|e| e.is_empty())
+    {
         failures.push(String::from("output_extension must not be an empty string"));
     }
 
@@ -447,13 +441,9 @@ fn extract_snippets(
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
         Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(
-            extension.as_str().clone(),
-            settings.begin.as_str())?,
-            files::get_snippet_end_prefixes(
-                    extension.clone().as_str(),
-                    settings.end.as_str())?
-        ))
+            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.begin.as_str())?,
+            files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+        )),
     };
 
     for line in reader.lines() {
@@ -506,13 +496,12 @@ fn extract_snippets(
                         state.attributes,
                         state.start_line,
                         current_line_number,
-                    )
+                    ),
                 );
 
                 if old_value.is_some() {
                     warn!("multiple snippets with id {} found", id.clone());
                 }
-
             }
         } else {
             for e in state.iter_mut() {
@@ -534,8 +523,12 @@ fn extract_snippets(
     Ok(snippets)
 }
 
-fn extract_id_and_attributes(line: &str, begin: &String) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
-    let re = Regex::new(format!("{begin}[ ]*(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").as_str()).unwrap();
+fn extract_id_and_attributes(
+    line: &str,
+    begin: &String,
+) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
+    let re = Regex::new(format!("{begin}[ ]*(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").as_str())
+        .unwrap();
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
         let Some(key) = capture_groups.name("key") else {
@@ -545,7 +538,11 @@ fn extract_id_and_attributes(line: &str, begin: &String) -> SnippextResult<(Stri
         let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
             let mut attributes = HashMap::new();
             let trim_ends: &[_] = &['[', ']'];
-            let parts: Vec<&str> = match_attributes.as_str().trim_matches(trim_ends).split("=").collect();
+            let parts: Vec<&str> = match_attributes
+                .as_str()
+                .trim_matches(trim_ends)
+                .split("=")
+                .collect();
             if parts.len() == 2 {
                 attributes.insert(
                     parts.get(0).unwrap().to_string(),
@@ -560,7 +557,10 @@ fn extract_id_and_attributes(line: &str, begin: &String) -> SnippextResult<(Stri
         return Ok((key.as_str().to_string(), attributes));
     }
 
-    Err(SnippextError::GeneralError(format!("could not extract snippet details from {}", line)))
+    Err(SnippextError::GeneralError(format!(
+        "could not extract snippet details from {}",
+        line
+    )))
 }
 
 struct MissingSnippet<'a> {
@@ -569,14 +569,12 @@ struct MissingSnippet<'a> {
     path: &'a PathBuf,
 }
 
-
 fn process_target_file(
     target: PathBuf,
     snippets: &HashMap<String, Snippet>,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<()> {
-
     let mut new_file_lines = Vec::new();
     let mut updated = false;
     let mut in_current_snippet = None;
@@ -586,13 +584,9 @@ fn process_target_file(
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
         Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(
-                extension.as_str().clone(),
-                settings.begin.as_str())?,
-            files::get_snippet_end_prefixes(
-                extension.clone().as_str(),
-                settings.end.as_str())?
-        ))
+            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.begin.as_str())?,
+            files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+        )),
     };
 
     let f = File::open(&target)?;
@@ -635,11 +629,7 @@ fn process_target_file(
             continue;
         };
 
-        let result = SnippextTemplate::render_template(
-            &snippet,
-            &settings,
-            attributes
-        )?;
+        let result = SnippextTemplate::render_template(&snippet, &settings, attributes)?;
 
         let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
 
@@ -649,9 +639,10 @@ fn process_target_file(
     }
 
     if let Some(in_current_snippet) = in_current_snippet {
-        return Err(SnippextError::GeneralError(
-            format!("Expected to find end of snippet {}", in_current_snippet)
-        ));
+        return Err(SnippextError::GeneralError(format!(
+            "Expected to find end of snippet {}",
+            in_current_snippet
+        )));
     }
 
     // TODO: error if fail when missing snippets is true and missing snippets exist
@@ -664,8 +655,6 @@ fn process_target_file(
 
     Ok(())
 }
-
-
 
 // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
 // Precedence of options
@@ -684,7 +673,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         builder = builder.add_source(config::File::with_name("snippext").required(false));
     }
 
-    builder = builder.add_source(Environment::with_prefix("snippext"))
+    builder = builder
+        .add_source(Environment::with_prefix("snippext"))
         .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
         .set_override_option("output_dir", opt.output_dir)?
@@ -737,7 +727,6 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
                 continue;
             };
 
-
             templates.insert(
                 file_name.to_string_lossy().to_string(),
                 SnippextTemplate {
@@ -752,7 +741,10 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
             "templates": templates
         }))?;
 
-        builder = builder.add_source(config::File::from_str(templates_json.as_str(), FileFormat::Json));
+        builder = builder.add_source(config::File::from_str(
+            templates_json.as_str(),
+            FileFormat::Json,
+        ));
     }
 
     let mut snippet_sources = Vec::new();
@@ -781,7 +773,10 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     let sources_json = serde_json::to_string(&json!({
         "sources": snippet_sources
     }))?;
-    builder = builder.add_source(config::File::from_str(sources_json.as_str(), FileFormat::Json));
+    builder = builder.add_source(config::File::from_str(
+        sources_json.as_str(),
+        FileFormat::Json,
+    ));
 
     let settings: SnippextSettings = builder.build()?.try_deserialize()?;
 
@@ -798,7 +793,6 @@ mod tests {
     use crate::settings::SnippextSettings;
     use crate::templates::SnippextTemplate;
     use crate::types::SnippetSource;
-
 
     // #[test]
     // fn default_config_file() {
@@ -848,7 +842,7 @@ mod tests {
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
 
-        println!("{:?}",settings.templates);
+        println!("{:?}", settings.templates);
         assert_eq!(1, settings.templates.len());
 
         let default_template = settings.templates.get("default").unwrap();
@@ -932,7 +926,9 @@ mod tests {
                 assert!(failures.contains(&String::from(
                     "templates[0].content must not be an empty string"
                 )));
-                assert!(failures.contains(&String::from("output_extension must not be an empty string")));
+                assert!(failures.contains(&String::from(
+                    "output_extension must not be an empty string"
+                )));
             }
             _ => {
                 panic!("invalid SnippextError");
@@ -1165,7 +1161,9 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 assert_eq!(1, failures.len());
                 assert_eq!(
-                    String::from("sources[0] specifies ref, cone_patterns without specifying repository"),
+                    String::from(
+                        "sources[0] specifies ref, cone_patterns without specifying repository"
+                    ),
                     failures.get(0).unwrap().to_string()
                 );
             }

@@ -47,8 +47,7 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(main_content_expected, main_content_actual);
 
     let main_nested_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md"))
-            .unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md")).unwrap();
     assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
@@ -269,7 +268,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         Path::new("./tests/targets/target.md"),
         Path::new(&dir.path()).join("./target.md"),
     )
-        .unwrap();
+    .unwrap();
 
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
@@ -293,7 +292,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         None,
         None,
     ))
-        .unwrap();
+    .unwrap();
 
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
     let expected = r#"This is some static content
@@ -310,7 +309,6 @@ some content
 <!-- snippet::end::fn_1 -->"#;
     assert_eq!(expected, actual);
 }
-
 
 #[test]
 fn should_support_template_with_attributes() {
@@ -646,11 +644,10 @@ fn support_csharp_regions() {
         Some(LinkFormat::GitHub),
         None,
     ))
-        .unwrap();
+    .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.md"))
-            .unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.md")).unwrap();
 
     assert_eq!(
         "```Console.WriteLine(\"Hello World!\");\n```\n<a href='/tests/main.cs#L1-L3' title='Snippet source file'>source</a>",

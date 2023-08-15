@@ -13,13 +13,13 @@ pub mod cli;
 pub mod cmd;
 pub mod constants;
 pub mod error;
+mod files;
 pub mod git;
 pub mod sanitize;
 pub mod settings;
 pub mod templates;
 pub mod types;
 pub mod unindent;
-mod files;
 
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;

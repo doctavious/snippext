@@ -4,7 +4,10 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
+};
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
 use crate::SnippextResult;

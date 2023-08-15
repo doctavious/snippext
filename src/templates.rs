@@ -38,11 +38,8 @@ impl SnippextTemplate {
 
             let url_prefix = snippext_settings.url_prefix.to_owned().unwrap_or_default();
             data.insert("url_prefix".to_string(), url_prefix.clone());
-            let source_link = SnippextTemplate::build_source_link(
-                &snippet,
-                link_format,
-                url_prefix,
-            );
+            let source_link =
+                SnippextTemplate::build_source_link(&snippet, link_format, url_prefix);
 
             // TODO: do we want to add a sup tag here or in the template?
             // I think template which means we should also move everything but the actual

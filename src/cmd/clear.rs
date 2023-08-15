@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -8,9 +8,9 @@ use clap::Parser;
 use config::{Config, Environment, File};
 use serde::{Deserialize, Serialize};
 
+use crate::cmd::is_line_snippet;
 use crate::error::SnippextError;
 use crate::{files, SnippextResult};
-use crate::cmd::is_line_snippet;
 
 #[derive(Clone, Debug, Parser)]
 #[command()]
@@ -58,9 +58,10 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
     }
 
     builder = builder.add_source(Environment::with_prefix("snippext"));
-    builder = builder.set_override_option("begin", opt.begin)?
+    builder = builder
+        .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
-        .set_override_option("targets",opt.targets)?;
+        .set_override_option("targets", opt.targets)?;
 
     let settings: ClearSettings = builder.build()?.try_deserialize()?;
     return Ok(settings);
@@ -78,11 +79,10 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
             Entry::Vacant(entry) => entry.insert((
                 files::get_snippet_start_prefixes(
                     extension.as_str().clone(),
-                    settings.begin.as_str())?,
-                files::get_snippet_end_prefixes(
-                    extension.clone().as_str(),
-                    settings.end.as_str())?
-            ))
+                    settings.begin.as_str(),
+                )?,
+                files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+            )),
         };
 
         let f = fs::File::open(&target)?;
@@ -151,22 +151,25 @@ mod tests {
     #[test]
     fn clear_target() {
         let mut target = NamedTempFile::new().unwrap();
-        target.write(
-            r#"# Some content
+        target
+            .write(
+                r#"# Some content
 # snippet::foo
 foo
 # end::foo
 
 More content
 "#
-            .as_bytes(),
-        ).unwrap();
+                .as_bytes(),
+            )
+            .unwrap();
 
         super::clear(ClearSettings {
             begin: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
-        }).unwrap();
+        })
+        .unwrap();
 
         let actual = fs::read_to_string(target.path()).unwrap();
         let expected = r#"# Some content
@@ -181,18 +184,21 @@ More content
     #[test]
     fn clear_target_starting_with_snippet() {
         let mut target = NamedTempFile::new().unwrap();
-        target.write(
-            r#"# snippet::foo
+        target
+            .write(
+                r#"# snippet::foo
 # end::foo
 "#
-            .as_bytes(),
-        ).unwrap();
+                .as_bytes(),
+            )
+            .unwrap();
 
         super::clear(ClearSettings {
             begin: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
-        }).unwrap();
+        })
+        .unwrap();
 
         let actual = fs::read_to_string(target.path()).unwrap();
         let expected = r#"# snippet::foo

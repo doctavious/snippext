@@ -58,11 +58,7 @@ impl SnippetSource {
         }
     }
 
-    pub fn new_git(
-        repository: String,
-        repository_ref: String,
-        files: Vec<String>,
-    ) -> Self {
+    pub fn new_git(repository: String, repository_ref: String, files: Vec<String>) -> Self {
         Self {
             repository: Some(repository),
             repository_ref: Some(repository_ref),

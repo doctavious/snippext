@@ -2,10 +2,13 @@ use std::collections::HashMap;
 use std::fs;
 
 use clap::Parser;
-use inquire::{required, Confirm, Select, Text, Editor};
+use inquire::{required, Confirm, Editor, Select, Text};
 use tracing::warn;
 
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
+};
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
@@ -38,7 +41,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_default(DEFAULT_END)
         .with_help_message("")
         .prompt()?;
-
 
     // TODO: support multiple templates (id / default / template)
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
@@ -78,7 +80,8 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
-        let source_type = Select::new("Type of source?", vec!["local", "remote", "url"]).prompt()?;
+        let source_type =
+            Select::new("Type of source?", vec!["local", "remote", "url"]).prompt()?;
 
         match source_type {
             "local" => {
@@ -136,10 +139,12 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     };
 
     let output_extension = if output_dir.is_some() {
-        Some(Text::new("Output Extension:")
-            .with_default(DEFAULT_OUTPUT_FILE_EXTENSION)
-            .with_help_message("File extension for generated snippets")
-            .prompt()?)
+        Some(
+            Text::new("Output Extension:")
+                .with_default(DEFAULT_OUTPUT_FILE_EXTENSION)
+                .with_help_message("File extension for generated snippets")
+                .prompt()?,
+        )
     } else {
         None
     };
@@ -147,20 +152,16 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     let targets = Text::new("targets:")
         .with_default("**")
         .with_help_message(
-            "Glob patterns that specify files/directories to be spliced with extracted snippets"
+            "Glob patterns that specify files/directories to be spliced with extracted snippets",
         )
         .prompt()?;
 
     let link_format = Select::new("Source link format", LinkFormat::VARIANTS.to_vec())
-        .with_help_message(
-            "Press escape to skip selection"
-        )
+        .with_help_message("Press escape to skip selection")
         .prompt_skippable()?;
 
     let url_prefix = Text::new("URL Prefix")
-        .with_help_message(
-            ""
-        )
+        .with_help_message("")
         .prompt_skippable()?;
 
     Ok(SnippextSettings {
