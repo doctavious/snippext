@@ -79,9 +79,6 @@ pub struct Args {
     )]
     pub repository_branch: Option<String>,
 
-    #[arg(short = 'C', long, value_name = "COMMIT", help = "")]
-    pub repository_commit: Option<String>,
-
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     // pub repository_directory: Option<String>,
     #[arg(
@@ -288,10 +285,9 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 
             if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
                 && (source.cone_patterns.is_some()
-                    || source.branch.is_some()
-                    || source.commit.is_some())
+                    || source.branch.is_some())
             {
-                failures.push(format!("sources[{}] specifies branch, commit, cone_patterns without specifying repository", i));
+                failures.push(format!("sources[{}] specifies branch, cone_patterns without specifying repository", i));
             }
         }
     }
@@ -782,7 +778,6 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         let source = SnippetSource::new_git(
             repo_url.to_string(),
             opt.repository_branch.unwrap(),
-            opt.repository_commit.clone(),
             source_files,
         );
         snippet_sources.push(source);
@@ -828,7 +823,6 @@ mod tests {
     //         templates: None,
     //         repository_url: None,
     //         repository_branch: None,
-    //         repository_commit: None,
     //         output_dir: None,
     //         targets: Vec::default(),
     //         sources: Vec::default(),
@@ -851,7 +845,6 @@ mod tests {
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
             repository_branch: Some(String::from("main")),
-            repository_commit: Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")),
             sources: vec![String::from("**/*.rs")],
             url_sources: Vec::default(),
             output_dir: Some(String::from("./snippext/")),
@@ -883,10 +876,6 @@ mod tests {
             source.repository
         );
         assert_eq!(Some(String::from("main")), source.branch);
-        assert_eq!(
-            Some(String::from("1883d49216b34baed67629c363b40da3ead770b8")),
-            source.commit
-        );
         // assert_eq!(Some(String::from("docs")), source.directory);
         assert_eq!(vec![String::from("**/*.rs")], source.files);
     }
@@ -902,8 +891,6 @@ mod tests {
             templates: None,
             repository_url: None,
             repository_branch: None,
-            repository_commit: None,
-            // repository_directory: None,
             output_dir: None,
             output_extension: Some(String::from("txt")),
             targets: Vec::default(),
@@ -1173,7 +1160,6 @@ mod tests {
             vec![SnippetSource {
                 repository: None,
                 branch: Some(String::from("branch")),
-                commit: Some(String::from("commit")),
                 cone_patterns: None,
                 files: vec![String::from("**")],
                 url: None,
@@ -1191,7 +1177,7 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 assert_eq!(1, failures.len());
                 assert_eq!(
-                    String::from("sources[0] specifies branch, commit, cone_patterns without specifying repository"),
+                    String::from("sources[0] specifies branch, cone_patterns without specifying repository"),
                     failures.get(0).unwrap().to_string()
                 );
             }

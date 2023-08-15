@@ -45,6 +45,8 @@ impl SnippextTemplate {
             );
 
             // TODO: do we want to add a sup tag here or in the template?
+            // I think template which means we should also move everything but the actual
+            // href to the template
             data.insert(
                 "source_link".to_string(),
                 format!(

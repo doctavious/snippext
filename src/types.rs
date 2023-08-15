@@ -42,7 +42,6 @@ impl Snippet {
 pub struct SnippetSource {
     pub repository: Option<String>,
     pub branch: Option<String>,
-    pub commit: Option<String>,
     pub cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
     pub files: Vec<String>,
     pub url: Option<String>,
@@ -53,7 +52,6 @@ impl SnippetSource {
         Self {
             repository: None,
             branch: None,
-            commit: None,
             cone_patterns: None,
             files,
             url: None,
@@ -63,13 +61,11 @@ impl SnippetSource {
     pub fn new_git(
         repository: String,
         branch: String,
-        commit: Option<String>,
         files: Vec<String>,
     ) -> Self {
         Self {
             repository: Some(repository),
             branch: Some(branch),
-            commit,
             cone_patterns: None,
             files,
             url: None,
@@ -80,7 +76,6 @@ impl SnippetSource {
         Self {
             repository: None,
             branch: None,
-            commit: None,
             cone_patterns: None,
             files: Vec::default(),
             url: Some(url),

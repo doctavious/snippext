@@ -87,11 +87,6 @@ fn error_when_extracting_from_unavailable_remote() {
         vec![SnippetSource::new_git(
             String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
             String::from("main"),
-            None,
-            // Some(format!(
-            //     "{}/remote-source-test/",
-            //     dir.path().to_string_lossy()
-            // )),
             vec![String::from("/tests/**/*")],
         )],
         Some(format!(
@@ -151,8 +146,6 @@ fn should_successfully_extract_from_remote() {
         vec![SnippetSource::new_git(
             String::from("https://github.com/doctavious/snippext.git"),
             String::from("main"),
-            None,
-            // Some(format!("{}/snippext/", dir.path().to_string_lossy())),
             vec![String::from("/tests/samples/*")],
         )],
         Some(format!(

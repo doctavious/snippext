@@ -3,6 +3,7 @@ use std::fs;
 
 use clap::Parser;
 use inquire::{required, Confirm, Select, Text, Editor};
+use tracing::warn;
 
 use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE};
 use crate::templates::SnippextTemplate;
@@ -28,34 +29,6 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
 }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
-    // TODO: look at render config options
-
-    // begin: "snippet::start::"
-    // end: "snippet::end::"
-    // extension: "md"
-    // comment_prefixes:
-    // - "// "
-    //     - "# "
-    //     - "<!-- "
-    // templates:
-    //     default:
-    //     template: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"
-    // default: true
-    // default_with_links:
-    //     template: "{{snippet}}"
-    // default: false
-    // code:
-    //     template: "```{{lang}}\n{{snippet}}```\n"
-    // default: false
-    // code_with_source_links:
-    //     template: "```{{lang}}\n{{snippet}}```\n<a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>\n"
-    // default: false
-    // sources:
-    // # extract from local files
-    //     - files:
-    // - "**"
-    // output_dir: "./generated-snippets/"
-
     let begin = Text::new("Begin tag:")
         .with_default(DEFAULT_BEGIN)
         .with_help_message("")
@@ -105,27 +78,42 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
-        let source_type = Select::new("Type of source?", vec!["local", "remote"]).prompt()?;
+        let source_type = Select::new("Type of source?", vec!["local", "remote", "url"]).prompt()?;
 
-        if source_type.eq("local") {
-            // TODO: loop or comma separated globs?
-            let source_files = Text::new("Source files:")
-                .with_default(DEFAULT_SOURCE_FILES)
-                .with_help_message("Globs")
-                .prompt()?;
+        match source_type {
+            "local" => {
+                // TODO: loop or comma separated globs?
+                let source_files = Text::new("Source files:")
+                    .with_default(DEFAULT_SOURCE_FILES)
+                    .with_help_message("Globs")
+                    .prompt()?;
+                sources.push(SnippetSource::new_local(vec![source_files]));
+            }
+            "remote" => {
+                let repo = Text::new("Remote URL:")
+                    .with_default(DEFAULT_SOURCE_FILES)
+                    .with_help_message("")
+                    .prompt()?;
 
-            // sources.insert(SnippetSource::new_local())
-        } else {
-            // repository
-            // branch
-            // commit
-            // directory
-            // files
+                let branch = Text::new("Branch:")
+                    .with_default(DEFAULT_SOURCE_FILES)
+                    .with_help_message("")
+                    .prompt()?;
 
-            // sources.insert(SnippetSource::new_remote())
+                let source_files = Text::new("Source files:")
+                    .with_default(DEFAULT_SOURCE_FILES)
+                    .with_help_message("Globs")
+                    .prompt()?;
+
+                sources.push(SnippetSource::new_git(repo, branch, vec![source_files]));
+            }
+            "url" => {
+                sources.push(SnippetSource::new_url(source_type.to_string()));
+            }
+            _ => {
+                warn!("Invalid source type {}", source_type);
+            }
         }
-
-        // url
 
         let add_another_source = Confirm::new("Add another source?")
             .with_default(false)
