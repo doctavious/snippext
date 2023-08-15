@@ -29,17 +29,6 @@ use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
 use crate::cmd::is_line_snippet;
 
-// #[arg(last = true)]
-
-// arg_required_else_help
-
-// require_equals = true,
-// value_name = "WHEN",
-// num_args = 0..=1,
-// default_value_t = ColorWhen::Auto,
-// default_missing_value = "always",
-
-
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
@@ -73,7 +62,7 @@ pub struct Args {
     #[arg(
         long,
         requires = "repository_url",
-        value_name = "BRANCH",
+        value_name = "REF",
         help = ""
     )]
     pub repository_ref: Option<String>,
