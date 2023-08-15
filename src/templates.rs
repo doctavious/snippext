@@ -38,6 +38,7 @@ impl SnippextTemplate {
 
             let url_prefix = snippext_settings.url_prefix.to_owned().unwrap_or_default();
             data.insert("url_prefix".to_string(), url_prefix.clone());
+            data.insert("source_path".to_string(), snippet.path.to_string_lossy().to_string());
             let source_link =
                 SnippextTemplate::build_source_link(&snippet, link_format, url_prefix);
 
