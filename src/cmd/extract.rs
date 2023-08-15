@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fs;
+use std::{env, fs};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -16,7 +16,6 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
 use serde_json::json;
-use tempfile::TempDir;
 use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
@@ -163,13 +162,13 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                 .as_deref()
                 .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
             for (_, snippet) in &snippets {
-                let x: &[_] = &['.', '/'];
+                let trim_chars: &[_] = &['.', '/'];
                 let output_path = Path::new(output_dir.as_str())
                     .join(
                         source_file
                             .relative_path
                             .to_string_lossy()
-                            .trim_start_matches(x),
+                            .trim_start_matches(trim_chars),
                     )
                     .join(sanitize(snippet.identifier.to_owned()))
                     .with_extension(extension);
@@ -299,7 +298,8 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     for source in &settings.sources {
         if source.is_remote() {
             let repo = source.repository.as_ref().unwrap();
-            let download_dir = TempDir::new()?.into_path().to_string_lossy().to_string();
+            // TODO: use std::env::temp_dir instead and put under snippext directory
+            let download_dir = get_download_directory()?;
 
             git::checkout_files(
                 &repo,
@@ -308,7 +308,7 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
                 &download_dir,
             )?;
 
-            let dir_length = download_dir.len();
+            let dir_length = download_dir.to_string_lossy().len();
             let patterns = source
                 .files
                 .iter()
@@ -371,7 +371,17 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     Ok(source_files)
 }
 
+fn get_download_directory() -> SnippextResult<PathBuf> {
+    let snippext_dir = env::temp_dir().join("snippext");
+    if !snippext_dir.exists() {
+        fs::create_dir(&snippext_dir)?;
+    }
+
+    Ok(snippext_dir)
+}
+
 fn download_url(url: &String) -> SnippextResult<PathBuf> {
+    // TODO: use std::env::temp_dir instead and put under snippext directory
     let url_file_path = Url::from_str(url.as_str())?.to_file_path().map_err(|_| {
         SnippextError::GeneralError(format!("failed to convert url {} to file path", url))
     })?;

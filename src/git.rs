@@ -1,6 +1,7 @@
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
+use std::path::PathBuf;
 use std::process::Command;
 
 use crate::error::SnippextError;
@@ -10,7 +11,7 @@ pub(crate) fn checkout_files(
     remote: &String,
     branch: Option<String>,
     cone_patterns: Option<Vec<String>>,
-    dir: &String,
+    dir: &PathBuf,
 ) -> SnippextResult<()> {
     // if cone_patterns are specified lets do a no-checkout clone with a sparse-checkout
     // otherwise just do a regular clone
