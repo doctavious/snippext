@@ -67,17 +67,16 @@ pub struct Args {
     )]
     pub templates: Option<String>,
 
-    #[arg(short, long, value_name = "URL", help = "")]
+    #[arg(long, value_name = "URL", help = "")]
     pub repository_url: Option<String>,
 
     #[arg(
-        short = 'B',
         long,
         requires = "repository_url",
         value_name = "BRANCH",
         help = ""
     )]
-    pub repository_branch: Option<String>,
+    pub repository_ref: Option<String>,
 
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     // pub repository_directory: Option<String>,
@@ -285,9 +284,9 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 
             if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
                 && (source.cone_patterns.is_some()
-                    || source.branch.is_some())
+                    || source.repository_ref.is_some())
             {
-                failures.push(format!("sources[{}] specifies branch, cone_patterns without specifying repository", i));
+                failures.push(format!("sources[{}] specifies ref, cone_patterns without specifying repository", i));
             }
         }
     }
@@ -321,7 +320,7 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
 
             git::checkout_files(
                 &repo,
-                source.branch.clone(),
+                source.repository_ref.clone(),
                 source.cone_patterns.clone(),
                 &download_dir,
             )?;
@@ -777,7 +776,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
         let source = SnippetSource::new_git(
             repo_url.to_string(),
-            opt.repository_branch.unwrap(),
+            opt.repository_ref.unwrap(),
             source_files,
         );
         snippet_sources.push(source);
@@ -822,7 +821,7 @@ mod tests {
     //         comment_prefixes: None,
     //         templates: None,
     //         repository_url: None,
-    //         repository_branch: None,
+    //         repository_ref: None,
     //         output_dir: None,
     //         targets: Vec::default(),
     //         sources: Vec::default(),
@@ -844,7 +843,7 @@ mod tests {
             end: Some(String::from("finish::")),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
-            repository_branch: Some(String::from("main")),
+            repository_ref: Some(String::from("main")),
             sources: vec![String::from("**/*.rs")],
             url_sources: Vec::default(),
             output_dir: Some(String::from("./snippext/")),
@@ -875,7 +874,7 @@ mod tests {
             Some(String::from("https://github.com/doctavious/snippext.git")),
             source.repository
         );
-        assert_eq!(Some(String::from("main")), source.branch);
+        assert_eq!(Some(String::from("main")), source.repository_ref);
         // assert_eq!(Some(String::from("docs")), source.directory);
         assert_eq!(vec![String::from("**/*.rs")], source.files);
     }
@@ -890,7 +889,7 @@ mod tests {
             end: None,
             templates: None,
             repository_url: None,
-            repository_branch: None,
+            repository_ref: None,
             output_dir: None,
             output_extension: Some(String::from("txt")),
             targets: Vec::default(),
@@ -1159,7 +1158,7 @@ mod tests {
             )]),
             vec![SnippetSource {
                 repository: None,
-                branch: Some(String::from("branch")),
+                repository_ref: Some(String::from("branch")),
                 cone_patterns: None,
                 files: vec![String::from("**")],
                 url: None,
@@ -1177,7 +1176,7 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 assert_eq!(1, failures.len());
                 assert_eq!(
-                    String::from("sources[0] specifies branch, cone_patterns without specifying repository"),
+                    String::from("sources[0] specifies ref, cone_patterns without specifying repository"),
                     failures.get(0).unwrap().to_string()
                 );
             }

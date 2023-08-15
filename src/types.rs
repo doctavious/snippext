@@ -41,7 +41,7 @@ impl Snippet {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SnippetSource {
     pub repository: Option<String>,
-    pub branch: Option<String>,
+    pub repository_ref: Option<String>,
     pub cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
     pub files: Vec<String>,
     pub url: Option<String>,
@@ -51,7 +51,7 @@ impl SnippetSource {
     pub fn new_local(files: Vec<String>) -> Self {
         Self {
             repository: None,
-            branch: None,
+            repository_ref: None,
             cone_patterns: None,
             files,
             url: None,
@@ -60,12 +60,12 @@ impl SnippetSource {
 
     pub fn new_git(
         repository: String,
-        branch: String,
+        repository_ref: String,
         files: Vec<String>,
     ) -> Self {
         Self {
             repository: Some(repository),
-            branch: Some(branch),
+            repository_ref: Some(repository_ref),
             cone_patterns: None,
             files,
             url: None,
@@ -75,7 +75,7 @@ impl SnippetSource {
     pub fn new_url(url: String) -> Self {
         Self {
             repository: None,
-            branch: None,
+            repository_ref: None,
             cone_patterns: None,
             files: Vec::default(),
             url: Some(url),
