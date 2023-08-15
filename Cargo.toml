@@ -19,8 +19,7 @@ categories = ["documentation"]
 anyhow = "1.0"
 chrono = "0.4.26"
 clap = { version = "4.3", features = ["derive"] }
-# https://github.com/mehcode/config-rs/blob/master/examples/hierarchical-env/src/settings.rs
-config = { version = "0.13.3", features = ["json"] } # vs figment
+config = { version = "0.13.3", features = ["json"] }
 filetime = "0.2.21"
 git2 = "0.16.0"
 glob = "0.3"
