@@ -72,24 +72,3 @@ pub(crate) fn checkout_files(
     Ok(())
 }
 
-pub(crate) fn get_remote_url() -> SnippextResult<String> {
-    let output = Command::new("git")
-        .arg("remote")
-        .arg("get-url")
-        .arg("--all origin")
-        .current_dir(".")
-        .output()
-        .map_err(SnippextError::from)?;
-
-    if !output.status.success() {
-        return Err(SnippextError::GeneralError(String::from_utf8(
-            output.stderr,
-        )?));
-    }
-
-    let remote_url = String::from_utf8(output.stdout)?;
-
-    // TODO: parse
-
-    Ok(remote_url)
-}
