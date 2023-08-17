@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
 
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use clap::Parser;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
@@ -95,7 +95,11 @@ pub struct Args {
     /// Urls to files to be included as snippets.
     /// Each url will be accessible using the file name as a key.
     /// Any snippets within the files will be extracted and accessible as individual keyed snippets.
-    #[arg(long, help = "TODO: ...")]
+    #[arg(
+        long,
+        help = "URLs to be included in snippets. URL must return raw text in order for snippets to\
+                be successfully extracted."
+    )]
     pub url_sources: Vec<String>,
 
     // value_parser
@@ -254,8 +258,11 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         failures.push(String::from("sources must not be empty"));
     } else {
         for (i, source) in settings.sources.iter().enumerate() {
-            if source.files.is_empty() {
-                failures.push(format!("sources[{}].files must not be empty", i));
+
+            if !source.is_url() {
+                if source.files.is_empty() {
+                    failures.push(format!("sources[{}].files must not be empty", i));
+                }
             }
 
             if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
@@ -298,9 +305,15 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     for source in &settings.sources {
         if source.is_remote() {
             let repo = source.repository.as_ref().unwrap();
-            // TODO: use std::env::temp_dir instead and put under snippext directory
-            let download_dir = get_download_directory()?;
-
+            let repo_name = Path::new(repo)
+                .file_stem()
+                .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
+            let download_dir = get_download_directory()?.join(repo_name);
+            // dont need this second check but being safe
+            if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
+                fs::remove_dir_all(&download_dir)?;
+            }
+            fs::create_dir_all(&download_dir)?;
             git::checkout_files(
                 &repo,
                 source.repository_ref.clone(),
@@ -380,16 +393,32 @@ fn get_download_directory() -> SnippextResult<PathBuf> {
     Ok(snippext_dir)
 }
 
-fn download_url(url: &String) -> SnippextResult<PathBuf> {
-    // TODO: use std::env::temp_dir instead and put under snippext directory
-    let url_file_path = Url::from_str(url.as_str())?.to_file_path().map_err(|_| {
-        SnippextError::GeneralError(format!("failed to convert url {} to file path", url))
-    })?;
+fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
+    let invalid_chars = [
+        '/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.'
+    ];
 
-    if let Ok(file_metadata) = url_file_path.metadata() {
+    let url = Url::from_str(url_string.as_str())?;
+    let path: String = url.path()
+        .chars()
+        .map(|c| if invalid_chars.contains(&c) { '_'} else {c})
+        .collect();
+
+    Ok(PathBuf::from(url.authority()).join(path))
+}
+
+fn download_url(url: &String) -> SnippextResult<PathBuf> {
+    let url_file_path = url_to_path(url)?;
+    let download_path = get_download_directory()?.join(url_file_path);
+    let parent_dirs = download_path
+        .parent()
+        .ok_or(SnippextError::GeneralError("could not create download directory".into()))?;
+    fs::create_dir_all(parent_dirs)?;
+
+    if let Ok(file_metadata) = download_path.metadata() {
         let file_modified = file_metadata.modified().ok();
         if file_modified.is_some_and(|t| t > SystemTime::now()) {
-            return Ok(url_file_path);
+            return Ok(download_path);
         }
     }
 
@@ -403,35 +432,36 @@ fn download_url(url: &String) -> SnippextResult<PathBuf> {
         )));
     }
 
-    if let Ok(file_metadata) = url_file_path.metadata() {
+    if let Ok(file_metadata) = download_path.metadata() {
         if let Ok(file_created) = file_metadata.created() {
             let web_modified = header_to_systemtime(head.headers().get(LAST_MODIFIED));
             if web_modified.is_some_and(|t| t < file_created) {
-                return Ok(url_file_path);
+                return Ok(download_path);
             }
         }
 
-        fs::remove_file(&url_file_path)?;
+        fs::remove_file(&download_path)?;
     }
 
     let mut response = client.get(url).send()?;
     if response.status().is_success() {
-        let mut file = File::create(&url_file_path)?;
+        let mut file = File::create(&download_path)?;
+
         response.copy_to(&mut file)?;
 
-        // TODO: do we need to do this? Would this be different then head?
         let web_expiration = header_to_systemtime(response.headers().get(EXPIRES));
         if let Some(expires) = web_expiration {
-            set_file_mtime(&url_file_path, FileTime::from(expires))?;
+            set_file_mtime(&download_path, FileTime::from(expires))?;
         }
     }
 
-    Ok(url_file_path)
+    Ok(download_path)
 }
 
+// Wed, 16 Aug 2023 22:40:19 GMT
 fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime> {
     let header_value_str = header_value?.to_str().ok()?;
-    let date_time: DateTime<Utc> = chrono::DateTime::from_str(header_value_str).ok()?;
+    let date_time = DateTime::parse_from_rfc2822(&header_value_str).ok()?;
     Some(date_time.into())
 }
 
@@ -440,6 +470,7 @@ fn extract_snippets(
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
+    println!("extracting from {:?}", path);
     let f = File::open(path)?;
     let reader = BufReader::new(f);
 
@@ -530,6 +561,7 @@ fn extract_snippets(
         )));
     }
 
+    println!("{:?}", snippets);
     Ok(snippets)
 }
 
@@ -796,7 +828,9 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::path::PathBuf;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use tempfile::tempdir;
 
     use super::Args;
     use crate::error::SnippextError;
@@ -1103,7 +1137,7 @@ mod tests {
     }
 
     #[test]
-    fn sources_must_have_at_least_one_files_entry() {
+    fn local_sources_must_have_at_least_one_files_entry() {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
@@ -1181,5 +1215,57 @@ mod tests {
                 panic!("invalid SnippextError");
             }
         }
+    }
+
+    #[test]
+    fn should_successfully_extract_from_url() {
+        let dir = tempdir().unwrap();
+        let target = Path::new(&dir.path()).join("./target.md");
+        fs::copy(
+            Path::new("./tests/targets/target.md"),
+            &target,
+        ).unwrap();
+
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            HashMap::from([(
+                "default".to_string(),
+                SnippextTemplate {
+                    content: String::from("{{snippet}}"),
+                    default: true,
+                },
+            )]),
+            vec![SnippetSource::new_url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into())],
+            None,
+            None,
+            Some(vec![target.to_string_lossy().to_string()]),
+            None,
+            None,
+        );
+
+        super::extract(settings).expect("Should extract from URL");
+
+        // /var/folders/jm/1m24fjf96xv_458bclbpd1xh0000gn/T/snippext/https___gist.githubusercontent.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example.rs
+        // https___gist.github.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5
+        let actual =
+            fs::read_to_string(target)
+                .unwrap();
+
+        let expected = r#"This is some static content
+
+<!-- snippet::start::main -->
+fn main() {
+    println!("Hello, World!");
+}
+<!-- snippet::end::main -->
+
+<!-- snippet::start::fn_1 -->
+some content
+<!-- snippet::end::fn_1 -->"#;
+        assert_eq!(
+            expected,
+            actual
+        );
     }
 }
