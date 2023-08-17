@@ -393,15 +393,14 @@ fn get_download_directory() -> SnippextResult<PathBuf> {
     Ok(snippext_dir)
 }
 
+const INVALID_DIR_CHARS: [char; 14] = [
+'/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.'
+];
 fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
-    let invalid_chars = [
-        '/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.'
-    ];
-
     let url = Url::from_str(url_string.as_str())?;
     let path: String = url.path()
         .chars()
-        .map(|c| if invalid_chars.contains(&c) { '_'} else {c})
+        .map(|c| if INVALID_DIR_CHARS.contains(&c) { '_'} else {c})
         .collect();
 
     Ok(PathBuf::from(url.authority()).join(path))
