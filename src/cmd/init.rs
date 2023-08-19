@@ -90,7 +90,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     .with_default(DEFAULT_SOURCE_FILES)
                     .with_help_message("Globs")
                     .prompt()?;
-                sources.push(SnippetSource::new_local(vec![source_files]));
+                sources.push(SnippetSource::Local { files: vec![source_files] });
             }
             "remote" => {
                 let repo = Text::new("Remote URL:")
@@ -108,10 +108,15 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     .with_help_message("Globs")
                     .prompt()?;
 
-                sources.push(SnippetSource::new_git(repo, branch, vec![source_files]));
+                sources.push(SnippetSource::Git {
+                    url: repo,
+                    reference: Some(branch),
+                    cone_patterns: None,
+                    files: vec![source_files]
+                });
             }
             "url" => {
-                sources.push(SnippetSource::new_url(source_type.to_string()));
+                sources.push(SnippetSource::Url(source_type.to_string()));
             }
             _ => {
                 warn!("Invalid source type {}", source_type);

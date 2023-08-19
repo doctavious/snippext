@@ -37,53 +37,53 @@ impl Snippet {
     }
 }
 
-// TODO: might be better as an enum
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct SnippetSource {
-    pub repository: Option<String>,
-    pub repository_ref: Option<String>,
-    pub cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
-    pub files: Vec<String>,
-    pub url: Option<String>,
+// SourceLocation
+
+// SnippetSource
+// path: string
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum SnippetSource {
+    Local {
+        files: Vec<String>,
+    },
+    Git {
+        url: String,
+        reference: Option<String>,
+        cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
+        files: Vec<String>
+    },
+    Url(String)
 }
 
 impl SnippetSource {
-    pub fn new_local(files: Vec<String>) -> Self {
-        Self {
-            repository: None,
-            repository_ref: None,
-            cone_patterns: None,
-            files,
-            url: None,
+
+    // TODO: add tests
+    pub fn source_link(
+        self,
+        snippet: &Snippet,
+        link_format: &LinkFormat,
+        url_prefix: String
+    ) -> String {
+
+        match self {
+            SnippetSource::Local { .. } => {
+                let mut path = url_prefix;
+                if !path.ends_with("/") {
+                    path.push_str("/")
+                }
+
+                path.push_str(snippet.path.to_str().unwrap_or_default());
+
+                link_format.source_link(&path, &snippet)
+            }
+            SnippetSource::Git { url, .. } => {
+                link_format.source_link(&url, &snippet)
+            }
+            SnippetSource::Url(url) => {
+                url
+            }
         }
-    }
-
-    pub fn new_git(repository: String, repository_ref: String, files: Vec<String>) -> Self {
-        Self {
-            repository: Some(repository),
-            repository_ref: Some(repository_ref),
-            cone_patterns: None,
-            files,
-            url: None,
-        }
-    }
-
-    pub fn new_url(url: String) -> Self {
-        Self {
-            repository: None,
-            repository_ref: None,
-            cone_patterns: None,
-            files: Vec::default(),
-            url: Some(url),
-        }
-    }
-
-    pub fn is_remote(&self) -> bool {
-        self.repository.is_some()
-    }
-
-    pub fn is_url(&self) -> bool {
-        self.url.is_some()
     }
 }
 
@@ -105,6 +105,21 @@ impl LinkFormat {
         Self::BitBucket,
         Self::TFS,
     ];
+
+    pub fn source_link(&self, url: &String, snippet: &Snippet) -> String {
+        match self {
+            LinkFormat::GitHub => format!("{}#L{}-L{}", url, snippet.start_line, snippet.end_line),
+            LinkFormat::GitLab => format!("{}#L{}-{}", url, snippet.start_line, snippet.end_line),
+            LinkFormat::BitBucket => {
+                format!("{}#lines={}:{}", url, snippet.start_line, snippet.end_line)
+            }
+            LinkFormat::Gitea => format!("{}#L{}-L{}", url, snippet.start_line, snippet.end_line),
+            LinkFormat::TFS => format!(
+                "{}&line={}&lineEnd={}",
+                url, snippet.start_line, snippet.end_line
+            ),
+        }
+    }
 }
 
 impl fmt::Display for LinkFormat {

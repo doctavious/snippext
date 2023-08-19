@@ -56,6 +56,9 @@ pub struct Args {
     #[arg(long, requires = "repository_url", value_name = "REF", help = "")]
     pub repository_ref: Option<String>,
 
+    #[arg(long, requires = "repository_url", value_name = "PATTERN", help = "")]
+    pub repository_cone_pattern: Option<Vec<String>>,
+
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     // pub repository_directory: Option<String>,
     #[arg(
@@ -258,20 +261,22 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         failures.push(String::from("sources must not be empty"));
     } else {
         for (i, source) in settings.sources.iter().enumerate() {
-
-            if !source.is_url() {
-                if source.files.is_empty() {
-                    failures.push(format!("sources[{}].files must not be empty", i));
+            match source {
+                SnippetSource::Local { files } => {
+                    if files.is_empty() {
+                        failures.push(format!("sources[{}].files must not be empty", i));
+                    }
                 }
-            }
+                SnippetSource::Git { url, files, .. } => {
+                    if url == "" {
+                        failures.push(format!("sources[{}].url must not be empty", i));
+                    }
 
-            if (source.repository.is_none() || source.repository.as_ref().unwrap() == "")
-                && (source.cone_patterns.is_some() || source.repository_ref.is_some())
-            {
-                failures.push(format!(
-                    "sources[{}] specifies ref, cone_patterns without specifying repository",
-                    i
-                ));
+                    if files.is_empty() {
+                        failures.push(format!("sources[{}].files must not be empty", i));
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -303,80 +308,89 @@ fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFil
     let mut source_files: Vec<SourceFile> = Vec::new();
 
     for source in &settings.sources {
-        if source.is_remote() {
-            let repo = source.repository.as_ref().unwrap();
-            let repo_name = Path::new(repo)
-                .file_stem()
-                .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
-            let download_dir = get_download_directory()?.join(repo_name);
-            // dont need this second check but being safe
-            if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
-                fs::remove_dir_all(&download_dir)?;
-            }
-            fs::create_dir_all(&download_dir)?;
-            git::checkout_files(
-                &repo,
-                source.repository_ref.clone(),
-                source.cone_patterns.clone(),
-                &download_dir,
-            )?;
-
-            let dir_length = download_dir.to_string_lossy().len();
-            let patterns = source
-                .files
-                .iter()
-                .map(|f| Pattern::new(f))
-                .filter_map(|p| p.ok())
-                .collect::<Vec<Pattern>>();
-
-            for entry in WalkDir::new(&download_dir)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                let path = &entry.path().to_string_lossy().to_string();
-                let relative_path_str = &path[dir_length..];
-
-                if entry.path().is_file() && patterns.iter().any(|p| p.matches(relative_path_str)) {
-                    source_files.push(SourceFile {
-                        full_path: entry.path().to_path_buf(),
-                        relative_path: PathBuf::from(relative_path_str),
-                    });
-                }
-            }
-        } else if let Some(url) = &source.url {
-            let path = download_url(url)?;
-            source_files.push(SourceFile {
-                full_path: path.clone(),
-                relative_path: path.clone(),
-            });
-        } else {
-            for file in &source.files {
-                let paths = match glob(file.as_str()) {
-                    Ok(paths) => paths,
-                    Err(error) => {
-                        return Err(SnippextError::GlobPatternError(format!(
-                            "Glob pattern error for `{}`. {}",
-                            file, error.msg
-                        )))
-                    }
-                };
-
-                for entry in paths {
-                    let path = entry.unwrap();
-                    let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str())
-                    {
-                        prefix.to_path_buf()
-                    } else {
-                        path.clone()
+        match source {
+            SnippetSource::Local { files } => {
+                for file in files {
+                    let paths = match glob(file.as_str()) {
+                        Ok(paths) => paths,
+                        Err(error) => {
+                            return Err(SnippextError::GlobPatternError(format!(
+                                "Glob pattern error for `{}`. {}",
+                                file, error.msg
+                            )))
+                        }
                     };
 
-                    if !path.is_dir() {
+                    for entry in paths {
+                        let path = entry.unwrap();
+                        let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str())
+                        {
+                            prefix.to_path_buf()
+                        } else {
+                            path.clone()
+                        };
+
+                        if !path.is_dir() {
+                            source_files.push(SourceFile {
+                                full_path: path.clone(),
+                                relative_path,
+                            });
+                        }
+                    }
+                }
+            }
+            // default reference to master/main
+            SnippetSource::Git {
+                url,
+                reference,
+                cone_patterns,
+                files
+            } => {
+                let repo = url;
+                let repo_name = Path::new(repo)
+                    .file_stem()
+                    .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
+                let download_dir = get_download_directory()?.join(repo_name);
+                // dont need this second check but being safe
+                if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
+                    fs::remove_dir_all(&download_dir)?;
+                }
+                fs::create_dir_all(&download_dir)?;
+                git::checkout_files(
+                    &repo,
+                    reference.clone(),
+                    cone_patterns.clone(),
+                    &download_dir,
+                )?;
+
+                let dir_length = download_dir.to_string_lossy().len();
+                let patterns = files
+                    .iter()
+                    .map(|f| Pattern::new(f))
+                    .filter_map(|p| p.ok())
+                    .collect::<Vec<Pattern>>();
+
+                for entry in WalkDir::new(&download_dir)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    let path = &entry.path().to_string_lossy().to_string();
+                    let relative_path_str = &path[dir_length..];
+
+                    if entry.path().is_file() && patterns.iter().any(|p| p.matches(relative_path_str)) {
                         source_files.push(SourceFile {
-                            full_path: path.clone(),
-                            relative_path,
+                            full_path: entry.path().to_path_buf(),
+                            relative_path: PathBuf::from(relative_path_str),
                         });
                     }
                 }
+            }
+            SnippetSource::Url(url) => {
+                let path = download_url(url)?;
+                source_files.push(SourceFile {
+                    full_path: path.clone(),
+                    relative_path: path.clone(),
+                });
             }
         }
     }
@@ -396,6 +410,7 @@ fn get_download_directory() -> SnippextResult<PathBuf> {
 const INVALID_DIR_CHARS: [char; 14] = [
 '/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.'
 ];
+
 fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
     let url = Url::from_str(url_string.as_str())?;
     let path: String = url.path()
@@ -796,18 +811,20 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
             opt.sources
         };
 
-        let source = SnippetSource::new_git(
-            repo_url.to_string(),
-            opt.repository_ref.unwrap(),
-            source_files,
-        );
+        let source = SnippetSource::Git {
+            url: repo_url.to_string(),
+            reference: opt.repository_ref,
+            cone_patterns: opt.repository_cone_pattern,
+            files: source_files,
+        };
+
         snippet_sources.push(source);
     } else if !opt.sources.is_empty() {
-        snippet_sources.push(SnippetSource::new_local(opt.sources));
+        snippet_sources.push(SnippetSource::Local{files: opt.sources});
     }
 
     for url_source in opt.url_sources {
-        snippet_sources.push(SnippetSource::new_url(url_source));
+        snippet_sources.push(SnippetSource::Url(url_source));
     }
 
     // might be a better way to do this but works for now
@@ -870,6 +887,7 @@ mod tests {
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
             repository_ref: Some(String::from("main")),
+            repository_cone_pattern: None,
             sources: vec![String::from("**/*.rs")],
             url_sources: Vec::default(),
             output_dir: Some(String::from("./snippext/")),
@@ -896,13 +914,21 @@ mod tests {
 
         assert_eq!(1, settings.sources.len());
         let source = settings.sources.get(0).unwrap();
-        assert_eq!(
-            Some(String::from("https://github.com/doctavious/snippext.git")),
-            source.repository
-        );
-        assert_eq!(Some(String::from("main")), source.repository_ref);
-        // assert_eq!(Some(String::from("docs")), source.directory);
-        assert_eq!(vec![String::from("**/*.rs")], source.files);
+        match source {
+            SnippetSource::Git { url, reference, files, .. } => {
+                assert_eq!(
+                    String::from("https://github.com/doctavious/snippext.git"),
+                    *url
+                );
+                assert_eq!(Some(String::from("main")), *reference);
+                // assert_eq!(Some(String::from("docs")), source.directory);
+                assert_eq!(vec![String::from("**/*.rs")], *files);
+            }
+            _ => {
+                panic!("SnippetSource should be Git")
+            }
+        }
+
     }
 
     #[test]
@@ -916,6 +942,7 @@ mod tests {
             templates: None,
             repository_url: None,
             repository_ref: None,
+            repository_cone_pattern: None,
             output_dir: None,
             output_extension: Some(String::from("txt")),
             targets: Vec::default(),
@@ -948,7 +975,7 @@ mod tests {
                     default: false,
                 },
             )]),
-            vec![SnippetSource::new_local(vec![String::from("**")])],
+            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
             Some(String::from("./snippets/")),
             Some(String::from("")),
             None,
@@ -985,7 +1012,7 @@ mod tests {
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             HashMap::new(),
-            vec![SnippetSource::new_local(vec![String::from("**")])],
+            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1030,7 +1057,7 @@ mod tests {
                     },
                 ),
             ]),
-            vec![SnippetSource::new_local(vec![String::from("**")])],
+            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1075,7 +1102,7 @@ mod tests {
                     },
                 ),
             ]),
-            vec![SnippetSource::new_local(vec![String::from("**")])],
+            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1147,7 +1174,7 @@ mod tests {
                     default: true,
                 },
             )]),
-            vec![SnippetSource::new_local(vec![])],
+            vec![SnippetSource::Local { files: vec![] }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1163,50 +1190,6 @@ mod tests {
                 assert_eq!(1, failures.len());
                 assert_eq!(
                     String::from("sources[0].files must not be empty"),
-                    failures.get(0).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid SnippextError");
-            }
-        }
-    }
-
-    #[test]
-    fn repository_must_be_provided_if_other_remote_sources_are_provided() {
-        let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
-            HashMap::from([(
-                "default".to_string(),
-                SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true,
-                },
-            )]),
-            vec![SnippetSource {
-                repository: None,
-                repository_ref: Some(String::from("branch")),
-                cone_patterns: None,
-                files: vec![String::from("**")],
-                url: None,
-            }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-        );
-
-        let validation_result = super::extract(settings);
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from(
-                        "sources[0] specifies ref, cone_patterns without specifying repository"
-                    ),
                     failures.get(0).unwrap().to_string()
                 );
             }
@@ -1235,7 +1218,7 @@ mod tests {
                     default: true,
                 },
             )]),
-            vec![SnippetSource::new_url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into())],
+            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into())],
             None,
             None,
             Some(vec![target.to_string_lossy().to_string()]),

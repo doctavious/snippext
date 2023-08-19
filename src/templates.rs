@@ -71,18 +71,21 @@ impl SnippextTemplate {
         Ok(rendered)
     }
 
+    // TODO: add logic to make this work with remote as well as URL sources
+    // TODO: add corresponding tests for each
     fn build_source_link(
         snippet: &Snippet,
         link_format: &LinkFormat,
         url_prefix: String,
     ) -> String {
+        // link_format.source_link(&url_prefix, snippet)
+
         let mut path = url_prefix;
         if !path.ends_with("/") {
             path.push_str("/")
         }
-
+        
         path.push_str(snippet.path.to_str().unwrap_or_default());
-
         match link_format {
             LinkFormat::GitHub => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
             LinkFormat::GitLab => format!("{}#L{}-{}", path, snippet.start_line, snippet.end_line),
@@ -90,10 +93,7 @@ impl SnippextTemplate {
                 format!("{}#lines={}:{}", path, snippet.start_line, snippet.end_line)
             }
             LinkFormat::Gitea => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
-            LinkFormat::TFS => format!(
-                "{}&line={}&lineEnd={}",
-                path, snippet.start_line, snippet.end_line
-            ),
+            LinkFormat::TFS => format!("{}&line={}&lineEnd={}",path, snippet.start_line, snippet.end_line),
         }
     }
 }

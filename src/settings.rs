@@ -44,9 +44,11 @@ impl SnippextSettings {
                     default: true,
                 },
             )]),
-            sources: vec![SnippetSource::new_local(vec![String::from(
-                DEFAULT_SOURCE_FILES,
-            )])],
+            sources: vec![
+                SnippetSource::Local {
+                    files: vec![String::from(DEFAULT_SOURCE_FILES)]
+                }
+            ],
             output_dir: Some(String::from(DEFAULT_OUTPUT_DIR)),
             output_extension: Some(String::from(DEFAULT_OUTPUT_FILE_EXTENSION)),
             targets: None,
