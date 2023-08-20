@@ -1,12 +1,14 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use handlebars::{no_escape, Handlebars};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::constants::SNIPPEXT_TEMPLATE_ATTRIBUTE;
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
-use crate::types::{LinkFormat, Snippet};
+use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::unindent::unindent;
 use crate::SnippextResult;
 
@@ -19,6 +21,7 @@ pub struct SnippextTemplate {
 impl SnippextTemplate {
     pub fn render_template(
         snippet: &Snippet,
+        source: &SnippetSource,
         snippext_settings: &SnippextSettings,
         target_attributes: Option<HashMap<String, String>>,
     ) -> SnippextResult<String> {
@@ -30,17 +33,17 @@ impl SnippextTemplate {
 
         // TODO: do we want to make unindent optional?
         data.insert("snippet".to_string(), unindent(snippet.text.as_str()));
-        // https://github.com/temporalio/snipsync/blob/fef6170acacc6dd351c4ab5784cccaafa80d93d5/src/Sync.js#L68
-        // https://github.com/SimonCropp/MarkdownSnippets/blob/fae28ec759089641d3bf89a90211776de97d8899/src/MarkdownSnippets/Processing/SnippetMarkdownHandling.cs#L62
-        // <a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>
-        if let Some(link_format) = &snippext_settings.link_format {
-            data.insert("source_links_enabled".to_string(), "true".to_string());
+        data.insert("source_path".to_string(), snippet.path.to_string_lossy().to_string());
 
-            let url_prefix = snippext_settings.url_prefix.to_owned().unwrap_or_default();
-            data.insert("url_prefix".to_string(), url_prefix.clone());
-            data.insert("source_path".to_string(), snippet.path.to_string_lossy().to_string());
-            let source_link =
-                SnippextTemplate::build_source_link(&snippet, link_format, url_prefix);
+        let source_link = build_source_link(
+            snippet,
+            source,
+            snippext_settings.link_format,
+            snippext_settings.url_prefix.as_ref()
+        );
+        if let Some(source_link) = source_link {
+            data.insert("source_links_enabled".to_string(), "true".to_string());
+            data.insert("url_prefix".to_string(), snippext_settings.url_prefix.to_owned().unwrap_or_default());
 
             // TODO: do we want to add a sup tag here or in the template?
             // I think template which means we should also move everything but the actual
@@ -70,30 +73,51 @@ impl SnippextTemplate {
 
         Ok(rendered)
     }
+}
 
-    // TODO: add logic to make this work with remote as well as URL sources
-    // TODO: add corresponding tests for each
-    fn build_source_link(
-        snippet: &Snippet,
-        link_format: &LinkFormat,
-        url_prefix: String,
-    ) -> String {
-        // link_format.source_link(&url_prefix, snippet)
-
-        let mut path = url_prefix;
-        if !path.ends_with("/") {
-            path.push_str("/")
-        }
-        
-        path.push_str(snippet.path.to_str().unwrap_or_default());
-        match link_format {
-            LinkFormat::GitHub => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
-            LinkFormat::GitLab => format!("{}#L{}-{}", path, snippet.start_line, snippet.end_line),
-            LinkFormat::BitBucket => {
-                format!("{}#lines={}:{}", path, snippet.start_line, snippet.end_line)
+fn build_source_link(
+    snippet: &Snippet,
+    source: &SnippetSource,
+    link_format: Option<LinkFormat>,
+    url_prefix: Option<&String>
+) -> Option<String> {
+    match source {
+        SnippetSource::Local { .. } => {
+            let link_format = link_format?;
+            let mut path = String::new();
+            if let Some(url_prefix) = url_prefix {
+                path.push_str(url_prefix);
+                if !path.ends_with("/") {
+                    path.push('/');
+                }
             }
-            LinkFormat::Gitea => format!("{}#L{}-L{}", path, snippet.start_line, snippet.end_line),
-            LinkFormat::TFS => format!("{}&line={}&lineEnd={}",path, snippet.start_line, snippet.end_line),
+            path.push_str(snippet.path.to_str().unwrap_or_default());
+            Some(link_format.source_link(&path,  &snippet))
+        }
+        SnippetSource::Git { repository, reference, .. } => {
+            let url = Url::from_str(repository).expect("Git repository must be a valid URL");
+            let link_format = link_format.or_else(|| {
+                let domain = url.domain()?;
+                LinkFormat::from_domain(domain)
+            })?;
+
+            let mut path = url.to_string().strip_suffix(".git")?.to_string();
+            path.push_str(
+                format!("{}{}/{}",
+                    link_format.blob_path_segment(),
+                    reference.as_deref().unwrap_or("main"),
+                    &snippet.path.to_str().unwrap_or_default()
+                ).as_str()
+            );
+            // path.push_str(&snippet.path.to_str().unwrap_or_default());
+
+            Some(link_format.source_link(
+                &path,
+                &snippet
+            ))
+        }
+        SnippetSource::Url(url) => {
+            Some(url.to_string())
         }
     }
 }
@@ -142,4 +166,146 @@ fn get_template<'a>(
             "No templates found",
         )))
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    use crate::templates::build_source_link;
+    use crate::types::{LinkFormat, Snippet, SnippetSource};
+
+    #[test]
+    fn local_source_link() {
+        let source = SnippetSource::Local {
+            files: vec!["**".to_string()]
+        };
+
+        let snippet = Snippet::new(
+            "example".to_string(),
+            PathBuf::from("src/main.rs"),
+            "{{snippet}}".to_string(),
+            HashMap::new(),
+            0,
+            10,
+        );
+
+        let source_link = build_source_link(
+            &snippet,
+            &source,
+            Some(LinkFormat::GitHub),
+            None,
+        ).expect("Should build source link");
+
+        assert_eq!("src/main.rs#L0-L10", source_link);
+    }
+
+    #[test]
+    fn local_source_link_with_prefix() {
+        let source = SnippetSource::Local {
+            files: vec!["**".to_string()]
+        };
+
+        let snippet = Snippet::new(
+            "example".to_string(),
+            PathBuf::from("src/main.rs"),
+            "{{snippet}}".to_string(),
+            HashMap::new(),
+            1,
+            10,
+        );
+
+        let source_link = build_source_link(
+            &snippet,
+            &source,
+            Some(LinkFormat::GitHub),
+            Some(&"https://github.com/doctavious/snippext/blob/main/".to_string())
+        ).expect("Should build source link");
+
+        assert_eq!("https://github.com/doctavious/snippext/blob/main/src/main.rs#L1-L10", source_link);
+    }
+
+    #[test]
+    fn local_source_without_link_format_should_not_build_source_link() {
+        let source = SnippetSource::Local {
+            files: vec!["**".to_string()]
+        };
+
+        let snippet = Snippet::new(
+            "example".to_string(),
+            PathBuf::from("src/main.rs"),
+            "{{snippet}}".to_string(),
+            HashMap::new(),
+            1,
+            10,
+        );
+
+        let source_link = build_source_link(
+            &snippet,
+            &source,
+            None,
+            None,
+        );
+
+        assert!(source_link.is_none());
+    }
+
+    #[test]
+    fn git_source_link() {
+        let source = SnippetSource::Git {
+            repository: "https://github.com/doctavious/snippext.git".to_string(),
+            reference: Some("main".to_string()),
+            cone_patterns: None,
+            files: vec!["**".to_string()]
+        };
+
+        let snippet = Snippet::new(
+            "example".to_string(),
+            PathBuf::from("src/main.rs"),
+            "{{snippet}}".to_string(),
+            HashMap::new(),
+            1,
+            10,
+        );
+
+        let source_link = build_source_link(
+            &snippet,
+            &source,
+            None,
+            None,
+        ).expect("source link should be present");
+
+        assert_eq!(
+            "https://github.com/doctavious/snippext/blob/main/src/main.rs#L1-L10",
+            source_link
+        );
+    }
+
+    #[test]
+    fn url_source_link() {
+        let source = SnippetSource::Url (
+            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into()
+        );
+
+        let snippet = Snippet::new(
+            "example".to_string(),
+            PathBuf::from("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"),
+            "{{snippet}}".to_string(),
+            HashMap::new(),
+            0,
+            10,
+        );
+
+        let source_link = build_source_link(
+            &snippet,
+            &source,
+            None,
+            Some(&String::new())
+        ).expect("Should build source link");
+
+        assert_eq!(
+            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs",
+            source_link
+        );
+    }
 }

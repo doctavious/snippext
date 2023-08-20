@@ -151,55 +151,68 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_snippext_settings(&snippext_settings)?;
 
     let mut cache = HashMap::new();
-    let source_files = get_source_files(&snippext_settings)?;
-    for source_file in source_files {
-        let snippets = extract_snippets(
-            source_file.full_path.as_path(),
-            &snippext_settings,
-            &mut cache,
-        )?;
+    for source in &snippext_settings.sources {
+        let source_files = get_source_files(source)?;
+        for source_file in source_files {
+            let snippets = extract_snippets(
+                &source_file,
+                &snippext_settings,
+                &mut cache,
+            )?;
 
-        if snippets.is_empty() {
-            continue;
-        }
-
-        if let Some(output_dir) = &snippext_settings.output_dir {
-            let extension = snippext_settings
-                .output_extension
-                .as_deref()
-                .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
-            for (_, snippet) in &snippets {
-                let trim_chars: &[_] = &['.', '/'];
-                let output_path = Path::new(output_dir.as_str())
-                    .join(
-                        source_file
-                            .relative_path
-                            .to_string_lossy()
-                            .trim_start_matches(trim_chars),
-                    )
-                    .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension(extension);
-
-                fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                let result = SnippextTemplate::render_template(snippet, &snippext_settings, None)?;
-                fs::write(output_path, result).unwrap();
+            if snippets.is_empty() {
+                continue;
             }
-        }
 
-        if let Some(targets) = &snippext_settings.targets {
-            for target in targets {
-                let globs = match glob(target.as_str()) {
-                    Ok(paths) => paths,
-                    Err(error) => {
-                        return Err(SnippextError::GlobPatternError(format!(
-                            "Glob pattern error for `{}`. {}",
-                            target, error.msg
-                        )))
+            if let Some(output_dir) = &snippext_settings.output_dir {
+                let extension = snippext_settings
+                    .output_extension
+                    .as_deref()
+                    .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
+                for (_, snippet) in &snippets {
+                    let trim_chars: &[_] = &['.', '/'];
+                    let output_path = Path::new(output_dir.as_str())
+                        .join(
+                            source_file
+                                .relative_path
+                                .to_string_lossy()
+                                .trim_start_matches(trim_chars),
+                        )
+                        .join(sanitize(snippet.identifier.to_owned()))
+                        .with_extension(extension);
+
+                    fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+                    let result = SnippextTemplate::render_template(
+                        snippet,
+                        source,
+                        &snippext_settings,
+                        None
+                    )?;
+                    fs::write(output_path, result).unwrap();
+                }
+            }
+
+            if let Some(targets) = &snippext_settings.targets {
+                for target in targets {
+                    let globs = match glob(target.as_str()) {
+                        Ok(paths) => paths,
+                        Err(error) => {
+                            return Err(SnippextError::GlobPatternError(format!(
+                                "Glob pattern error for `{}`. {}",
+                                target, error.msg
+                            )))
+                        }
+                    };
+
+                    for entry in globs {
+                        process_target_file(
+                            entry.unwrap(),
+                            &snippets,
+                            source,
+                            &snippext_settings,
+                            &mut cache
+                        )?;
                     }
-                };
-
-                for entry in globs {
-                    process_target_file(entry.unwrap(), &snippets, &snippext_settings, &mut cache)?;
                 }
             }
         }
@@ -267,7 +280,7 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
                         failures.push(format!("sources[{}].files must not be empty", i));
                     }
                 }
-                SnippetSource::Git { url, files, .. } => {
+                SnippetSource::Git { repository: url, files, .. } => {
                     if url == "" {
                         failures.push(format!("sources[{}].url must not be empty", i));
                     }
@@ -304,94 +317,92 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 // TODO: This code is absolute shit. Clean this up
 // Need both the absolute path and the relative path so that for when we output generated files
 // we only include relative directories within the output directory.
-fn get_source_files(settings: &SnippextSettings) -> SnippextResult<Vec<SourceFile>> {
+fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
     let mut source_files: Vec<SourceFile> = Vec::new();
 
-    for source in &settings.sources {
-        match source {
-            SnippetSource::Local { files } => {
-                for file in files {
-                    let paths = match glob(file.as_str()) {
-                        Ok(paths) => paths,
-                        Err(error) => {
-                            return Err(SnippextError::GlobPatternError(format!(
-                                "Glob pattern error for `{}`. {}",
-                                file, error.msg
-                            )))
-                        }
+    match source {
+        SnippetSource::Local { files } => {
+            for file in files {
+                let paths = match glob(file.as_str()) {
+                    Ok(paths) => paths,
+                    Err(error) => {
+                        return Err(SnippextError::GlobPatternError(format!(
+                            "Glob pattern error for `{}`. {}",
+                            file, error.msg
+                        )))
+                    }
+                };
+
+                for entry in paths {
+                    let path = entry.unwrap();
+                    let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str())
+                    {
+                        prefix.to_path_buf()
+                    } else {
+                        path.clone()
                     };
 
-                    for entry in paths {
-                        let path = entry.unwrap();
-                        let relative_path = if let Ok(prefix) = path.clone().strip_prefix(file.as_str())
-                        {
-                            prefix.to_path_buf()
-                        } else {
-                            path.clone()
-                        };
-
-                        if !path.is_dir() {
-                            source_files.push(SourceFile {
-                                full_path: path.clone(),
-                                relative_path,
-                            });
-                        }
-                    }
-                }
-            }
-            // default reference to master/main
-            SnippetSource::Git {
-                url,
-                reference,
-                cone_patterns,
-                files
-            } => {
-                let repo = url;
-                let repo_name = Path::new(repo)
-                    .file_stem()
-                    .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
-                let download_dir = get_download_directory()?.join(repo_name);
-                // dont need this second check but being safe
-                if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
-                    fs::remove_dir_all(&download_dir)?;
-                }
-                fs::create_dir_all(&download_dir)?;
-                git::checkout_files(
-                    &repo,
-                    reference.clone(),
-                    cone_patterns.clone(),
-                    &download_dir,
-                )?;
-
-                let dir_length = download_dir.to_string_lossy().len();
-                let patterns = files
-                    .iter()
-                    .map(|f| Pattern::new(f))
-                    .filter_map(|p| p.ok())
-                    .collect::<Vec<Pattern>>();
-
-                for entry in WalkDir::new(&download_dir)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    let path = &entry.path().to_string_lossy().to_string();
-                    let relative_path_str = &path[dir_length..];
-
-                    if entry.path().is_file() && patterns.iter().any(|p| p.matches(relative_path_str)) {
+                    if !path.is_dir() {
                         source_files.push(SourceFile {
-                            full_path: entry.path().to_path_buf(),
-                            relative_path: PathBuf::from(relative_path_str),
+                            full_path: path.clone(),
+                            relative_path,
                         });
                     }
                 }
             }
-            SnippetSource::Url(url) => {
-                let path = download_url(url)?;
-                source_files.push(SourceFile {
-                    full_path: path.clone(),
-                    relative_path: path.clone(),
-                });
+        }
+        // default reference to master/main
+        SnippetSource::Git {
+            repository: url,
+            reference,
+            cone_patterns,
+            files
+        } => {
+            let repo = url;
+            let repo_name = Path::new(repo)
+                .file_stem()
+                .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
+            let download_dir = get_download_directory()?.join(repo_name);
+            // dont need this second check but being safe
+            if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
+                fs::remove_dir_all(&download_dir)?;
             }
+            fs::create_dir_all(&download_dir)?;
+            git::checkout_files(
+                &repo,
+                reference.clone(),
+                cone_patterns.clone(),
+                &download_dir,
+            )?;
+
+            let dir_length = download_dir.to_string_lossy().len();
+            let patterns = files
+                .iter()
+                .map(|f| Pattern::new(f))
+                .filter_map(|p| p.ok())
+                .collect::<Vec<Pattern>>();
+
+            for entry in WalkDir::new(&download_dir)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                let path = &entry.path().to_string_lossy().to_string();
+                let relative_path_str = &path[dir_length..];
+
+                if entry.path().is_file() && patterns.iter().any(|p| p.matches(relative_path_str)) {
+                    source_files.push(SourceFile {
+                        full_path: entry.path().to_path_buf(),
+                        relative_path: PathBuf::from(relative_path_str),
+                    });
+                }
+            }
+        }
+        SnippetSource::Url(url) => {
+            let path = download_url(url)?;
+            source_files.push(SourceFile {
+                full_path: path.clone(),
+                relative_path: path.clone(),
+            });
         }
     }
 
@@ -480,11 +491,12 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
 }
 
 fn extract_snippets(
-    path: &Path,
+    source_file: &SourceFile,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
-    println!("extracting from {:?}", path);
+    println!("extracting from {:?}", &source_file.full_path);
+    let path = source_file.full_path.as_path();
     let f = File::open(path)?;
     let reader = BufReader::new(f);
 
@@ -628,6 +640,7 @@ struct MissingSnippet<'a> {
 fn process_target_file(
     target: PathBuf,
     snippets: &HashMap<String, Snippet>,
+    source: &SnippetSource,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<()> {
@@ -685,7 +698,12 @@ fn process_target_file(
             continue;
         };
 
-        let result = SnippextTemplate::render_template(&snippet, &settings, attributes)?;
+        let result = SnippextTemplate::render_template(
+            &snippet,
+            source,
+            &settings,
+            attributes
+        )?;
 
         let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
 
@@ -812,7 +830,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         };
 
         let source = SnippetSource::Git {
-            url: repo_url.to_string(),
+            repository: repo_url.to_string(),
             reference: opt.repository_ref,
             cone_patterns: opt.repository_cone_pattern,
             files: source_files,
@@ -915,7 +933,7 @@ mod tests {
         assert_eq!(1, settings.sources.len());
         let source = settings.sources.get(0).unwrap();
         match source {
-            SnippetSource::Git { url, reference, files, .. } => {
+            SnippetSource::Git { repository: url, reference, files, .. } => {
                 assert_eq!(
                     String::from("https://github.com/doctavious/snippext.git"),
                     *url

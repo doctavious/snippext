@@ -86,7 +86,7 @@ fn error_when_extracting_from_unavailable_remote() {
             },
         )]),
         vec![SnippetSource::Git {
-            url: String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
+            repository: String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
             reference: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/**/*")],
@@ -148,7 +148,7 @@ fn should_successfully_extract_from_remote() {
             },
         )]),
         vec![SnippetSource::Git {
-            url: String::from("https://github.com/doctavious/snippext.git"),
+            repository: String::from("https://github.com/doctavious/snippext.git"),
             reference: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
@@ -585,7 +585,7 @@ fn support_source_links() {
             .unwrap();
 
     assert_eq!(
-        "```puts \"Hello, Ruby!\"\n```\n<a href='/tests/samples/custom_prefix.rb#L2-L4' title='Snippet source file'>source</a>",
+        "```puts \"Hello, Ruby!\"\n```\n<a href='tests/samples/custom_prefix.rb#L2-L4' title='Snippet source file'>source</a>",
         content
     );
 }
@@ -658,7 +658,7 @@ fn support_csharp_regions() {
         fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.md")).unwrap();
 
     assert_eq!(
-        "```Console.WriteLine(\"Hello World!\");\n```\n<a href='/tests/main.cs#L1-L3' title='Snippet source file'>source</a>",
+        "```Console.WriteLine(\"Hello World!\");\n```\n<a href='tests/main.cs#L1-L3' title='Snippet source file'>source</a>",
         content
     );
 }
