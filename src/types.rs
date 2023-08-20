@@ -61,52 +61,6 @@ pub enum SnippetSource {
     Url(String)
 }
 
-impl SnippetSource {
-
-    // TODO: add tests
-    pub fn source_link(
-        &self,
-        snippet: &Snippet,
-        settings: &SnippextSettings
-    ) -> String {
-        match self {
-            SnippetSource::Local { .. } => {
-                if let Some(link_format) = &settings.link_format {
-                    let mut path = settings.url_prefix.to_owned().unwrap_or_default();
-                    if !path.ends_with("/") {
-                        path.push_str("/")
-                    }
-
-                    path.push_str(snippet.path.to_str().unwrap_or_default());
-
-                    link_format.source_link(&path, &snippet)
-                } else {
-                    String::new()
-                }
-            }
-            SnippetSource::Git { repository: url, .. } => {
-                let url_str = url;
-                if let Some(link_format) = &settings.link_format {
-                    return link_format.source_link(&url_str, &snippet);
-                } else {
-                    let url = Url::from_str(url).ok();
-                    if let Some(url) = url {
-                        if let Some(link_format) = url.domain()
-                            .and_then(|d| LinkFormat::from_domain(d)) {
-                            return link_format.source_link(&url_str, &snippet);
-                        }
-                    }
-                }
-
-                return String::new();
-            }
-            SnippetSource::Url(url) => {
-                url.to_string()
-            }
-        }
-    }
-}
-
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Copy, Debug, Deserialize, Parser, Serialize, ValueEnum)]
@@ -151,7 +105,6 @@ impl LinkFormat {
     }
 
     pub fn from_domain(domain: &str) -> Option<Self> {
-
         match domain.split('.').next()? {
             "azure" => Some(LinkFormat::AzureRepos),
             "bitbucket" => Some(LinkFormat::BitBucket),
@@ -163,20 +116,8 @@ impl LinkFormat {
         }
     }
 
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/docs/README.md#custom-content-urls
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.Gitea/GetSourceLinkUrl.cs#L21
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.AzureRepos.Git/GetSourceLinkUrl.cs#L33
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.GitHub/GetSourceLinkUrl.cs#L24
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.Bitbucket.Git/GetSourceLinkUrl.cs#L48
-
-
-    // https://github.com/doctavious/snippext/blob/main/src/cli.rs
-    // https://gitea.com/golovin/color-tomato-theme/src/branch/master/LICENSE.md
-    // https://gitlab.com/vortex185330/frontend/vortex-frontend/-/blob/main/README.md?ref_type=heads
-    // https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/workers/auto_merge_process_worker.rb?ref_type=heads
-    // https://bitbucket.org/MyCompany/MyProject/raw/28ebd306a7612e496c73ff142d132f92847b717d/*
-    // https://gitee.com/goploy/goploy/blob/master/go.mod#L10-17
-
+    // TODO: not a fan that this is separate from generally building source link
+    // Would prefer something with better cohesion but not sure what that looks like
     // TODO: figure out appropriate value for Azure Repos. See
     // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.AzureRepos.Git/GetSourceLinkUrl.cs#L33
     pub fn blob_path_segment(&self) -> &str {
