@@ -71,4 +71,3 @@ pub(crate) fn checkout_files(
 
     Ok(())
 }
-

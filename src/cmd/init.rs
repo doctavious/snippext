@@ -90,7 +90,9 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     .with_default(DEFAULT_SOURCE_FILES)
                     .with_help_message("Globs")
                     .prompt()?;
-                sources.push(SnippetSource::Local { files: vec![source_files] });
+                sources.push(SnippetSource::Local {
+                    files: vec![source_files],
+                });
             }
             "remote" => {
                 let repo = Text::new("Remote URL:")
@@ -112,7 +114,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     repository: repo,
                     reference: Some(branch),
                     cone_patterns: None,
-                    files: vec![source_files]
+                    files: vec![source_files],
                 });
             }
             "url" => {

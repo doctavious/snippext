@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
-use url::Url;
-use crate::settings::SnippextSettings;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -53,12 +50,12 @@ pub enum SnippetSource {
         repository: String,
         reference: Option<String>,
         cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
-        files: Vec<String>
+        files: Vec<String>,
     },
     Local {
         files: Vec<String>,
     },
-    Url(String)
+    Url(String),
 }
 
 #[non_exhaustive]
@@ -84,11 +81,7 @@ impl LinkFormat {
         Self::Gitee,
     ];
 
-    pub fn source_link(
-        &self,
-        url: &String,
-        snippet: &Snippet
-    ) -> String {
+    pub fn source_link(&self, url: &String, snippet: &Snippet) -> String {
         match self {
             LinkFormat::AzureRepos => format!(
                 "{}&line={}&lineEnd={}",
@@ -112,7 +105,7 @@ impl LinkFormat {
             "gitlab" => Some(LinkFormat::GitLab),
             "gitea" => Some(LinkFormat::Gitea),
             "gitee" => Some(LinkFormat::Gitee),
-            _ => None
+            _ => None,
         }
     }
 
@@ -141,7 +134,6 @@ impl fmt::Display for LinkFormat {
             LinkFormat::GitLab => write!(f, "gitlab"),
             LinkFormat::Gitea => write!(f, "gitea"),
             LinkFormat::Gitee => write!(f, "gitee"),
-
         }
     }
 }

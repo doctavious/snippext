@@ -1,11 +1,11 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::{env, fs};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
+use std::{env, fs};
 
 use chrono::DateTime;
 use clap::Parser;
@@ -154,11 +154,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     for source in &snippext_settings.sources {
         let source_files = get_source_files(source)?;
         for source_file in source_files {
-            let snippets = extract_snippets(
-                &source_file,
-                &snippext_settings,
-                &mut cache,
-            )?;
+            let snippets = extract_snippets(&source_file, &snippext_settings, &mut cache)?;
 
             if snippets.is_empty() {
                 continue;
@@ -186,7 +182,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         snippet,
                         source,
                         &snippext_settings,
-                        None
+                        None,
                     )?;
                     fs::write(output_path, result).unwrap();
                 }
@@ -210,7 +206,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                             &snippets,
                             source,
                             &snippext_settings,
-                            &mut cache
+                            &mut cache,
                         )?;
                     }
                 }
@@ -280,7 +276,11 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
                         failures.push(format!("sources[{}].files must not be empty", i));
                     }
                 }
-                SnippetSource::Git { repository: url, files, .. } => {
+                SnippetSource::Git {
+                    repository: url,
+                    files,
+                    ..
+                } => {
                     if url == "" {
                         failures.push(format!("sources[{}].url must not be empty", i));
                     }
@@ -356,12 +356,15 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
             repository: url,
             reference,
             cone_patterns,
-            files
+            files,
         } => {
             let repo = url;
             let repo_name = Path::new(repo)
                 .file_stem()
-                .ok_or(SnippextError::GeneralError(format!("Could not get repository name from {}", &repo)))?;
+                .ok_or(SnippextError::GeneralError(format!(
+                    "Could not get repository name from {}",
+                    &repo
+                )))?;
             let download_dir = get_download_directory()?.join(repo_name);
             // dont need this second check but being safe
             if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
@@ -419,14 +422,21 @@ fn get_download_directory() -> SnippextResult<PathBuf> {
 }
 
 const INVALID_DIR_CHARS: [char; 14] = [
-'/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.'
+    '/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.',
 ];
 
 fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
     let url = Url::from_str(url_string.as_str())?;
-    let path: String = url.path()
+    let path: String = url
+        .path()
         .chars()
-        .map(|c| if INVALID_DIR_CHARS.contains(&c) { '_'} else {c})
+        .map(|c| {
+            if INVALID_DIR_CHARS.contains(&c) {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect();
 
     Ok(PathBuf::from(url.authority()).join(path))
@@ -435,9 +445,9 @@ fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
 fn download_url(url: &String) -> SnippextResult<PathBuf> {
     let url_file_path = url_to_path(url)?;
     let download_path = get_download_directory()?.join(url_file_path);
-    let parent_dirs = download_path
-        .parent()
-        .ok_or(SnippextError::GeneralError("could not create download directory".into()))?;
+    let parent_dirs = download_path.parent().ok_or(SnippextError::GeneralError(
+        "could not create download directory".into(),
+    ))?;
     fs::create_dir_all(parent_dirs)?;
 
     if let Ok(file_metadata) = download_path.metadata() {
@@ -698,12 +708,7 @@ fn process_target_file(
             continue;
         };
 
-        let result = SnippextTemplate::render_template(
-            &snippet,
-            source,
-            &settings,
-            attributes
-        )?;
+        let result = SnippextTemplate::render_template(&snippet, source, &settings, attributes)?;
 
         let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
 
@@ -838,7 +843,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
         snippet_sources.push(source);
     } else if !opt.sources.is_empty() {
-        snippet_sources.push(SnippetSource::Local{files: opt.sources});
+        snippet_sources.push(SnippetSource::Local { files: opt.sources });
     }
 
     for url_source in opt.url_sources {
@@ -864,6 +869,7 @@ mod tests {
     use std::collections::HashMap;
     use std::fs;
     use std::path::{Path, PathBuf};
+
     use tempfile::tempdir;
 
     use super::Args;
@@ -933,7 +939,12 @@ mod tests {
         assert_eq!(1, settings.sources.len());
         let source = settings.sources.get(0).unwrap();
         match source {
-            SnippetSource::Git { repository: url, reference, files, .. } => {
+            SnippetSource::Git {
+                repository: url,
+                reference,
+                files,
+                ..
+            } => {
                 assert_eq!(
                     String::from("https://github.com/doctavious/snippext.git"),
                     *url
@@ -946,7 +957,6 @@ mod tests {
                 panic!("SnippetSource should be Git")
             }
         }
-
     }
 
     #[test]
@@ -993,7 +1003,9 @@ mod tests {
                     default: false,
                 },
             )]),
-            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
+            vec![SnippetSource::Local {
+                files: vec![String::from("**")],
+            }],
             Some(String::from("./snippets/")),
             Some(String::from("")),
             None,
@@ -1030,7 +1042,9 @@ mod tests {
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             HashMap::new(),
-            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
+            vec![SnippetSource::Local {
+                files: vec![String::from("**")],
+            }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1075,7 +1089,9 @@ mod tests {
                     },
                 ),
             ]),
-            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
+            vec![SnippetSource::Local {
+                files: vec![String::from("**")],
+            }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1120,7 +1136,9 @@ mod tests {
                     },
                 ),
             ]),
-            vec![SnippetSource::Local{ files: vec![String::from("**")] }],
+            vec![SnippetSource::Local {
+                files: vec![String::from("**")],
+            }],
             Some(String::from("./snippets/")),
             Some(String::from("md")),
             None,
@@ -1221,10 +1239,7 @@ mod tests {
     fn should_successfully_extract_from_url() {
         let dir = tempdir().unwrap();
         let target = Path::new(&dir.path()).join("./target.md");
-        fs::copy(
-            Path::new("./tests/targets/target.md"),
-            &target,
-        ).unwrap();
+        fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
@@ -1248,9 +1263,7 @@ mod tests {
 
         // /var/folders/jm/1m24fjf96xv_458bclbpd1xh0000gn/T/snippext/https___gist.githubusercontent.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example.rs
         // https___gist.github.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5
-        let actual =
-            fs::read_to_string(target)
-                .unwrap();
+        let actual = fs::read_to_string(target).unwrap();
 
         let expected = r#"This is some static content
 
@@ -1263,9 +1276,6 @@ fn main() {
 <!-- snippet::start::fn_1 -->
 some content
 <!-- snippet::end::fn_1 -->"#;
-        assert_eq!(
-            expected,
-            actual
-        );
+        assert_eq!(expected, actual);
     }
 }

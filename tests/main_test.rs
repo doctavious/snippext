@@ -26,11 +26,9 @@ fn should_successfully_extract_from_local_sources_directory() {
                 default: true,
             },
         )]),
-        vec![
-            SnippetSource::Local {
-                files: vec![String::from("./tests/samples/*")]
-            }
-        ],
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/*")],
+        }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
         None,
@@ -118,11 +116,9 @@ fn should_error_when_snippet_is_not_closed() {
                 default: true,
             },
         )]),
-        vec![
-            SnippetSource::Local {
-                files: vec![String::from("./tests/snippet_left_open.rs")]
-            }
-        ],
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/snippet_left_open.rs")],
+        }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
         None,
@@ -197,7 +193,7 @@ fn should_successfully_extract_from_local_sources_file() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/custom_prefix.rb")]
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -235,7 +231,7 @@ fn should_update_specified_targets() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/*")]
+            files: vec![String::from("./tests/samples/*")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -287,7 +283,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/main.rs")]
+            files: vec![String::from("./tests/samples/main.rs")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -331,7 +327,7 @@ fn should_support_template_with_attributes() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/main.rs")]
+            files: vec![String::from("./tests/samples/main.rs")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -383,7 +379,7 @@ fn support_target_snippet_specifies_template() {
             ),
         ]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/main.rs")]
+            files: vec![String::from("./tests/samples/main.rs")],
         }],
         None,
         None,
@@ -424,7 +420,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/main.rs")]
+            files: vec![String::from("./tests/samples/main.rs")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -461,7 +457,7 @@ fn should_support_files_with_no_snippets() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/no_snippets.rs")]
+            files: vec![String::from("./tests/samples/no_snippets.rs")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -497,7 +493,7 @@ fn invalid_glob() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("[&")]
+            files: vec![String::from("[&")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -532,7 +528,7 @@ fn glob_returns_no_files() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/*.md")]
+            files: vec![String::from("./tests/samples/*.md")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -570,7 +566,7 @@ fn support_source_links() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/custom_prefix.rb")]
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -607,7 +603,7 @@ fn source_links_should_support_prefix() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/samples/custom_prefix.rb")]
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
@@ -644,7 +640,7 @@ fn support_csharp_regions() {
             },
         )]),
         vec![SnippetSource::Local {
-            files: vec![String::from("./tests/main.cs")]
+            files: vec![String::from("./tests/main.cs")],
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
