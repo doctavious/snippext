@@ -189,19 +189,19 @@ mod tests {
             files: vec!["**".to_string()],
         };
 
-        let snippet = Snippet::new(
-            "example".to_string(),
-            PathBuf::from("src/main.rs"),
-            "{{snippet}}".to_string(),
-            HashMap::new(),
-            0,
-            10,
-        );
+        let snippet = Snippet {
+            identifier: "example".to_string(),
+            path: PathBuf::from("src/main.rs"),
+            text: "{{snippet}}".to_string(),
+            attributes: HashMap::new(),
+            start_line: 1,
+            end_line: 10,
+        };
 
         let source_link = build_source_link(&snippet, &source, Some(LinkFormat::GitHub), None)
             .expect("Should build source link");
 
-        assert_eq!("src/main.rs#L0-L10", source_link);
+        assert_eq!("src/main.rs#L1-L10", source_link);
     }
 
     #[test]
@@ -210,14 +210,14 @@ mod tests {
             files: vec!["**".to_string()],
         };
 
-        let snippet = Snippet::new(
-            "example".to_string(),
-            PathBuf::from("src/main.rs"),
-            "{{snippet}}".to_string(),
-            HashMap::new(),
-            1,
-            10,
-        );
+        let snippet = Snippet {
+            identifier: "example".to_string(),
+            path: PathBuf::from("src/main.rs"),
+            text: "{{snippet}}".to_string(),
+            attributes: HashMap::new(),
+            start_line: 1,
+            end_line: 10,
+        };
 
         let source_link = build_source_link(
             &snippet,
@@ -239,14 +239,14 @@ mod tests {
             files: vec!["**".to_string()],
         };
 
-        let snippet = Snippet::new(
-            "example".to_string(),
-            PathBuf::from("src/main.rs"),
-            "{{snippet}}".to_string(),
-            HashMap::new(),
-            1,
-            10,
-        );
+        let snippet = Snippet {
+            identifier: "example".to_string(),
+            path: PathBuf::from("src/main.rs"),
+            text: "{{snippet}}".to_string(),
+            attributes: HashMap::new(),
+            start_line: 1,
+            end_line: 10,
+        };
 
         let source_link = build_source_link(&snippet, &source, None, None);
 
@@ -262,14 +262,14 @@ mod tests {
             files: vec!["**".to_string()],
         };
 
-        let snippet = Snippet::new(
-            "example".to_string(),
-            PathBuf::from("src/main.rs"),
-            "{{snippet}}".to_string(),
-            HashMap::new(),
-            1,
-            10,
-        );
+        let snippet = Snippet {
+            identifier: "example".to_string(),
+            path: PathBuf::from("src/main.rs"),
+            text: "{{snippet}}".to_string(),
+            attributes: HashMap::new(),
+            start_line: 1,
+            end_line: 10,
+        };
 
         let source_link = build_source_link(&snippet, &source, None, None)
             .expect("source link should be present");
@@ -286,14 +286,14 @@ mod tests {
             "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into()
         );
 
-        let snippet = Snippet::new(
-            "example".to_string(),
-            PathBuf::from("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"),
-            "{{snippet}}".to_string(),
-            HashMap::new(),
-            0,
-            10,
-        );
+        let snippet = Snippet {
+            identifier: "example".to_string(),
+            path: PathBuf::from("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"),
+            text: "{{snippet}}".to_string(),
+            attributes: HashMap::new(),
+            start_line: 1,
+            end_line: 10,
+        };
 
         let source_link = build_source_link(&snippet, &source, None, Some(&String::new()))
             .expect("Should build source link");

@@ -17,26 +17,6 @@ pub struct Snippet {
     pub end_line: usize,
 }
 
-impl Snippet {
-    pub fn new(
-        identifier: String,
-        path: PathBuf,
-        text: String,
-        attributes: HashMap<String, String>,
-        start_line: usize,
-        end_line: usize,
-    ) -> Self {
-        Self {
-            identifier,
-            path,
-            text,
-            attributes,
-            start_line,
-            end_line,
-        }
-    }
-}
-
 // SourceLocation
 
 // SnippetSource

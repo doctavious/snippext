@@ -566,14 +566,14 @@ fn extract_snippets(
                 let id = state.key;
                 let old_value = snippets.insert(
                     id.clone(),
-                    Snippet::new(
-                        id.clone(),
-                        path.to_path_buf(),
-                        state.lines,
-                        state.attributes,
-                        state.start_line,
-                        current_line_number,
-                    ),
+                    Snippet {
+                        identifier: id.clone(),
+                        path: path.to_path_buf(),
+                        text: state.lines,
+                        attributes: state.attributes,
+                        start_line: state.start_line,
+                        end_line: current_line_number,
+                    }
                 );
 
                 if old_value.is_some() {
