@@ -12,6 +12,7 @@ pub struct Args {
     pub debug: bool,
 }
 
+#[remain::sorted]
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Clear(clear::Args),

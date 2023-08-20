@@ -46,16 +46,17 @@ impl Snippet {
 // path: string
 
 #[non_exhaustive]
+#[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SnippetSource {
-    Local {
-        files: Vec<String>,
-    },
     Git {
         repository: String,
         reference: Option<String>,
         cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
         files: Vec<String>
+    },
+    Local {
+        files: Vec<String>,
     },
     Url(String)
 }
@@ -107,6 +108,7 @@ impl SnippetSource {
 }
 
 #[non_exhaustive]
+#[remain::sorted]
 #[derive(Clone, Copy, Debug, Deserialize, Parser, Serialize, ValueEnum)]
 #[clap(rename_all = "lowercase")]
 pub enum LinkFormat {
