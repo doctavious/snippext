@@ -21,9 +21,7 @@ use url::Url;
 use walkdir::WalkDir;
 
 use crate::cmd::is_line_snippet;
-use crate::constants::{
-    DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER,
-};
+use crate::constants::{DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
@@ -572,7 +570,7 @@ fn extract_snippets(
                         attributes: state.attributes,
                         start_line: state.start_line,
                         end_line: current_line_number,
-                    }
+                    },
                 );
 
                 if old_value.is_some() {
@@ -746,12 +744,13 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     if let Some(config) = opt.config {
         builder = builder.add_source(config::File::from(config));
     } else {
-        // TODO: use constant
-        builder = builder.add_source(config::File::with_name("snippext").required(false));
+        builder = builder
+            .add_source(config::File::from_str(DEFAULT_SNIPPEXT_CONFIG, FileFormat::Yaml))
+            .add_source(config::File::with_name(SNIPPEXT).required(false));
     }
 
     builder = builder
-        .add_source(Environment::with_prefix("snippext"))
+        .add_source(Environment::with_prefix(SNIPPEXT))
         .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
         .set_override_option("output_dir", opt.output_dir)?
@@ -923,10 +922,11 @@ mod tests {
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
-        assert_eq!(1, settings.templates.len());
+        println!("{}", serde_json::to_string(&settings).unwrap());
+        assert_eq!(4, settings.templates.len());
 
         let default_template = settings.templates.get("default").unwrap();
-        assert_eq!("````\n{{snippet}}\n```", default_template.content);
+        assert_eq!("```\n{{snippet}}\n```", default_template.content);
         assert!(default_template.default);
         assert_eq!(Some(String::from("./snippext/")), settings.output_dir);
         assert_eq!(Some(vec![String::from("README.md")]), settings.targets);

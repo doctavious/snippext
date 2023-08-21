@@ -3,12 +3,12 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-
 use clap::Parser;
-use config::{Config, Environment, File};
+use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
 
 use crate::cmd::is_line_snippet;
+use crate::constants::{DEFAULT_SNIPPEXT_CONFIG, SNIPPEXT};
 use crate::error::SnippextError;
 use crate::{files, SnippextResult};
 
@@ -53,11 +53,12 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
     if let Some(config) = opt.config {
         builder = builder.add_source(File::from(config));
     } else {
-        // TODO: use constant
-        builder = builder.add_source(File::with_name("snippext").required(false));
+        builder = builder
+            .add_source(File::from_str(DEFAULT_SNIPPEXT_CONFIG, FileFormat::Yaml))
+            .add_source(File::with_name(SNIPPEXT).required(false));
     }
 
-    builder = builder.add_source(Environment::with_prefix("snippext"));
+    builder = builder.add_source(Environment::with_prefix(SNIPPEXT));
     builder = builder
         .set_override_option("begin", opt.begin)?
         .set_override_option("end", opt.end)?
@@ -90,7 +91,6 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
 
         let mut omit = false;
         let mut new_lines: Vec<String> = Vec::new();
-        // https://github.com/temporalio/snipsync/blob/891805910946cca06de074a77cec27bffdfc4cc9/src/Sync.js#L372
         for line in reader.lines() {
             let l = line?;
 
