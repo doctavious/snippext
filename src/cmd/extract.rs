@@ -73,7 +73,7 @@ pub struct Args {
     #[arg(
         short = 'x',
         long,
-        help = "Extension for generated files. Defaults to txt when not specified."
+        help = "Extension for generated files. Defaults to md when not specified."
     )]
     pub output_extension: Option<String>,
 
@@ -505,7 +505,6 @@ fn extract_snippets(
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
-    println!("extracting from {:?}", &source_file.full_path);
     let path = source_file.full_path.as_path();
     let f = File::open(path)?;
     let reader = BufReader::new(f);
@@ -597,7 +596,6 @@ fn extract_snippets(
         )));
     }
 
-    println!("{:?}", snippets);
     Ok(snippets)
 }
 
@@ -771,7 +769,6 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         builder = builder.set_override("url_prefix", url_prefix)?;
     }
 
-    println!("{:?}", opt.templates);
     if let Some(template) = opt.templates {
         let templates_path = Path::new(template.as_str());
         if !templates_path.exists() {
@@ -926,8 +923,6 @@ mod tests {
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
-
-        println!("{:?}", settings.templates);
         assert_eq!(1, settings.templates.len());
 
         let default_template = settings.templates.get("default").unwrap();

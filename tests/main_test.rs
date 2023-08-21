@@ -9,7 +9,6 @@ use snippext::templates::SnippextTemplate;
 use snippext::types::{LinkFormat, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
-use walkdir::WalkDir;
 
 #[test]
 #[traced_test]
@@ -159,12 +158,6 @@ fn should_successfully_extract_from_remote() {
         None,
     ))
     .unwrap();
-
-    for entry in WalkDir::new(Path::new(&dir.path()).join("generated-snippets")) {
-        if let Ok(entry) = entry {
-            println!("{:?}", entry.path());
-        }
-    }
 
     let main_content_actual = fs::read_to_string(
         Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),
