@@ -28,7 +28,9 @@ pub struct Snippet {
 pub enum SnippetSource {
     Git {
         repository: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         reference: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
         files: Vec<String>,
     },

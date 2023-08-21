@@ -18,10 +18,15 @@ pub struct SnippextSettings {
     pub end: String,
     pub templates: HashMap<String, SnippextTemplate>,
     pub sources: Vec<SnippetSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_dir: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_extension: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub targets: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub link_format: Option<LinkFormat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub url_prefix: Option<String>,
 }
 
