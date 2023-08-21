@@ -14,5 +14,5 @@ trim_trailing_whitespace = false
 [*.tmpl]
 insert_final_newline = false
 
-[{*.yaml, *.yml}]
+[{*.yaml,*.yml}]
 indent_size = 2
