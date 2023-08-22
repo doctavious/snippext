@@ -37,10 +37,10 @@ pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[arg(short, long, help = "flag to mark beginning of a snippet")]
+    #[arg(short, long, help = "Prefix that marks the beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[arg(short, long, help = "flag to mark ending of a snippet")]
+    #[arg(short, long, help = "Prefix that marks the ending of a snippet")]
     pub end: Option<String>,
 
     #[arg(
