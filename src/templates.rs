@@ -51,16 +51,7 @@ impl SnippextTemplate {
                 snippext_settings.source_link_prefix.to_owned().unwrap_or_default(),
             );
 
-            // TODO: do we want to add a sup tag here or in the template?
-            // I think template which means we should also move everything but the actual
-            // href to the template
-            data.insert(
-                "source_link".to_string(),
-                format!(
-                    "<a href='{}' title='Snippet source file'>source</a>",
-                    source_link
-                ),
-            );
+            data.insert("source_link".to_string(), source_link);
         }
 
         for attribute in &snippet.attributes {
@@ -183,7 +174,7 @@ mod tests {
     use crate::types::{LinkFormat, Snippet, SnippetSource};
 
     #[test]
-    fn local_source_link() {
+    fn local_source_link_without_prefix() {
         let source = SnippetSource::Local {
             files: vec!["**".to_string()],
         };
