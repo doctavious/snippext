@@ -219,16 +219,16 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("Press escape to skip selection")
         .prompt_skippable()?;
 
-    let url_prefix_prompt = Text::new("URL Prefix")
+    let source_link_prefix_prompt = Text::new("Source Link Prefix")
         .with_help_message("")
         .prompt_skippable()?;
 
-    let url_prefix = if let Some(url_prefix_prompt) = url_prefix_prompt {
-        let url_prefix = url_prefix_prompt.trim();
-        if url_prefix.is_empty() {
+    let source_link_prefix = if let Some(source_link_prefix_prompt) = source_link_prefix_prompt {
+        let source_link_prefix = source_link_prefix_prompt.trim();
+        if source_link_prefix.is_empty() {
             None
         } else {
-            Some(url_prefix.to_string())
+            Some(source_link_prefix.to_string())
         }
     } else {
         None
@@ -243,7 +243,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         output_dir,
         targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
         link_format,
-        url_prefix,
+        source_link_prefix,
     })
 }
 

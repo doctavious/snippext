@@ -11,7 +11,7 @@ templates:
     content: "```{{lang}}\n{{snippet}}\n```"
     default: false
   code_with_source_links:
-    content: "```{{lang}}\n{{snippet}}\n```\n<a href='{url_prefix}{source_link}' title='Snippet source file'>snippet source</a>"
+    content: "```{{lang}}\n{{snippet}}\n```\n<a href='{source_link_prefix}{source_link}' title='Snippet source file'>snippet source</a>"
     default: false
 sources:
 # extract from local files

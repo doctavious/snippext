@@ -42,13 +42,13 @@ impl SnippextTemplate {
             snippet,
             source,
             snippext_settings.link_format,
-            snippext_settings.url_prefix.as_ref(),
+            snippext_settings.source_link_prefix.as_ref(),
         );
         if let Some(source_link) = source_link {
             data.insert("source_links_enabled".to_string(), "true".to_string());
             data.insert(
-                "url_prefix".to_string(),
-                snippext_settings.url_prefix.to_owned().unwrap_or_default(),
+                "source_link_prefix".to_string(),
+                snippext_settings.source_link_prefix.to_owned().unwrap_or_default(),
             );
 
             // TODO: do we want to add a sup tag here or in the template?
@@ -85,14 +85,14 @@ fn build_source_link(
     snippet: &Snippet,
     source: &SnippetSource,
     link_format: Option<LinkFormat>,
-    url_prefix: Option<&String>,
+    source_link_prefix: Option<&String>,
 ) -> Option<String> {
     match source {
         SnippetSource::Local { .. } => {
             let link_format = link_format?;
             let mut path = String::new();
-            if let Some(url_prefix) = url_prefix {
-                path.push_str(url_prefix);
+            if let Some(source_link_prefix) = source_link_prefix {
+                path.push_str(source_link_prefix);
                 if !path.ends_with("/") {
                     path.push('/');
                 }
@@ -121,7 +121,6 @@ fn build_source_link(
                 )
                 .as_str(),
             );
-            // path.push_str(&snippet.path.to_str().unwrap_or_default());
 
             Some(link_format.source_link(&path, &snippet))
         }

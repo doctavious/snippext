@@ -19,20 +19,21 @@ pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
 
-    #[arg(short, long, help = "Flag to mark beginning of a snippet")]
+    #[arg(short, long, help = "Prefix that marks the beginning of a snippet")]
     pub begin: Option<String>,
 
-    #[arg(short, long, help = "Flag to mark ending of a snippet")]
+    #[arg(short, long, help = "Prefix that marks the ending of a snippet")]
     pub end: Option<String>,
 
-    // globs
     #[arg(
         short = 'T',
         long,
-        required_unless_present = "output_dir",
-        help = "The local directories that contain the files to be spliced with the code snippets."
+        help = "The local directories, separated by spaces, that contain the files to be spliced \
+            with the code snippets."
     )]
     pub targets: Option<Vec<String>>,
+
+    // TODO: add remove flag that will remove the snippet entirely
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -147,7 +148,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use crate::cmd::clear::ClearSettings;
-    use crate::error::SnippextError; // TODO: why cant we use crate:error here?
+    use crate::error::SnippextError;
 
     #[test]
     fn clear_target() {

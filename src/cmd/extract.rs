@@ -88,14 +88,14 @@ pub struct Args {
     )]
     pub output_extension: Option<String>,
 
-    // globs
     #[arg(
         short = 'T',
         long,
         required_unless_present = "output_dir",
-        help = "The local directories that contain the files to be spliced with the code snippets."
+        value_delimiter = ' ',
+        help = "The local directories, separated by spaces, that contain the files to be spliced \
+            with the code snippets."
     )]
-    // value_delimiter(',')
     pub targets: Vec<String>,
 
     // TODO: write to target files instead of output directory
@@ -123,23 +123,24 @@ pub struct Args {
     )]
     pub url_sources: Vec<String>,
 
-    // value_parser
     #[arg(
         short = 'l',
         long,
         value_name = "FORMAT",
         value_enum,
-        help = "Defines the format of snippet source links that appear under each snippet. Links \
-                will not be included if not specified."
+        help = "Defines the format of snippet source links that appear under each snippet. \
+                Source links for local sources will not be included if not specified. \
+                If not provided For git sources links will attempt to determine based on git \
+                repository url"
     )]
     pub link_format: Option<LinkFormat>,
 
     #[arg(
         long,
-        help = "Allows string to be defined that will prefix all snippet source links. This is useful \
+        help = "Allows string to be defined that will prefix all local snippet source links. This is useful \
                 when markdown files are hosted on a site that is not co-located with the source code files."
     )]
-    pub url_prefix: Option<String>,
+    pub source_link_prefix: Option<String>,
 }
 
 struct SnippetExtractionState {
@@ -787,8 +788,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         builder = builder.set_override("link_format", link_format.to_string())?;
     }
 
-    if let Some(url_prefix) = opt.url_prefix {
-        builder = builder.set_override("url_prefix", url_prefix)?;
+    if let Some(source_link_prefix) = opt.source_link_prefix {
+        builder = builder.set_override("source_link_prefix", source_link_prefix)?;
     }
 
     if let Some(template) = opt.templates {
@@ -913,7 +914,7 @@ mod tests {
     //         sources: Vec::default(),
     //         url_sources: Vec::default(),
     //         link_format: None,
-    //         url_prefix: None,
+    //         source_link_prefix: None,
     //     };
     //
     //     let settings = super::build_settings(opt).unwrap();
@@ -937,7 +938,7 @@ mod tests {
             output_extension: Some(String::from("txt")),
             targets: vec![String::from("README.md")],
             link_format: None,
-            url_prefix: None,
+            source_link_prefix: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -995,7 +996,7 @@ mod tests {
             sources: Vec::default(),
             url_sources: Vec::default(),
             link_format: None,
-            url_prefix: None,
+            source_link_prefix: None,
         };
 
         let settings = super::build_settings(opt).unwrap();

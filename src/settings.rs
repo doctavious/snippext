@@ -27,7 +27,7 @@ pub struct SnippextSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_format: Option<LinkFormat>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub url_prefix: Option<String>,
+    pub source_link_prefix: Option<String>,
 }
 
 impl SnippextSettings {
@@ -56,7 +56,7 @@ impl SnippextSettings {
             output_extension: Some(String::from(DEFAULT_OUTPUT_FILE_EXTENSION)),
             targets: None,
             link_format: None,
-            url_prefix: None,
+            source_link_prefix: None,
         }
     }
 
@@ -81,7 +81,7 @@ impl SnippextSettings {
         output_extension: Option<String>,
         targets: Option<Vec<String>>,
         link_format: Option<LinkFormat>,
-        url_prefix: Option<String>,
+        source_link_prefix: Option<String>,
     ) -> Self {
         Self {
             begin,
@@ -92,7 +92,7 @@ impl SnippextSettings {
             output_extension,
             targets,
             link_format,
-            url_prefix,
+            source_link_prefix,
         }
     }
 }
