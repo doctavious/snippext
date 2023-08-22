@@ -86,7 +86,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
             let add_another_template = Confirm::new("Add another template?")
                 .with_default(false)
-                .with_help_message("")
                 .prompt()?;
 
             if !add_another_template {
@@ -220,7 +219,8 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .prompt_skippable()?;
 
     let source_link_prefix_prompt = Text::new("Source Link Prefix")
-        .with_help_message("")
+        .with_help_message("String that will prefix all local snippet source links. This is useful \
+                when markdown files are hosted on a site that is not co-located with the source code files.")
         .prompt_skippable()?;
 
     let source_link_prefix = if let Some(source_link_prefix_prompt) = source_link_prefix_prompt {

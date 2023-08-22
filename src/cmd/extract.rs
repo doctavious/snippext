@@ -70,11 +70,10 @@ pub struct Args {
     )]
     pub repository_cone_patterns: Option<Vec<String>>,
 
-    // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
-    // pub repository_directory: Option<String>,
     #[arg(
         short,
         long,
+        value_name = "DIR",
         required_unless_present = "targets",
         help = "Directory in which the generated snippet files be will output to. Is required unless \
                 targets is provided."
@@ -98,11 +97,6 @@ pub struct Args {
     )]
     pub targets: Vec<String>,
 
-    // TODO: write to target files instead of output directory
-
-    // aka files
-    // list of globs and default to all??
-    // default to ** or if none and recusively walk everything
     #[arg(
         short,
         long,
@@ -137,8 +131,9 @@ pub struct Args {
 
     #[arg(
         long,
-        help = "Allows string to be defined that will prefix all local snippet source links. This is useful \
-                when markdown files are hosted on a site that is not co-located with the source code files."
+        value_name = "PREFIX",
+        help = "String that will prefix all local snippet source links. This is useful when markdown \
+            files are hosted on a site that is not co-located with the source code files."
     )]
     pub source_link_prefix: Option<String>,
 }
