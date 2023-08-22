@@ -6,8 +6,8 @@ use inquire::{required, Confirm, Editor, Select, Text};
 use tracing::warn;
 
 use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG,
-    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
 };
 use crate::templates::SnippextTemplate;
 use crate::types::{LinkFormat, SnippetSource};
@@ -32,17 +32,16 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
 }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
-    let begin = Text::new("Begin tag:")
+    let begin = Text::new("Begin prefix:")
         .with_default(DEFAULT_BEGIN)
         .with_help_message("")
         .prompt()?;
 
-    let end = Text::new("End tag:")
+    let end = Text::new("End prefix:")
         .with_default(DEFAULT_END)
         .with_help_message("")
         .prompt()?;
 
-    // TODO: support multiple templates (id / default / template)
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
     loop {
         let identifier = Text::new("Template identifier:")
@@ -80,41 +79,70 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
-        let source_type =
-            Select::new("Type of source?", vec!["local", "remote", "url"]).prompt()?;
+        let source_type = Select::new("Type of source?", vec!["local", "git", "url"]).prompt()?;
 
         match source_type {
-            "local" => {
-                // TODO: loop or comma separated globs?
-                let source_files = Text::new("Source files:")
-                    .with_default(DEFAULT_SOURCE_FILES)
-                    .with_help_message("Globs")
-                    .prompt()?;
-                sources.push(SnippetSource::Local {
-                    files: vec![source_files],
-                });
-            }
-            "remote" => {
-                let repo = Text::new("Remote URL:")
-                    .with_default(DEFAULT_SOURCE_FILES)
-                    .with_help_message("")
+            "git" => {
+                let repo = Text::new("Repository:")
+                    .with_help_message("The repository to clone from")
                     .prompt()?;
 
-                let branch = Text::new("Branch:")
-                    .with_default(DEFAULT_SOURCE_FILES)
-                    .with_help_message("")
+                let repository_branch = Text::new("Branch:")
+                    .with_default(DEFAULT_GIT_BRANCH)
+                    .with_help_message("Branch name to use during git clone")
                     .prompt()?;
 
-                let source_files = Text::new("Source files:")
+                let cone_patterns_prompt = Text::new("Cone Patterns:")
+                    .with_default("")
+                    .with_help_message(
+                        "A list of directories, space separated, to be \
+                        included in the sparse checkout",
+                    )
+                    .prompt_skippable()?;
+
+                let cone_patterns = if let Some(cone_patterns) = cone_patterns_prompt {
+                    Some(cone_patterns.split(" ").map(|s| s.to_string()).collect())
+                } else {
+                    None
+                };
+
+                let source_files_prompt = Text::new("Source files:")
                     .with_default(DEFAULT_SOURCE_FILES)
-                    .with_help_message("Globs")
+                    .with_help_message(
+                        "List of glob patterns, separated by space, to look \
+                        for snippets. Not applicable for URL sources.",
+                    )
                     .prompt()?;
+
+                let source_files = source_files_prompt
+                    .split(' ')
+                    .filter(|x| !x.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
 
                 sources.push(SnippetSource::Git {
                     repository: repo,
-                    reference: Some(branch),
-                    cone_patterns: None,
-                    files: vec![source_files],
+                    reference: Some(repository_branch),
+                    cone_patterns,
+                    files: source_files,
+                });
+            }
+            "local" => {
+                let source_files_prompt = Text::new("Source files:")
+                    .with_default(DEFAULT_SOURCE_FILES)
+                    .with_help_message(
+                        "List of glob patterns, separated by space, to look \
+                        for snippets. Not applicable for URL sources.",
+                    )
+                    .prompt()?;
+
+                let source_files = source_files_prompt
+                    .split(' ')
+                    .map(|s| s.to_string())
+                    .collect();
+
+                sources.push(SnippetSource::Local {
+                    files: source_files,
                 });
             }
             "url" => {

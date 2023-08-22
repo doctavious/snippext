@@ -47,8 +47,11 @@ pub fn file_comments(extension: &str) -> SnippextResult<Vec<&'static str>> {
     }
 }
 
-pub fn get_snippet_start_prefixes(extension: &str, tag: &str) -> SnippextResult<HashSet<String>> {
-    let mut prefixes = get_comment_prefixes(extension, tag)?;
+pub fn get_snippet_start_prefixes(
+    extension: &str,
+    prefix: &str,
+) -> SnippextResult<HashSet<String>> {
+    let mut prefixes = get_comment_prefixes(extension, prefix)?;
 
     if extension == "cs" {
         prefixes.insert("#region".into());
@@ -61,8 +64,8 @@ pub fn get_snippet_start_prefixes(extension: &str, tag: &str) -> SnippextResult<
     Ok(prefixes)
 }
 
-pub fn get_snippet_end_prefixes(extension: &str, tag: &str) -> SnippextResult<HashSet<String>> {
-    let mut prefixes = get_comment_prefixes(extension, tag)?;
+pub fn get_snippet_end_prefixes(extension: &str, prefix: &str) -> SnippextResult<HashSet<String>> {
+    let mut prefixes = get_comment_prefixes(extension, prefix)?;
 
     // support C# and VB regions
     if extension == "cs" {
@@ -76,12 +79,12 @@ pub fn get_snippet_end_prefixes(extension: &str, tag: &str) -> SnippextResult<Ha
     Ok(prefixes)
 }
 
-fn get_comment_prefixes(extension: &str, tag: &str) -> SnippextResult<HashSet<String>> {
+fn get_comment_prefixes(extension: &str, prefix: &str) -> SnippextResult<HashSet<String>> {
     let mut comments = HashSet::new();
 
     for comment in file_comments(extension)? {
-        comments.insert(format!("{comment}{tag}"));
-        comments.insert(format!("{comment} {tag}"));
+        comments.insert(format!("{comment}{prefix}"));
+        comments.insert(format!("{comment} {prefix}"));
     }
 
     Ok(comments)

@@ -23,7 +23,10 @@ pub(crate) fn checkout_files(
     }
 
     if let Some(branch) = branch {
-        clone_command.arg("--branch").arg(branch);
+        clone_command
+            .arg("--branch")
+            .arg(branch)
+            .arg("--single-branch");
     }
 
     let clone_output = clone_command

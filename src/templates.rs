@@ -5,7 +5,7 @@ use handlebars::{no_escape, Handlebars};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::constants::SNIPPEXT_TEMPLATE_ATTRIBUTE;
+use crate::constants::{DEFAULT_GIT_BRANCH, SNIPPEXT_TEMPLATE_ATTRIBUTE};
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
@@ -116,7 +116,7 @@ fn build_source_link(
                 format!(
                     "{}{}/{}",
                     link_format.blob_path_segment(),
-                    reference.as_deref().unwrap_or("main"),
+                    reference.as_deref().unwrap_or(DEFAULT_GIT_BRANCH),
                     &snippet.path.to_str().unwrap_or_default()
                 )
                 .as_str(),

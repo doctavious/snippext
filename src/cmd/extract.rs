@@ -21,7 +21,10 @@ use url::Url;
 use walkdir::WalkDir;
 
 use crate::cmd::is_line_snippet;
-use crate::constants::{DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT};
+use crate::constants::{
+    DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES,
+    DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
+};
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::SnippextTemplate;
@@ -48,14 +51,24 @@ pub struct Args {
     )]
     pub templates: Option<String>,
 
-    #[arg(long, value_name = "URL", help = "")]
+    #[arg(long, value_name = "REPO", help = "The repository to clone from")]
     pub repository_url: Option<String>,
 
-    #[arg(long, requires = "repository_url", value_name = "REF", help = "")]
-    pub repository_ref: Option<String>,
+    #[arg(
+        long,
+        requires = "repository_url",
+        value_name = "BRANCH",
+        help = "Branch name to use during git clone"
+    )]
+    pub repository_branch: Option<String>,
 
-    #[arg(long, requires = "repository_url", value_name = "PATTERN", help = "")]
-    pub repository_cone_pattern: Option<Vec<String>>,
+    #[arg(
+        long,
+        requires = "repository_url",
+        value_name = "PATTERN",
+        help = "A list of directories, space separated, to be included in the sparse checkout"
+    )]
+    pub repository_cone_patterns: Option<Vec<String>>,
 
     // #[arg(short = 'D', long, value_name = "DIRECTORY", help = "Directory remote repository is cloned into")]
     // pub repository_directory: Option<String>,
@@ -90,7 +103,13 @@ pub struct Args {
     // aka files
     // list of globs and default to all??
     // default to ** or if none and recusively walk everything
-    #[arg(short, long, help = "TODO: ...")]
+    #[arg(
+        short,
+        long,
+        value_delimiter = ' ',
+        help = "List of glob patterns, separated by space, to look for snippets. Not applicable for \
+            URL sources."
+    )]
     pub sources: Vec<String>,
 
     /// Urls to files to be included as snippets.
@@ -98,8 +117,9 @@ pub struct Args {
     /// Any snippets within the files will be extracted and accessible as individual keyed snippets.
     #[arg(
         long,
-        help = "URLs to be included in snippets. URL must return raw text in order for snippets to\
-                be successfully extracted."
+        value_delimiter = ' ',
+        help = "List of URLs, separated by space, to download and extract snippets from. URLs must \
+            return raw text in order for snippets to be successfully extracted."
     )]
     pub url_sources: Vec<String>,
 
@@ -745,7 +765,10 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         builder = builder.add_source(config::File::from(config));
     } else {
         builder = builder
-            .add_source(config::File::from_str(DEFAULT_SNIPPEXT_CONFIG, FileFormat::Yaml))
+            .add_source(config::File::from_str(
+                DEFAULT_SNIPPEXT_CONFIG,
+                FileFormat::Yaml,
+            ))
             .add_source(config::File::with_name(SNIPPEXT).required(false));
     }
 
@@ -832,8 +855,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
         let source = SnippetSource::Git {
             repository: repo_url.to_string(),
-            reference: opt.repository_ref,
-            cone_patterns: opt.repository_cone_pattern,
+            reference: opt.repository_branch,
+            cone_patterns: opt.repository_cone_patterns,
             files: source_files,
         };
 
@@ -884,7 +907,7 @@ mod tests {
     //         comment_prefixes: None,
     //         templates: None,
     //         repository_url: None,
-    //         repository_ref: None,
+    //         repository_branch: None,
     //         output_dir: None,
     //         targets: Vec::default(),
     //         sources: Vec::default(),
@@ -906,8 +929,8 @@ mod tests {
             end: Some(String::from("finish::")),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
-            repository_ref: Some(String::from("main")),
-            repository_cone_pattern: None,
+            repository_branch: Some(String::from("main")),
+            repository_cone_patterns: None,
             sources: vec![String::from("**/*.rs")],
             url_sources: Vec::default(),
             output_dir: Some(String::from("./snippext/")),
@@ -964,8 +987,8 @@ mod tests {
             end: None,
             templates: None,
             repository_url: None,
-            repository_ref: None,
-            repository_cone_pattern: None,
+            repository_branch: None,
+            repository_cone_patterns: None,
             output_dir: None,
             output_extension: Some(String::from("txt")),
             targets: Vec::default(),
