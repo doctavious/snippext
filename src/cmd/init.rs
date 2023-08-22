@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::fs;
 
 use clap::Parser;
-use inquire::{required, Confirm, Editor, Select, Text};
+use inquire::{required, Confirm, Editor, Select, Text, CustomUserError};
+use inquire::validator::{ErrorMessage, StringValidator, Validation};
 use tracing::warn;
 
 use crate::constants::{
@@ -34,48 +35,65 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     let begin = Text::new("Begin prefix:")
         .with_default(DEFAULT_BEGIN)
-        .with_help_message("")
+        .with_validator(NotEmptyValidator::default())
+        .with_help_message("Prefix that marks the beginning of a snippet")
         .prompt()?;
 
     let end = Text::new("End prefix:")
         .with_default(DEFAULT_END)
-        .with_help_message("")
+        .with_validator(NotEmptyValidator::default())
+        .with_help_message("Prefix that marks the ending of a snippet")
+        .prompt()?;
+
+    let default_config: SnippextSettings = serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG)
+        .expect("Should be able to deserialize default snippext config");
+
+    let mut use_default_templates_message = String::from("Default templates include the following:\n\n");
+    for (key, value) in &default_config.templates {
+        use_default_templates_message.push_str(format!("{}:\n{}\n\n", key, value.content).as_str());
+    }
+
+    let use_default_templates = Confirm::new("Use default templates?")
+        .with_default(true)
+        .with_help_message(use_default_templates_message.as_str())
         .prompt()?;
 
     let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
-    loop {
-        let identifier = Text::new("Template identifier:")
-            .with_validator(required!("This field is required"))
-            .with_help_message("")
-            .prompt()?;
+    if use_default_templates {
+        templates.extend(default_config.templates);
+    } else {
+        loop {
+            let identifier = Text::new("Template identifier:")
+                .with_validator(required!("This field is required"))
+                .with_help_message("")
+                .prompt()?;
 
-        let template = Editor::new("Template content:")
-            .with_predefined_text(DEFAULT_TEMPLATE)
-            .with_help_message("")
-            .prompt()?;
+            let template = Editor::new("Template content:")
+                .with_predefined_text(DEFAULT_TEMPLATE)
+                .with_help_message("")
+                .prompt()?;
 
-        // mark default? can we be smart of if already has a default then no need to ask.
-        // if only one template then just mark that as default
+            // mark default? can we be smart of if already has a default then no need to ask.
+            // if only one template then just mark that as default
 
-        templates.insert(
-            identifier,
-            SnippextTemplate {
-                content: template,
-                default: false,
-            },
-        );
+            templates.insert(
+                identifier,
+                SnippextTemplate {
+                    content: template,
+                    default: false,
+                },
+            );
 
-        let add_another_template = Confirm::new("Add another template?")
-            .with_default(false)
-            .with_help_message("")
-            .prompt()?;
+            let add_another_template = Confirm::new("Add another template?")
+                .with_default(false)
+                .with_help_message("")
+                .prompt()?;
 
-        if !add_another_template {
-            break;
+            if !add_another_template {
+                break;
+            }
         }
     }
-
-    // TODO: add if user wants to use default template?
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
@@ -84,6 +102,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         match source_type {
             "git" => {
                 let repo = Text::new("Repository:")
+                    .with_validator(NotEmptyValidator::default())
                     .with_help_message("The repository to clone from")
                     .prompt()?;
 
@@ -93,7 +112,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     .prompt()?;
 
                 let cone_patterns_prompt = Text::new("Cone Patterns:")
-                    .with_default("")
                     .with_help_message(
                         "A list of directories, space separated, to be \
                         included in the sparse checkout",
@@ -138,6 +156,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
                 let source_files = source_files_prompt
                     .split(' ')
+                    .filter(|x| !x.is_empty())
                     .map(|s| s.to_string())
                     .collect();
 
@@ -146,7 +165,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                 });
             }
             "url" => {
-                sources.push(SnippetSource::Url(source_type.to_string()));
+                let url = Text::new("URL:")
+                    .with_validator(NotEmptyValidator::default())
+                    .with_help_message("URL to content that should be included as snippets")
+                    .prompt()?;
+                sources.push(SnippetSource::Url(url));
             }
             _ => {
                 warn!("Invalid source type {}", source_type);
@@ -155,7 +178,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
         let add_another_source = Confirm::new("Add another source?")
             .with_default(false)
-            .with_help_message("")
             .prompt()?;
 
         if !add_another_source {
@@ -165,9 +187,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let output_directory_prompt = Text::new("Output directory:")
         .with_help_message("Output directory to write generated snippets to.")
-        .prompt()?;
+        .prompt()?
+        .trim()
+        .to_string();
 
-    let output_dir = if output_directory_prompt.is_empty() {
+    let output_dir = if !output_directory_prompt.is_empty() {
         Some(output_directory_prompt)
     } else {
         None
@@ -195,9 +219,20 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("Press escape to skip selection")
         .prompt_skippable()?;
 
-    let url_prefix = Text::new("URL Prefix")
+    let url_prefix_prompt = Text::new("URL Prefix")
         .with_help_message("")
         .prompt_skippable()?;
+
+    let url_prefix = if let Some(url_prefix_prompt) = url_prefix_prompt {
+        let url_prefix = url_prefix_prompt.trim();
+        if url_prefix.is_empty() {
+            None
+        } else {
+            Some(url_prefix.to_string())
+        }
+    } else {
+        None
+    };
 
     Ok(SnippextSettings {
         begin,
@@ -210,4 +245,19 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         link_format,
         url_prefix,
     })
+}
+
+
+#[derive(Clone, Default)]
+pub struct NotEmptyValidator {}
+
+/// Similar to ValueRequiredValidator but trims strings
+impl StringValidator for NotEmptyValidator {
+    fn validate(&self, input: &str) -> Result<Validation, CustomUserError> {
+        Ok(if input.trim().is_empty() {
+            Validation::Invalid(ErrorMessage::Custom("Response cannot be empty".to_string()))
+        } else {
+            Validation::Valid
+        })
+    }
 }
