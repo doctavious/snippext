@@ -25,6 +25,8 @@ pub struct Snippet {
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+// #[serde(tag = "type")]
+#[serde(untagged)]
 pub enum SnippetSource {
     Git {
         repository: String,
