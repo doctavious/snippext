@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use indexmap::IndexMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
-    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
-};
-use crate::templates::SnippextTemplate;
+use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
 use crate::types::{LinkFormat, SnippetSource};
 use crate::SnippextResult;
 
@@ -16,7 +13,7 @@ use crate::SnippextResult;
 pub struct SnippextSettings {
     pub begin: String,
     pub end: String,
-    pub templates: HashMap<String, SnippextTemplate>,
+    pub templates: IndexMap<String, String>,
     pub sources: Vec<SnippetSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output_dir: Option<String>,
@@ -42,12 +39,9 @@ impl SnippextSettings {
         Self {
             begin: String::from(DEFAULT_BEGIN),
             end: String::from(DEFAULT_END),
-            templates: HashMap::from([(
-                String::from("default"),
-                SnippextTemplate {
-                    content: String::from(DEFAULT_TEMPLATE),
-                    default: true,
-                },
+            templates: IndexMap::from([(
+                String::from(DEFAULT_TEMPLATE_IDENTIFIER),
+                DEFAULT_TEMPLATE.to_string(),
             )]),
             sources: vec![SnippetSource::Local {
                 files: vec![String::from(DEFAULT_SOURCE_FILES)],
@@ -75,7 +69,7 @@ impl SnippextSettings {
     pub fn new(
         begin: String,
         end: String,
-        templates: HashMap<String, SnippextTemplate>,
+        templates: IndexMap<String, String>,
         sources: Vec<SnippetSource>,
         output_dir: Option<String>,
         output_extension: Option<String>,

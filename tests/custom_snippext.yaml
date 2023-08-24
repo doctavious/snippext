@@ -4,9 +4,7 @@ extension: "adoc"
 comment_prefixes:
 - "// "
 templates:
-  default:
-    content: "{{snippet}}"
-    default: true
+  default: "{{snippet}}"
 sources:
 # extract from local files
 - files:

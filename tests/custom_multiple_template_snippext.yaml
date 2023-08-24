@@ -4,12 +4,8 @@ extension: "adoc"
 comment_prefixes:
   - "// "
 templates:
-  basic:
-    content: "{{snippet}}"
-    default: true
-  code:
-    content: "```{{lang}}\n{{snippet}}```\n"
-    default: false
+  default: "{{snippet}}"
+  code: "```{{lang}}\n{{snippet}}```\n"
 sources:
   # extract from local files
   - files:

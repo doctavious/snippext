@@ -1,18 +1,11 @@
 begin: "snippet::start::"
 end: "snippet::end::"
 templates:
-  default:
-    content: "{{snippet}}{{#if source_links_enabled}}\n{{source_link}}{{/if}}"
-    default: true
-  default_with_links:
-    content: "{{snippet}}"
-    default: false
-  code:
-    content: "```{{lang}}\n{{snippet}}\n```"
-    default: false
-  code_with_source_links:
-    content: "```{{lang}}\n{{snippet}}\n```\n<a href='{source_link_prefix}{source_link}' title='Snippet source file'>snippet source</a>"
-    default: false
+  # default with is lang + snippet + sup text source link (not sure about anchor)
+  # raw is just snippet
+  # "<a href='{}' title='Snippet source file'>source</a>",
+  default: "```{{lang}}\n{{snippet}}\n```{{#if source_links_enabled}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/if}}"
+  raw: "{{snippet}}"
 sources:
 # extract from local files
 - files:

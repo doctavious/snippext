@@ -1,16 +1,12 @@
-use std::collections::HashMap;
 use std::fs;
 
 use clap::Parser;
-use inquire::{required, Confirm, Editor, Select, Text, CustomUserError};
+use indexmap::IndexMap;
+use inquire::{Confirm, Editor, Select, Text, CustomUserError};
 use inquire::validator::{ErrorMessage, StringValidator, Validation};
 use tracing::warn;
 
-use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
-    DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE,
-};
-use crate::templates::SnippextTemplate;
+use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
 use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
@@ -50,7 +46,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut use_default_templates_message = String::from("Default templates include the following:\n\n");
     for (key, value) in &default_config.templates {
-        use_default_templates_message.push_str(format!("{}:\n{}\n\n", key, value.content).as_str());
+        use_default_templates_message.push_str(format!("{}:\n{}\n\n", key, value).as_str());
     }
 
     let use_default_templates = Confirm::new("Use default templates?")
@@ -58,30 +54,33 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message(use_default_templates_message.as_str())
         .prompt()?;
 
-    let mut templates: HashMap<String, SnippextTemplate> = HashMap::new();
+    let mut templates: IndexMap<String, String> = IndexMap::new();
     if use_default_templates {
         templates.extend(default_config.templates);
     } else {
         loop {
-            let identifier = Text::new("Template identifier:")
-                .with_validator(required!("This field is required"))
-                .with_help_message("")
-                .prompt()?;
+            let (identifier, template) = if templates.is_empty() {
+                let content = Editor::new("Default template content:")
+                    .with_predefined_text(DEFAULT_TEMPLATE)
+                    // .with_help_message("")
+                    .prompt()?;
+                (DEFAULT_TEMPLATE_IDENTIFIER.to_string(), content)
+            } else {
+                let identifier = Text::new("Template identifier:")
+                    .with_validator(NotEmptyValidator::default())
+                    .with_help_message("Identifier used to determine which template to use \
+                        when rendering snippet in target files")
+                    .prompt()?;
 
-            let template = Editor::new("Template content:")
-                .with_predefined_text(DEFAULT_TEMPLATE)
-                .with_help_message("")
-                .prompt()?;
+                let content = Editor::new("Template content:")
+                    .prompt()?;
 
-            // mark default? can we be smart of if already has a default then no need to ask.
-            // if only one template then just mark that as default
+                (identifier, content)
+            };
 
             templates.insert(
                 identifier,
-                SnippextTemplate {
-                    content: template,
-                    default: false,
-                },
+                template,
             );
 
             let add_another_template = Confirm::new("Add another template?")

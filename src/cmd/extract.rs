@@ -27,7 +27,7 @@ use crate::constants::{
 };
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
-use crate::templates::SnippextTemplate;
+use crate::templates::{render_template};
 use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
 
@@ -192,7 +192,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    let result = SnippextTemplate::render_template(
+                    let result = render_template(
                         snippet,
                         source,
                         &snippext_settings,
@@ -246,36 +246,32 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
     if settings.templates.is_empty() {
         failures.push(String::from("templates must not be empty"));
     } else {
-        let mut default_templates = 0;
+        let mut has_default_template = false;
         for (i, template) in settings.templates.iter().enumerate() {
             if template.0.is_empty() {
                 failures.push(format!(
-                    "templates[{}].identifier must not be an empty string",
+                    "templates[{}] identifier must not be an empty string",
                     i
                 ));
+                continue;
             }
 
-            if template.1.content.is_empty() {
+            if template.1.is_empty() {
                 failures.push(format!(
-                    "templates[{}].content must not be an empty string",
-                    i
+                    "templates[{}] template must not be an empty string",
+                    template.0
                 ));
             }
 
-            if template.1.default {
-                default_templates = default_templates + 1;
+            println!("{:?}", template.0);
+            if template.0 == DEFAULT_TEMPLATE_IDENTIFIER {
+                has_default_template = true
             }
         }
 
-        if settings.templates.len() > 1 && default_templates == 0 {
+        if !has_default_template {
             failures.push(String::from(
-                "When multiple templates are defined one must be marked default",
-            ));
-        }
-
-        if default_templates > 1 {
-            failures.push(String::from(
-                "templates must have only one marked as default",
+                "Must have one template named 'default'",
             ));
         }
     }
@@ -720,7 +716,7 @@ fn process_target_file(
             continue;
         };
 
-        let result = SnippextTemplate::render_template(&snippet, source, &settings, attributes)?;
+        let result = render_template(&snippet, source, &settings, attributes)?;
 
         let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
 
@@ -823,13 +819,11 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
             templates.insert(
                 file_name.to_string_lossy().to_string(),
-                SnippextTemplate {
-                    content,
-                    default: file_name == DEFAULT_TEMPLATE_IDENTIFIER,
-                },
+                content,
             );
         }
 
+        println!("{:?}", templates);
         // might be a better way to do this but works for now
         let templates_json = serde_json::to_string(&json!({
             "templates": templates
@@ -884,13 +878,14 @@ mod tests {
     use std::collections::HashMap;
     use std::fs;
     use std::path::{Path, PathBuf};
+    use indexmap::IndexMap;
 
     use tempfile::tempdir;
+    use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 
     use super::Args;
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
-    use crate::templates::SnippextTemplate;
     use crate::types::SnippetSource;
 
     // #[test]
@@ -919,7 +914,7 @@ mod tests {
 
     #[test]
     fn verify_cli_args() {
-        let opt = Args {
+        let args = Args {
             config: None,
             begin: Some(String::from("snippext::begin::")),
             end: Some(String::from("finish::")),
@@ -936,17 +931,16 @@ mod tests {
             source_link_prefix: None,
         };
 
-        let settings = super::build_settings(opt).unwrap();
+        let settings = super::build_settings(args).unwrap();
 
         assert_eq!("snippext::begin::", settings.begin);
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
         println!("{}", serde_json::to_string(&settings).unwrap());
-        assert_eq!(4, settings.templates.len());
+        assert_eq!(2, settings.templates.len());
 
-        let default_template = settings.templates.get("default").unwrap();
-        assert_eq!("```\n{{snippet}}\n```", default_template.content);
-        assert!(default_template.default);
+        let default_template = settings.templates.get(DEFAULT_TEMPLATE_IDENTIFIER).unwrap();
+        assert_eq!("```\n{{snippet}}\n```", default_template);
         assert_eq!(Some(String::from("./snippext/")), settings.output_dir);
         assert_eq!(Some(vec![String::from("README.md")]), settings.targets);
 
@@ -1010,12 +1004,9 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from(""),
             String::from(""),
-            HashMap::from([(
+            IndexMap::from([(
                 "".to_string(),
-                SnippextTemplate {
-                    content: "".to_string(),
-                    default: false,
-                },
+                "".to_string()
             )]),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
@@ -1031,17 +1022,55 @@ mod tests {
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
+                println!("{:?}", failures);
                 assert_eq!(5, failures.len());
                 assert!(failures.contains(&String::from("begin must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
                 assert!(failures.contains(&String::from(
-                    "templates[0].identifier must not be an empty string"
+                    "templates[0] identifier must not be an empty string"
                 )));
                 assert!(failures.contains(&String::from(
-                    "templates[0].content must not be an empty string"
+                    "Must have one template named 'default'"
                 )));
                 assert!(failures.contains(&String::from(
                     "output_extension must not be an empty string"
+                )));
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    fn template_content_must_not_be_empty() {
+        let settings = SnippextSettings::new(
+            String::from(""),
+            String::from(""),
+            IndexMap::from([(
+                "default".to_string(),
+                "".to_string()
+            )]),
+            vec![SnippetSource::Local {
+                files: vec![String::from("**")],
+            }],
+            Some(String::from("./snippets/")),
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let validation_result = super::extract(settings);
+        let error = validation_result.err().unwrap();
+        match error {
+            SnippextError::ValidationError(failures) => {
+                println!("{:?}", failures);
+                assert_eq!(3, failures.len());
+                assert!(failures.contains(&String::from("begin must not be an empty string")));
+                assert!(failures.contains(&String::from("end must not be an empty string")));
+                assert!(failures.contains(&String::from(
+                    "templates[default] template must not be an empty string"
                 )));
             }
             _ => {
@@ -1055,7 +1084,7 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            HashMap::new(),
+            IndexMap::new(),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
@@ -1083,24 +1112,18 @@ mod tests {
     }
 
     #[test]
-    fn one_template_must_be_marked_default_when_multiple_templates_exist() {
+    fn one_template_must_be_named_default() {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            HashMap::from([
+            IndexMap::from([
                 (
                     "first".to_string(),
-                    SnippextTemplate {
-                        content: String::from("{{snippet}}"),
-                        default: false,
-                    },
+                    String::from("{{snippet}}")
                 ),
                 (
                     "second".to_string(),
-                    SnippextTemplate {
-                        content: String::from("{{snippet}}"),
-                        default: false,
-                    },
+                    String::from("{{snippet}}")
                 ),
             ]),
             vec![SnippetSource::Local {
@@ -1119,54 +1142,7 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 assert_eq!(1, failures.len());
                 assert_eq!(
-                    String::from("When multiple templates are defined one must be marked default"),
-                    failures.get(0).unwrap().to_string()
-                );
-            }
-            _ => {
-                panic!("invalid snippextError");
-            }
-        }
-    }
-
-    #[test]
-    fn multiple_default_templates_cannot_exist() {
-        let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
-            HashMap::from([
-                (
-                    "first".to_string(),
-                    SnippextTemplate {
-                        content: String::from("{{snippet}}"),
-                        default: true,
-                    },
-                ),
-                (
-                    "second".to_string(),
-                    SnippextTemplate {
-                        content: String::from("{{snippet}}"),
-                        default: true,
-                    },
-                ),
-            ]),
-            vec![SnippetSource::Local {
-                files: vec![String::from("**")],
-            }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-        );
-
-        let validation_result = super::extract(settings);
-        let error = validation_result.err().unwrap();
-        match error {
-            SnippextError::ValidationError(failures) => {
-                assert_eq!(1, failures.len());
-                assert_eq!(
-                    String::from("templates must have only one marked as default"),
+                    String::from("Must have one template named 'default'"),
                     failures.get(0).unwrap().to_string()
                 );
             }
@@ -1181,12 +1157,9 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            HashMap::from([(
-                "default".to_string(),
-                SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true,
-                },
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
             )]),
             vec![],
             Some(String::from("./snippets/")),
@@ -1217,12 +1190,9 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            HashMap::from([(
-                "default".to_string(),
-                SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true,
-                },
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                 String::from("{{snippet}}"),
             )]),
             vec![SnippetSource::Local { files: vec![] }],
             Some(String::from("./snippets/")),
@@ -1258,12 +1228,9 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
-            HashMap::from([(
-                "default".to_string(),
-                SnippextTemplate {
-                    content: String::from("{{snippet}}"),
-                    default: true,
-                },
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
             )]),
             vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into())],
             None,
@@ -1275,10 +1242,7 @@ mod tests {
 
         super::extract(settings).expect("Should extract from URL");
 
-        // /var/folders/jm/1m24fjf96xv_458bclbpd1xh0000gn/T/snippext/https___gist.githubusercontent.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example.rs
-        // https___gist.github.com_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5
         let actual = fs::read_to_string(target).unwrap();
-
         let expected = r#"This is some static content
 
 <!-- snippet::start::main -->
