@@ -92,7 +92,7 @@ pub struct Args {
         long,
         required_unless_present = "output_dir",
         value_delimiter = ' ',
-        help = "The local directories, separated by spaces, that contain the files to be spliced \
+        help = "List of glob patters, separated by spaces, that contain the files to be spliced \
             with the code snippets."
     )]
     pub targets: Vec<String>,

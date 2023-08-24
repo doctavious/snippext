@@ -1,9 +1,6 @@
 begin: "snippet::start::"
 end: "snippet::end::"
 templates:
-  # default with is lang + snippet + sup text source link (not sure about anchor)
-  # raw is just snippet
-  # "<a href='{}' title='Snippet source file'>source</a>",
   default: "```{{lang}}\n{{snippet}}\n```{{#if source_links_enabled}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/if}}"
   raw: "{{snippet}}"
 sources:
