@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,7 @@ use crate::error::SnippextError;
 use crate::{files, SnippextResult};
 
 #[derive(Clone, Debug, Parser)]
-#[command()]
+#[command(about = "Clear snippets in target files")]
 pub struct Args {
     #[arg(short, long, value_parser, help = "Config file to use")]
     pub config: Option<PathBuf>,
@@ -26,14 +26,19 @@ pub struct Args {
     pub end: Option<String>,
 
     #[arg(
-        short = 'T',
+        short = 't',
         long,
         help = "The local directories, separated by spaces, that contain the files to be spliced \
             with the code snippets."
     )]
     pub targets: Option<Vec<String>>,
 
-    // TODO: add remove flag that will remove the snippet entirely
+    #[arg(
+        long,
+        action = ArgAction::SetFalse,
+        help = "Flag that will delete the entire snippet including the snippet comment"
+    )]
+    pub delete: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -41,11 +46,12 @@ pub struct ClearSettings {
     pub begin: String,
     pub end: String,
     pub targets: Vec<String>,
+    pub delete: bool,
 }
 
 /// Removes snippets from target files
-pub fn execute(clear_opt: Args) -> SnippextResult<()> {
-    let settings = build_clear_settings(clear_opt)?;
+pub fn execute(args: Args) -> SnippextResult<()> {
+    let settings = build_clear_settings(args)?;
     clear(settings)
 }
 
@@ -96,16 +102,18 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
         for line in reader.lines() {
             let l = line?;
 
-            if is_line_snippet(l.as_str(), &snippet_end_prefixes).is_some() {
-                omit = false;
-            }
-
-            if !omit {
-                new_lines.push(l.clone());
-            }
-
             if is_line_snippet(l.as_str(), &snippet_start_prefixes).is_some() {
                 omit = true;
+                if !settings.delete {
+                    new_lines.push(l.clone());
+                }
+            } else if is_line_snippet(l.as_str(), &snippet_end_prefixes).is_some() {
+                omit = false;
+                if !settings.delete {
+                    new_lines.push(l.clone());
+                }
+            } else if !omit {
+                new_lines.push(l.clone());
             }
         }
 
@@ -170,6 +178,7 @@ More content
             begin: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
+            delete: false,
         })
         .unwrap();
 
@@ -177,6 +186,38 @@ More content
         let expected = r#"# Some content
 # snippet::foo
 # end::foo
+
+More content
+"#;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn delete_target() {
+        let mut target = NamedTempFile::new().unwrap();
+        target
+            .write(
+                r#"# Some content
+# snippet::foo
+foo
+# end::foo
+
+More content
+"#
+                .as_bytes(),
+            )
+            .unwrap();
+
+        super::clear(ClearSettings {
+            begin: "snippet::".to_string(),
+            end: "end::".to_string(),
+            targets: vec![String::from(target.path().to_string_lossy())],
+            delete: true,
+        })
+        .unwrap();
+
+        let actual = fs::read_to_string(target.path()).unwrap();
+        let expected = r#"# Some content
 
 More content
 "#;
@@ -199,6 +240,7 @@ More content
             begin: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
+            delete: false,
         })
         .unwrap();
 
@@ -215,6 +257,7 @@ More content
             begin: String::from(""),
             end: String::from(""),
             targets: vec!["".to_string()],
+            delete: false,
         });
 
         let error = validation_result.err().unwrap();
