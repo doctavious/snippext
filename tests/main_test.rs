@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use indexmap::IndexMap;
 
+use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
+use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
-use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 
 #[test]
 #[traced_test]
@@ -510,9 +510,7 @@ fn support_source_links() {
         String::from("snippet::end::"),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from(
-                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
-                ),
+            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
@@ -544,9 +542,7 @@ fn source_links_should_support_prefix() {
         String::from("snippet::end::"),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from(
-                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
-                ),
+            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
@@ -578,9 +574,7 @@ fn support_csharp_regions() {
         String::from("snippet::end::"),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from(
-                    "```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}",
-                ),
+            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/main.cs")],

@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use indexmap::IndexMap;
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
+};
 use crate::types::{LinkFormat, SnippetSource};
 use crate::SnippextResult;
 

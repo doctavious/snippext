@@ -27,7 +27,7 @@ use crate::constants::{
 };
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
-use crate::templates::{render_template};
+use crate::templates::render_template;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
 
@@ -192,12 +192,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    let result = render_template(
-                        snippet,
-                        source,
-                        &snippext_settings,
-                        None,
-                    )?;
+                    let result = render_template(snippet, source, &snippext_settings, None)?;
                     fs::write(output_path, result).unwrap();
                 }
             }
@@ -270,9 +265,7 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         }
 
         if !has_default_template {
-            failures.push(String::from(
-                "Must have one template named 'default'",
-            ));
+            failures.push(String::from("Must have one template named 'default'"));
         }
     }
 
@@ -817,10 +810,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
                 continue;
             };
 
-            templates.insert(
-                file_name.to_string_lossy().to_string(),
-                content,
-            );
+            templates.insert(file_name.to_string_lossy().to_string(), content);
         }
 
         println!("{:?}", templates);
@@ -878,12 +868,12 @@ mod tests {
     use std::collections::HashMap;
     use std::fs;
     use std::path::{Path, PathBuf};
-    use indexmap::IndexMap;
 
+    use indexmap::IndexMap;
     use tempfile::tempdir;
-    use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 
     use super::Args;
+    use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
     use crate::types::SnippetSource;
@@ -1004,10 +994,7 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from(""),
             String::from(""),
-            IndexMap::from([(
-                "".to_string(),
-                "".to_string()
-            )]),
+            IndexMap::from([("".to_string(), "".to_string())]),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
@@ -1029,9 +1016,7 @@ mod tests {
                 assert!(failures.contains(&String::from(
                     "templates[0] identifier must not be an empty string"
                 )));
-                assert!(failures.contains(&String::from(
-                    "Must have one template named 'default'"
-                )));
+                assert!(failures.contains(&String::from("Must have one template named 'default'")));
                 assert!(failures.contains(&String::from(
                     "output_extension must not be an empty string"
                 )));
@@ -1047,10 +1032,7 @@ mod tests {
         let settings = SnippextSettings::new(
             String::from(""),
             String::from(""),
-            IndexMap::from([(
-                "default".to_string(),
-                "".to_string()
-            )]),
+            IndexMap::from([("default".to_string(), "".to_string())]),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
@@ -1117,14 +1099,8 @@ mod tests {
             String::from("snippet::start::"),
             String::from("snippet::end::"),
             IndexMap::from([
-                (
-                    "first".to_string(),
-                    String::from("{{snippet}}")
-                ),
-                (
-                    "second".to_string(),
-                    String::from("{{snippet}}")
-                ),
+                ("first".to_string(), String::from("{{snippet}}")),
+                ("second".to_string(), String::from("{{snippet}}")),
             ]),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
@@ -1192,7 +1168,7 @@ mod tests {
             String::from("snippet::end::"),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-                 String::from("{{snippet}}"),
+                String::from("{{snippet}}"),
             )]),
             vec![SnippetSource::Local { files: vec![] }],
             Some(String::from("./snippets/")),

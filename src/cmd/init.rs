@@ -2,11 +2,14 @@ use std::fs;
 
 use clap::Parser;
 use indexmap::IndexMap;
-use inquire::{Confirm, Editor, Select, Text, CustomUserError};
 use inquire::validator::{ErrorMessage, StringValidator, Validation};
+use inquire::{Confirm, CustomUserError, Editor, Select, Text};
 use tracing::warn;
 
-use crate::constants::{DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
+use crate::constants::{
+    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
+};
 use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
@@ -44,7 +47,8 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     let default_config: SnippextSettings = serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG)
         .expect("Should be able to deserialize default snippext config");
 
-    let mut use_default_templates_message = String::from("Default templates include the following:\n\n");
+    let mut use_default_templates_message =
+        String::from("Default templates include the following:\n\n");
     for (key, value) in &default_config.templates {
         use_default_templates_message.push_str(format!("{}:\n{}\n\n", key, value).as_str());
     }
@@ -68,20 +72,18 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
             } else {
                 let identifier = Text::new("Template identifier:")
                     .with_validator(NotEmptyValidator::default())
-                    .with_help_message("Identifier used to determine which template to use \
-                        when rendering snippet in target files")
+                    .with_help_message(
+                        "Identifier used to determine which template to use \
+                        when rendering snippet in target files",
+                    )
                     .prompt()?;
 
-                let content = Editor::new("Template content:")
-                    .prompt()?;
+                let content = Editor::new("Template content:").prompt()?;
 
                 (identifier, content)
             };
 
-            templates.insert(
-                identifier,
-                template,
-            );
+            templates.insert(identifier, template);
 
             let add_another_template = Confirm::new("Add another template?")
                 .with_default(false)
@@ -245,7 +247,6 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         source_link_prefix,
     })
 }
-
 
 #[derive(Clone, Default)]
 pub struct NotEmptyValidator {}

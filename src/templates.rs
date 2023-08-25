@@ -5,7 +5,9 @@ use handlebars::{no_escape, Handlebars};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::constants::{DEFAULT_GIT_BRANCH, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT_TEMPLATE_ATTRIBUTE};
+use crate::constants::{
+    DEFAULT_GIT_BRANCH, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT_TEMPLATE_ATTRIBUTE,
+};
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
@@ -41,7 +43,10 @@ pub fn render_template(
         data.insert("source_links_enabled".to_string(), "true".to_string());
         data.insert(
             "source_link_prefix".to_string(),
-            snippext_settings.source_link_prefix.to_owned().unwrap_or_default(),
+            snippext_settings
+                .source_link_prefix
+                .to_owned()
+                .unwrap_or_default(),
         );
 
         data.insert("source_link".to_string(), source_link);
@@ -131,7 +136,9 @@ fn get_template<'a>(
             ))))
         }
     } else {
-        let default_template = snippext_settings.templates.iter()
+        let default_template = snippext_settings
+            .templates
+            .iter()
             .find(|t| t.0 == DEFAULT_TEMPLATE_IDENTIFIER);
         return if let Some(template) = default_template {
             Ok(template.1)
