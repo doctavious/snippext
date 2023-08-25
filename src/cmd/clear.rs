@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,6 @@ pub struct Args {
 
     #[arg(
         long,
-        action = ArgAction::SetFalse,
         help = "Flag that will delete the entire snippet including the snippet comment"
     )]
     pub delete: bool,
