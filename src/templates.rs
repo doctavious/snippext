@@ -90,7 +90,7 @@ fn build_source_link(
         }
         SnippetSource::Git {
             repository,
-            reference,
+            branch,
             ..
         } => {
             let url = Url::from_str(repository).expect("Git repository must be a valid URL");
@@ -99,12 +99,14 @@ fn build_source_link(
                 LinkFormat::from_domain(domain)
             })?;
 
+            // TODO: given we clone these sources if branch is none we could get the branch from
+            // `git rev-parse --abbrev-ref HEAD` rather than just defaulting to some constant
             let mut path = url.to_string().strip_suffix(".git")?.to_string();
             path.push_str(
                 format!(
                     "{}{}/{}",
                     link_format.blob_path_segment(),
-                    reference.as_deref().unwrap_or(DEFAULT_GIT_BRANCH),
+                    branch.as_deref().unwrap_or(DEFAULT_GIT_BRANCH),
                     &snippet.path.to_str().unwrap_or_default()
                 )
                 .as_str(),
@@ -234,7 +236,7 @@ mod tests {
     fn git_source_link() {
         let source = SnippetSource::Git {
             repository: "https://github.com/doctavious/snippext.git".to_string(),
-            reference: Some("main".to_string()),
+            branch: Some("main".to_string()),
             cone_patterns: None,
             files: vec!["**".to_string()],
         };

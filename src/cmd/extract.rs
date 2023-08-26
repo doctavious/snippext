@@ -152,6 +152,7 @@ impl SnippetExtractionState {
 }
 
 struct SourceFile {
+    // source
     pub full_path: PathBuf,
     pub relative_path: PathBuf,
 }
@@ -357,7 +358,7 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
         // default reference to master/main
         SnippetSource::Git {
             repository: url,
-            reference,
+            branch: reference,
             cone_patterns,
             files,
         } => {
@@ -835,7 +836,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
         let source = SnippetSource::Git {
             repository: repo_url.to_string(),
-            reference: opt.repository_branch,
+            branch: opt.repository_branch,
             cone_patterns: opt.repository_cone_patterns,
             files: source_files,
         };
@@ -939,7 +940,7 @@ mod tests {
         match source {
             SnippetSource::Git {
                 repository: url,
-                reference,
+                branch: reference,
                 files,
                 ..
             } => {

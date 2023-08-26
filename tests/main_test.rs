@@ -79,7 +79,7 @@ fn error_when_extracting_from_unavailable_remote() {
         )]),
         vec![SnippetSource::Git {
             repository: String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
-            reference: Some(String::from("main")),
+            branch: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/**/*")],
         }],
@@ -133,7 +133,7 @@ fn should_successfully_extract_from_remote() {
         )]),
         vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
-            reference: Some(String::from("main")),
+            branch: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
         }],
@@ -159,6 +159,48 @@ fn should_successfully_extract_from_remote() {
 "#;
     assert_eq!(main_content_expected, main_content_actual);
 }
+
+
+#[test]
+fn should_successfully_extract_from_remote_without_branch_provided() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
+        IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("{{snippet}}"),
+        )]),
+        vec![SnippetSource::Git {
+            repository: String::from("https://github.com/doctavious/snippext.git"),
+            branch: None,
+            cone_patterns: None,
+            files: vec![String::from("/tests/samples/*")],
+        }],
+        Some(format!(
+            "{}/generated-snippets/",
+            dir.path().to_string_lossy()
+        )),
+        Some(String::from("md")),
+        None,
+        None,
+        None,
+    ))
+        .unwrap();
+
+    let main_content_actual = fs::read_to_string(
+        Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),
+    )
+        .unwrap();
+    let main_content_expected = r#"fn main() {
+
+    println!("printing...")
+}
+"#;
+    assert_eq!(main_content_expected, main_content_actual);
+}
+
 
 #[test]
 fn should_successfully_extract_from_local_sources_file() {

@@ -140,7 +140,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
                 sources.push(SnippetSource::Git {
                     repository: repo,
-                    reference: Some(repository_branch),
+                    branch: Some(repository_branch),
                     cone_patterns,
                     files: source_files,
                 });
