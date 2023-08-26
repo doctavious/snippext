@@ -358,7 +358,7 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
         // default reference to master/main
         SnippetSource::Git {
             repository: url,
-            branch: reference,
+            branch,
             cone_patterns,
             files,
         } => {
@@ -377,7 +377,7 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
             fs::create_dir_all(&download_dir)?;
             git::checkout_files(
                 &repo,
-                reference.clone(),
+                branch.clone(),
                 cone_patterns.clone(),
                 &download_dir,
             )?;
