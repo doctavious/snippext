@@ -1,8 +1,8 @@
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 // https://github.com/crate-ci/cargo-release/blob/master/src/git.rs
 
-use std::path::PathBuf;
-use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 
 use crate::error::SnippextError;
 use crate::SnippextResult;
@@ -73,4 +73,25 @@ pub(crate) fn checkout_files(
     }
 
     Ok(())
+}
+
+pub(crate) fn abbrev_ref(path: Option<&PathBuf>) -> SnippextResult<String> {
+    let mut rev_parse = Command::new("git");
+    if let Some(path) = path {
+        println!("abbrev_ref path {:?}", path.parent().unwrap().to_string_lossy().to_string());
+        rev_parse
+            .arg("-C")
+            .arg(path.parent().unwrap().to_string_lossy().to_string());
+    }
+
+    rev_parse
+        .arg("rev-parse")
+        .arg("--abbrev-ref")
+        .arg("HEAD");
+
+    let output = rev_parse
+        .output()
+        .map_err(SnippextError::from)?;
+
+    Ok(String::from_utf8(output.stdout)?)
 }

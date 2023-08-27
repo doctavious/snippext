@@ -12,7 +12,7 @@ use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::{LinkFormat, Snippet, SnippetSource};
 use crate::unindent::unindent;
-use crate::SnippextResult;
+use crate::{git, SnippextResult};
 
 pub fn render_template(
     snippet: &Snippet,
@@ -99,14 +99,20 @@ fn build_source_link(
                 LinkFormat::from_domain(domain)
             })?;
 
-            // TODO: given we clone these sources if branch is none we could get the branch from
-            // `git rev-parse --abbrev-ref HEAD` rather than just defaulting to some constant
             let mut path = url.to_string().strip_suffix(".git")?.to_string();
+            // TODO: would like to hoist this logic up as there is no reason this needs to run for
+            // every file. We should determine it once and use it for ever snippet we generate
+            let branch = if let Some(branch) = branch {
+                branch.clone()
+            } else {
+                git::abbrev_ref(Some(&snippet.path.clone()))
+                    .unwrap_or(DEFAULT_GIT_BRANCH.to_string())
+            };
             path.push_str(
                 format!(
                     "{}{}/{}",
                     link_format.blob_path_segment(),
-                    branch.as_deref().unwrap_or(DEFAULT_GIT_BRANCH),
+                    branch,
                     &snippet.path.to_str().unwrap_or_default()
                 )
                 .as_str(),

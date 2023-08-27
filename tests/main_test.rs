@@ -121,7 +121,14 @@ fn should_error_when_snippet_is_not_closed() {
 }
 
 #[test]
-fn should_successfully_extract_from_remote() {
+fn test_git_sources() {
+    // these tests need to be run sequentially to prevent race condition when performing a git clone
+    should_successfully_extract_from_remote_git_repository();
+    should_successfully_extract_from_remote_without_branch_provided();
+}
+
+
+fn should_successfully_extract_from_remote_git_repository() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
@@ -133,7 +140,7 @@ fn should_successfully_extract_from_remote() {
         )]),
         vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
-            branch: Some(String::from("main")),
+            branch: Some(String::from("tests")),
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
         }],
@@ -160,8 +167,6 @@ fn should_successfully_extract_from_remote() {
     assert_eq!(main_content_expected, main_content_actual);
 }
 
-
-#[test]
 fn should_successfully_extract_from_remote_without_branch_provided() {
     let dir = tempdir().unwrap();
 
