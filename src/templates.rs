@@ -21,6 +21,9 @@ pub fn render_template(
     target_attributes: Option<HashMap<String, String>>,
 ) -> SnippextResult<String> {
     let mut data = HashMap::new();
+    for attribute in &snippet.attributes {
+        data.insert(attribute.0.to_string(), attribute.1.to_string());
+    }
 
     if let Some(target_attributes) = target_attributes {
         data.extend(target_attributes);
@@ -40,7 +43,10 @@ pub fn render_template(
         snippext_settings.source_link_prefix.as_ref(),
     );
     if let Some(source_link) = source_link {
-        data.insert("source_links_enabled".to_string(), "true".to_string());
+        if !data.contains_key("source_links_enabled") {
+            data.insert("source_links_enabled".to_string(), "true".to_string());
+        }
+
         data.insert(
             "source_link_prefix".to_string(),
             snippext_settings
@@ -50,10 +56,6 @@ pub fn render_template(
         );
 
         data.insert("source_link".to_string(), source_link);
-    }
-
-    for attribute in &snippet.attributes {
-        data.insert(attribute.0.to_string(), attribute.1.to_string());
     }
 
     let template = get_template(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), snippext_settings)?;
