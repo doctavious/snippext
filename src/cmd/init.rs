@@ -13,10 +13,13 @@ use crate::constants::{
 use crate::types::{LinkFormat, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
+/// Initialize a snippext configuration file which contains options for extracting snippets
+/// from target files as well as options for splicing snippets into target files.
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    #[arg(long, help = "Use the default snippext config")]
+    /// Initializes snippext config using the default snippext config file
+    #[arg(long)]
     pub default: bool,
 }
 
