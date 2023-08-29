@@ -78,20 +78,18 @@ pub(crate) fn checkout_files(
 pub(crate) fn abbrev_ref(path: Option<&PathBuf>) -> SnippextResult<String> {
     let mut rev_parse = Command::new("git");
     if let Some(path) = path {
-        println!("abbrev_ref path {:?}", path.parent().unwrap().to_string_lossy().to_string());
+        println!(
+            "abbrev_ref path {:?}",
+            path.parent().unwrap().to_string_lossy().to_string()
+        );
         rev_parse
             .arg("-C")
             .arg(path.parent().unwrap().to_string_lossy().to_string());
     }
 
-    rev_parse
-        .arg("rev-parse")
-        .arg("--abbrev-ref")
-        .arg("HEAD");
+    rev_parse.arg("rev-parse").arg("--abbrev-ref").arg("HEAD");
 
-    let output = rev_parse
-        .output()
-        .map_err(SnippextError::from)?;
+    let output = rev_parse.output().map_err(SnippextError::from)?;
 
     Ok(String::from_utf8(output.stdout)?)
 }

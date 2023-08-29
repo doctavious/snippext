@@ -127,7 +127,6 @@ fn test_git_sources() {
     should_successfully_extract_from_remote_without_branch_provided();
 }
 
-
 fn should_successfully_extract_from_remote_git_repository() {
     let dir = tempdir().unwrap();
 
@@ -136,7 +135,7 @@ fn should_successfully_extract_from_remote_git_repository() {
         String::from("snippet::end::"),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from("{{snippet}}"),
+            String::from("{{snippet}}{{source_link}}"),
         )]),
         vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
@@ -163,7 +162,7 @@ fn should_successfully_extract_from_remote_git_repository() {
 
     println!("printing...")
 }
-"#;
+https://github.com/doctavious/snippext/blob/tests/tests/samples/main.rs#L1-L8"#;
     assert_eq!(main_content_expected, main_content_actual);
 }
 
@@ -192,12 +191,13 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
         None,
         None,
     ))
-        .unwrap();
+    .unwrap();
 
     let main_content_actual = fs::read_to_string(
         Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),
     )
-        .unwrap();
+    .unwrap();
+
     let main_content_expected = r#"fn main() {
 
     println!("printing...")
@@ -206,6 +206,54 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
     assert_eq!(main_content_expected, main_content_actual);
 }
 
+#[test]
+fn url_source_link() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        String::from("snippet::start::"),
+        String::from("snippet::end::"),
+        IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("{{snippet}}{{source_link}}"),
+        )]),
+        vec![SnippetSource::Url (
+            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into()
+        )],
+        Some(format!(
+            "{}/generated-snippets/",
+            dir.path().to_string_lossy()
+        )),
+        Some(String::from("md")),
+        None,
+        None,
+        None,
+    ))
+        .unwrap();
+
+    let actual = fs::read_to_string(
+        Path::new(&dir.path())
+            .join("generated-snippets")
+            .join("gist.githubusercontent.com")
+            .join("_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example_rs")
+            .join("main.md"),
+    ).unwrap();
+
+    let expected = r#"fn main() {
+    println!("Hello, World!");
+}
+https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"#;
+
+    assert_eq!(actual, expected);
+
+    // let source_link = build_source_link(&snippet, &source, None, Some(&String::new()))
+    //     .expect("Should build source link");
+    //
+    // assert_eq!(
+    //     "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs",
+    //     source_link
+    // );
+}
 
 #[test]
 fn should_successfully_extract_from_local_sources_file() {

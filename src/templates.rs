@@ -91,9 +91,7 @@ fn build_source_link(
             Some(link_format.source_link(&path, &snippet))
         }
         SnippetSource::Git {
-            repository,
-            branch,
-            ..
+            repository, branch, ..
         } => {
             let url = Url::from_str(repository).expect("Git repository must be a valid URL");
             let link_format = link_format.or_else(|| {
@@ -110,9 +108,10 @@ fn build_source_link(
                 git::abbrev_ref(Some(&snippet.path.clone()))
                     .unwrap_or(DEFAULT_GIT_BRANCH.to_string())
             };
+            
             path.push_str(
                 format!(
-                    "{}{}/{}",
+                    "{}{}{}",
                     link_format.blob_path_segment(),
                     branch,
                     &snippet.path.to_str().unwrap_or_default()
@@ -238,56 +237,5 @@ mod tests {
         let source_link = build_source_link(&snippet, &source, None, None);
 
         assert!(source_link.is_none());
-    }
-
-    #[test]
-    fn git_source_link() {
-        let source = SnippetSource::Git {
-            repository: "https://github.com/doctavious/snippext.git".to_string(),
-            branch: Some("main".to_string()),
-            cone_patterns: None,
-            files: vec!["**".to_string()],
-        };
-
-        let snippet = Snippet {
-            identifier: "example".to_string(),
-            path: PathBuf::from("src/main.rs"),
-            text: "{{snippet}}".to_string(),
-            attributes: HashMap::new(),
-            start_line: 1,
-            end_line: 10,
-        };
-
-        let source_link = build_source_link(&snippet, &source, None, None)
-            .expect("source link should be present");
-
-        assert_eq!(
-            "https://github.com/doctavious/snippext/blob/main/src/main.rs#L1-L10",
-            source_link
-        );
-    }
-
-    #[test]
-    fn url_source_link() {
-        let source = SnippetSource::Url (
-            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into()
-        );
-
-        let snippet = Snippet {
-            identifier: "example".to_string(),
-            path: PathBuf::from("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"),
-            text: "{{snippet}}".to_string(),
-            attributes: HashMap::new(),
-            start_line: 1,
-            end_line: 10,
-        };
-
-        let source_link = build_source_link(&snippet, &source, None, Some(&String::new()))
-            .expect("Should build source link");
-
-        assert_eq!(
-            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs",
-            source_link
-        );
     }
 }

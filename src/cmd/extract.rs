@@ -76,7 +76,7 @@ pub struct Args {
         value_name = "DIR",
         required_unless_present = "targets",
         help = "Directory in which the generated snippet files be will output to. Is required unless \
-                targets is provided."
+                targets is provided. Generated snippets will be rendered with the default template"
     )]
     pub output_dir: Option<String>,
 
@@ -375,12 +375,7 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
                 fs::remove_dir_all(&download_dir)?;
             }
             fs::create_dir_all(&download_dir)?;
-            git::checkout_files(
-                &repo,
-                branch.clone(),
-                cone_patterns.clone(),
-                &download_dir,
-            )?;
+            git::checkout_files(&repo, branch.clone(), cone_patterns.clone(), &download_dir)?;
 
             let dir_length = download_dir.to_string_lossy().len();
             let patterns = files
@@ -405,11 +400,8 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
             }
         }
         SnippetSource::Url(url) => {
-            let path = download_url(url)?;
-            source_files.push(SourceFile {
-                full_path: path.clone(),
-                relative_path: path.clone(),
-            });
+            let source_file = download_url(url)?;
+            source_files.push(source_file);
         }
     }
 
@@ -446,9 +438,9 @@ fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
     Ok(PathBuf::from(url.authority()).join(path))
 }
 
-fn download_url(url: &String) -> SnippextResult<PathBuf> {
+fn download_url(url: &String) -> SnippextResult<SourceFile> {
     let url_file_path = url_to_path(url)?;
-    let download_path = get_download_directory()?.join(url_file_path);
+    let download_path = get_download_directory()?.join(&url_file_path);
     let parent_dirs = download_path.parent().ok_or(SnippextError::GeneralError(
         "could not create download directory".into(),
     ))?;
@@ -457,7 +449,10 @@ fn download_url(url: &String) -> SnippextResult<PathBuf> {
     if let Ok(file_metadata) = download_path.metadata() {
         let file_modified = file_metadata.modified().ok();
         if file_modified.is_some_and(|t| t > SystemTime::now()) {
-            return Ok(download_path);
+            return Ok(SourceFile {
+                full_path: download_path,
+                relative_path: url_file_path,
+            });
         }
     }
 
@@ -475,7 +470,10 @@ fn download_url(url: &String) -> SnippextResult<PathBuf> {
         if let Ok(file_created) = file_metadata.created() {
             let web_modified = header_to_systemtime(head.headers().get(LAST_MODIFIED));
             if web_modified.is_some_and(|t| t < file_created) {
-                return Ok(download_path);
+                return Ok(SourceFile {
+                    full_path: download_path,
+                    relative_path: url_file_path,
+                });
             }
         }
 
@@ -494,7 +492,10 @@ fn download_url(url: &String) -> SnippextResult<PathBuf> {
         }
     }
 
-    Ok(download_path)
+    return Ok(SourceFile {
+        full_path: download_path,
+        relative_path: url_file_path,
+    });
 }
 
 // Wed, 16 Aug 2023 22:40:19 GMT
@@ -571,7 +572,7 @@ fn extract_snippets(
                     id.clone(),
                     Snippet {
                         identifier: id.clone(),
-                        path: path.to_path_buf(),
+                        path: source_file.relative_path.to_path_buf(),
                         text: state.lines,
                         attributes: state.attributes,
                         start_line: state.start_line,

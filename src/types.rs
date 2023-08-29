@@ -17,6 +17,15 @@ pub struct Snippet {
     pub end_line: usize,
 }
 
+// source details
+// pub enum SnippetLocation {
+//     // Git {
+//     //     source: String,
+//     //     branch: String,
+//     // },
+//
+// }
+
 // SourceLocation
 
 // SnippetSource
