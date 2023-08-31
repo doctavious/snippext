@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -7,7 +6,7 @@ use snippext::cmd::extract::extract;
 use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
-use snippext::types::{LinkFormat, SnippetSource};
+use snippext::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
 
@@ -31,6 +30,7 @@ fn should_successfully_extract_from_local_sources_directory() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -91,6 +91,7 @@ fn error_when_extracting_from_unavailable_remote() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ));
 
     assert!(result.is_err());
@@ -115,6 +116,7 @@ fn should_error_when_snippet_is_not_closed() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ));
 
     assert!(result.is_err());
@@ -151,6 +153,7 @@ fn should_successfully_extract_from_remote_git_repository() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -190,6 +193,7 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -228,6 +232,7 @@ fn url_source_link() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
         .unwrap();
 
@@ -245,14 +250,6 @@ fn url_source_link() {
 https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"#;
 
     assert_eq!(actual, expected);
-
-    // let source_link = build_source_link(&snippet, &source, None, Some(&String::new()))
-    //     .expect("Should build source link");
-    //
-    // assert_eq!(
-    //     "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs",
-    //     source_link
-    // );
 }
 
 #[test]
@@ -274,6 +271,7 @@ fn should_successfully_extract_from_local_sources_file() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -312,6 +310,7 @@ fn should_update_specified_targets() {
             .to_string()]),
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -361,6 +360,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
             .to_string()]),
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -399,6 +399,7 @@ fn should_support_template_with_attributes() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -448,6 +449,7 @@ fn support_target_snippet_specifies_template() {
             .to_string()]),
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -483,6 +485,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -517,6 +520,7 @@ fn should_support_files_with_no_snippets() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -550,6 +554,7 @@ fn invalid_glob() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ));
 
     assert!(result.is_err());
@@ -582,6 +587,7 @@ fn glob_returns_no_files() {
         None,
         None,
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -615,6 +621,7 @@ fn support_source_links() {
         None,
         Some(LinkFormat::GitHub),
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -647,6 +654,7 @@ fn source_links_should_support_prefix() {
         None,
         Some(LinkFormat::GitHub),
         Some("http://github.com/foo".into()),
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
@@ -679,6 +687,7 @@ fn support_csharp_regions() {
         None,
         Some(LinkFormat::GitHub),
         None,
+        MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 

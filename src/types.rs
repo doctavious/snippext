@@ -130,3 +130,31 @@ impl fmt::Display for LinkFormat {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct MissingSnippet {
+    pub key: String,
+    pub line_number: u32,
+    pub path: PathBuf,
+}
+
+#[non_exhaustive]
+#[remain::sorted]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum MissingSnippetsBehavior {
+    Fail,
+    #[default]
+    Ignore,
+    Warn,
+}
+
+impl fmt::Display for MissingSnippetsBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MissingSnippetsBehavior::Fail => write!(f, "fail"),
+            MissingSnippetsBehavior::Ignore => write!(f, "ignore"),
+            MissingSnippetsBehavior::Warn => write!(f, "warn"),
+        }
+    }
+}

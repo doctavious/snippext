@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -9,7 +8,7 @@ use crate::constants::{
     DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
 };
-use crate::types::{LinkFormat, SnippetSource};
+use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::SnippextResult;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -28,6 +27,8 @@ pub struct SnippextSettings {
     pub link_format: Option<LinkFormat>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_link_prefix: Option<String>,
+    #[serde(default)]
+    pub missing_snippets_behavior: MissingSnippetsBehavior,
 }
 
 impl SnippextSettings {
@@ -54,6 +55,7 @@ impl SnippextSettings {
             targets: None,
             link_format: None,
             source_link_prefix: None,
+            missing_snippets_behavior: MissingSnippetsBehavior::default(),
         }
     }
 
@@ -79,6 +81,7 @@ impl SnippextSettings {
         targets: Option<Vec<String>>,
         link_format: Option<LinkFormat>,
         source_link_prefix: Option<String>,
+        missing_snippets_behavior: MissingSnippetsBehavior,
     ) -> Self {
         Self {
             begin,
@@ -90,6 +93,7 @@ impl SnippextSettings {
             targets,
             link_format,
             source_link_prefix,
+            missing_snippets_behavior,
         }
     }
 }

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use handlebars::{no_escape, Handlebars};
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::constants::{
@@ -108,7 +107,7 @@ fn build_source_link(
                 git::abbrev_ref(Some(&snippet.path.clone()))
                     .unwrap_or(DEFAULT_GIT_BRANCH.to_string())
             };
-            
+
             path.push_str(
                 format!(
                     "{}{}{}",

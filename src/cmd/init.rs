@@ -1,6 +1,6 @@
 use std::fs;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use indexmap::IndexMap;
 use inquire::validator::{ErrorMessage, StringValidator, Validation};
 use inquire::{Confirm, CustomUserError, Editor, Select, Text};
@@ -10,7 +10,8 @@ use crate::constants::{
     DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
     DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
 };
-use crate::types::{LinkFormat, SnippetSource};
+use crate::error::SnippextError;
+use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
 /// Initialize a snippext configuration file which contains options for extracting snippets
@@ -100,6 +101,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let mut sources: Vec<SnippetSource> = Vec::new();
     loop {
+        // TODO: get variations from SnippetSource
         let source_type = Select::new("Type of source?", vec!["local", "git", "url"]).prompt()?;
 
         match source_type {
@@ -238,6 +240,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         None
     };
 
+    let missing_snippets_behavior = Select::new(
+        "Missing Snippet Behavior?",
+        MissingSnippetsBehavior::value_variants().to_vec()
+    ).prompt()?;
+
     Ok(SnippextSettings {
         begin,
         end,
@@ -248,11 +255,16 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
         link_format,
         source_link_prefix,
+        missing_snippets_behavior: MissingSnippetsBehavior::from_str(
+            &missing_snippets_behavior.to_string(),
+            true,
+        )
+        .map_err(SnippextError::GeneralError)?,
     })
 }
 
 #[derive(Clone, Default)]
-pub struct NotEmptyValidator {}
+struct NotEmptyValidator {}
 
 /// Similar to ValueRequiredValidator but trims strings
 impl StringValidator for NotEmptyValidator {

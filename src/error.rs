@@ -5,6 +5,8 @@ use inquire::error::InquireError;
 use thiserror::Error;
 use url::ParseError;
 
+use crate::types::MissingSnippet;
+
 // TODO: do a pass on error messages and make sure they're decent
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -66,4 +68,7 @@ pub enum SnippextError {
 
     #[error(transparent)]
     DateTimeParseError(#[from] chrono::ParseError),
+
+    #[error("Missing Snippets: `{0:?}`")]
+    MissingSnippetsError(Vec<MissingSnippet>),
 }

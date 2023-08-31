@@ -28,7 +28,7 @@ use crate::constants::{
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
 use crate::templates::render_template;
-use crate::types::{LinkFormat, Snippet, SnippetSource};
+use crate::types::{LinkFormat, MissingSnippet, MissingSnippetsBehavior, Snippet, SnippetSource};
 use crate::{files, git, SnippextResult, SnippextSettings};
 
 #[derive(Clone, Debug, Parser)]
@@ -136,6 +136,9 @@ pub struct Args {
             files are hosted on a site that is not co-located with the source code files."
     )]
     pub source_link_prefix: Option<String>,
+
+    #[arg(short, long)]
+    pub missing_snippets_behavior: Option<MissingSnippetsBehavior>,
 }
 
 struct SnippetExtractionState {
@@ -152,9 +155,13 @@ impl SnippetExtractionState {
 }
 
 struct SourceFile {
-    // source
     pub full_path: PathBuf,
     pub relative_path: PathBuf,
+}
+
+struct SourceSnippets {
+    pub source: SnippetSource,
+    pub snippets: HashMap<String, Snippet>,
 }
 
 pub fn execute(extract_opt: Args) -> SnippextResult<()> {
@@ -165,30 +172,29 @@ pub fn execute(extract_opt: Args) -> SnippextResult<()> {
 pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     validate_snippext_settings(&snippext_settings)?;
 
+    let trim_chars: &[_] = &['.', '/'];
+    let extension = snippext_settings
+        .output_extension
+        .as_deref()
+        .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
+
+    let mut source_snippets = Vec::new();
+    // file / snippet prefix cache
     let mut cache = HashMap::new();
     for source in &snippext_settings.sources {
         let source_files = get_source_files(source)?;
         for source_file in source_files {
             let snippets = extract_snippets(&source_file, &snippext_settings, &mut cache)?;
 
-            if snippets.is_empty() {
-                continue;
-            }
-
             if let Some(output_dir) = &snippext_settings.output_dir {
-                let extension = snippext_settings
-                    .output_extension
-                    .as_deref()
-                    .unwrap_or(DEFAULT_OUTPUT_FILE_EXTENSION);
+                let base_path = Path::new(output_dir.as_str()).join(
+                    source_file
+                        .relative_path
+                        .to_string_lossy()
+                        .trim_start_matches(trim_chars),
+                );
                 for (_, snippet) in &snippets {
-                    let trim_chars: &[_] = &['.', '/'];
-                    let output_path = Path::new(output_dir.as_str())
-                        .join(
-                            source_file
-                                .relative_path
-                                .to_string_lossy()
-                                .trim_start_matches(trim_chars),
-                        )
+                    let output_path = base_path
                         .join(sanitize(snippet.identifier.to_owned()))
                         .with_extension(extension);
 
@@ -198,28 +204,54 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                 }
             }
 
-            if let Some(targets) = &snippext_settings.targets {
-                for target in targets {
-                    let globs = match glob(target.as_str()) {
-                        Ok(paths) => paths,
-                        Err(error) => {
-                            return Err(SnippextError::GlobPatternError(format!(
-                                "Glob pattern error for `{}`. {}",
-                                target, error.msg
-                            )))
-                        }
-                    };
+            source_snippets.push(SourceSnippets {
+                source: source.clone(),
+                snippets,
+            });
+        }
+    }
 
-                    for entry in globs {
-                        process_target_file(
-                            entry.unwrap(),
-                            &snippets,
-                            source,
-                            &snippext_settings,
-                            &mut cache,
-                        )?;
-                    }
+    if let Some(targets) = &snippext_settings.targets {
+        let mut missing_snippets = Vec::new();
+        for target in targets {
+            let globs = match glob(target.as_str()) {
+                Ok(paths) => paths,
+                Err(error) => {
+                    return Err(SnippextError::GlobPatternError(format!(
+                        "Glob pattern error for `{}`. {}",
+                        target, error.msg
+                    )))
                 }
+            };
+
+            for entry in globs {
+                let path = entry.unwrap();
+                for source_snippet in &source_snippets {
+                    let target_file_missing_snippets = process_target_file(
+                        path.as_path(),
+                        &source_snippet,
+                        &snippext_settings,
+                        &mut cache,
+                    )?;
+                    missing_snippets.extend(target_file_missing_snippets);
+                }
+            }
+        }
+
+        match snippext_settings.missing_snippets_behavior {
+            MissingSnippetsBehavior::Fail => {
+                return Err(SnippextError::MissingSnippetsError(missing_snippets));
+            }
+            MissingSnippetsBehavior::Warn => {
+                for missing_snippet in missing_snippets {
+                    warn!(
+                        "Snippet {} missing in {:?} at line {}",
+                        &missing_snippet.key, &missing_snippet.path, &missing_snippet.line_number
+                    )
+                }
+            }
+            MissingSnippetsBehavior::Ignore => {
+                // do nothing
             }
         }
     }
@@ -259,7 +291,6 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
                 ));
             }
 
-            println!("{:?}", template.0);
             if template.0 == DEFAULT_TEMPLATE_IDENTIFIER {
                 has_default_template = true
             }
@@ -644,25 +675,18 @@ fn extract_id_and_attributes(
     )))
 }
 
-struct MissingSnippet<'a> {
-    key: String,
-    line_number: u32,
-    path: &'a PathBuf,
-}
-
 fn process_target_file(
-    target: PathBuf,
-    snippets: &HashMap<String, Snippet>,
-    source: &SnippetSource,
+    target: &Path,
+    source_snippets: &SourceSnippets,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
-) -> SnippextResult<()> {
+) -> SnippextResult<Vec<MissingSnippet>> {
     let mut new_file_lines = Vec::new();
     let mut updated = false;
     let mut in_current_snippet = None;
     let mut line_number = 0;
     let mut missing_snippets = Vec::new();
-    let extension = files::extension_from_path(target.as_path());
+    let extension = files::extension_from_path(target);
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
         Entry::Vacant(entry) => entry.insert((
@@ -693,7 +717,6 @@ fn process_target_file(
             continue;
         }
 
-        // TODO: log error
         let Ok((key, attributes)) = extract_id_and_attributes(current_line, &settings.begin) else {
             warn!("Failed to extract id/attributes from snippet. File {} line number {}",
                 target.to_string_lossy(),
@@ -702,16 +725,16 @@ fn process_target_file(
             continue;
         };
 
-        let Some(snippet) = snippets.get(&key) else {
+        let Some(snippet) = source_snippets.snippets.get(&key) else {
             missing_snippets.push(MissingSnippet {
                 key,
                 line_number,
-                path: &target,
+                path: target.to_owned(),
             });
             continue;
         };
 
-        let result = render_template(&snippet, source, &settings, attributes)?;
+        let result = render_template(&snippet, &source_snippets.source, &settings, attributes)?;
 
         let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
 
@@ -727,15 +750,11 @@ fn process_target_file(
         )));
     }
 
-    // TODO: error if fail when missing snippets is true and missing snippets exist
-    // log($"WARN: The source file:{missing.File} includes a key {missing.Key}, however the snippet is missing. Make sure that the snippet is defined.");
-    // https://github.com/SimonCropp/MarkdownSnippets/blob/1a148e6b8a1054e7ccf8cffaa2280944d9dca1c7/src/MarkdownSnippets/MissingSnippetsException.cs#L4
-
     if updated {
         fs::write(target.to_path_buf(), new_file_lines.join("\n"))?;
     }
 
-    Ok(())
+    Ok(missing_snippets)
 }
 
 // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
@@ -776,6 +795,13 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
     if let Some(source_link_prefix) = opt.source_link_prefix {
         builder = builder.set_override("source_link_prefix", source_link_prefix)?;
+    }
+
+    if let Some(missing_snippets_behavior) = opt.missing_snippets_behavior {
+        builder = builder.set_override(
+            "missing_snippets_behavior",
+            missing_snippets_behavior.to_string(),
+        )?;
     }
 
     if let Some(template) = opt.templates {
@@ -867,14 +893,15 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::fs;
     use std::path::{Path, PathBuf};
 
     use indexmap::IndexMap;
     use tempfile::tempdir;
+    use tracing_test::traced_test;
 
     use super::Args;
+    use crate::cmd::extract::MissingSnippetsBehavior;
     use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
@@ -921,6 +948,7 @@ mod tests {
             targets: vec![String::from("README.md")],
             link_format: None,
             source_link_prefix: None,
+            missing_snippets_behavior: None,
         };
 
         let settings = super::build_settings(args).unwrap();
@@ -978,6 +1006,7 @@ mod tests {
             url_sources: Vec::default(),
             link_format: None,
             source_link_prefix: None,
+            missing_snippets_behavior: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -1005,6 +1034,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1043,6 +1073,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1077,6 +1108,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1112,6 +1144,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1145,6 +1178,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1178,6 +1212,7 @@ mod tests {
             None,
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         let validation_result = super::extract(settings);
@@ -1190,6 +1225,76 @@ mod tests {
                     String::from("sources[0].files must not be empty"),
                     failures.get(0).unwrap().to_string()
                 );
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    #[traced_test]
+    fn should_log_when_missing_snippets_behavior_is_warning() {
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/no_snippets.rs".into()],
+            }],
+            Some(String::from("./snippets/")),
+            Some(String::from("md")),
+            Some(vec!["./tests/targets/specify_template.md".into()]),
+            None,
+            None,
+            MissingSnippetsBehavior::Warn,
+        );
+
+        let validation_result = super::extract(settings);
+
+        assert!(validation_result.is_ok());
+        assert!(logs_contain(
+            "Snippet main missing in \"tests/targets/specify_template.md\" at line 2"
+        ));
+    }
+
+    #[test]
+    fn should_return_error_when_missing_snippets_behavior_is_fail() {
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/no_snippets.rs".into()],
+            }],
+            Some(String::from("./snippets/")),
+            Some(String::from("md")),
+            Some(vec!["./tests/targets/specify_template.md".into()]),
+            None,
+            None,
+            MissingSnippetsBehavior::Fail,
+        );
+
+        let validation_result = super::extract(settings);
+        let error = validation_result.err().unwrap();
+
+        match error {
+            SnippextError::MissingSnippetsError(missing_snippets) => {
+                assert_eq!(1, missing_snippets.len());
+
+                let missing = missing_snippets.get(0).unwrap();
+                assert_eq!("main", missing.key);
+                assert_eq!(
+                    "tests/targets/specify_template.md",
+                    missing.path.to_string_lossy()
+                );
+                assert_eq!(2, missing.line_number);
             }
             _ => {
                 panic!("invalid SnippextError");
@@ -1216,6 +1321,7 @@ mod tests {
             Some(vec![target.to_string_lossy().to_string()]),
             None,
             None,
+            MissingSnippetsBehavior::default(),
         );
 
         super::extract(settings).expect("Should extract from URL");
