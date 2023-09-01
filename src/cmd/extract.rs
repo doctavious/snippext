@@ -226,15 +226,13 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 
             for entry in globs {
                 let path = entry.unwrap();
-                for source_snippet in &source_snippets {
-                    let target_file_missing_snippets = process_target_file(
-                        path.as_path(),
-                        &source_snippet,
-                        &snippext_settings,
-                        &mut cache,
-                    )?;
-                    missing_snippets.extend(target_file_missing_snippets);
-                }
+                let target_file_missing_snippets = process_target_file(
+                    path.as_path(),
+                    &source_snippets,
+                    &snippext_settings,
+                    &mut cache,
+                )?;
+                missing_snippets.extend(target_file_missing_snippets);
             }
         }
 
@@ -677,7 +675,7 @@ fn extract_id_and_attributes(
 
 fn process_target_file(
     target: &Path,
-    source_snippets: &SourceSnippets,
+    source_snippets: &Vec<SourceSnippets>,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
 ) -> SnippextResult<Vec<MissingSnippet>> {
@@ -725,22 +723,34 @@ fn process_target_file(
             continue;
         };
 
-        let Some(snippet) = source_snippets.snippets.get(&key) else {
+        let mut found = false;
+        for source_snippet in source_snippets {
+            if let Some(snippet) = source_snippet.snippets.get(&key) {
+                found = true;
+
+                let result = render_template(
+                    &snippet,
+                    &source_snippet.source,
+                    &settings,
+                    attributes
+                )?;
+
+                let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
+                new_file_lines.extend(result_lines);
+                updated = true;
+                in_current_snippet = Some(key.clone());
+                break;
+            }
+        }
+
+        if !found {
             missing_snippets.push(MissingSnippet {
-                key,
+                key: key.clone(),
                 line_number,
                 path: target.to_owned(),
             });
-            continue;
-        };
+        }
 
-        let result = render_template(&snippet, &source_snippets.source, &settings, attributes)?;
-
-        let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
-
-        new_file_lines.extend(result_lines);
-        updated = true;
-        in_current_snippet = Some(key);
     }
 
     if let Some(in_current_snippet) = in_current_snippet {
@@ -841,7 +851,6 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
             templates.insert(file_name.to_string_lossy().to_string(), content);
         }
 
-        println!("{:?}", templates);
         // might be a better way to do this but works for now
         let templates_json = serde_json::to_string(&json!({
             "templates": templates
@@ -906,30 +915,6 @@ mod tests {
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
     use crate::types::SnippetSource;
-
-    // #[test]
-    // fn default_config_file() {
-    //     let opt = Args {
-    //         config: None,
-    //         begin: None,
-    //         end: None,
-    //         extension: None,
-    //         comment_prefixes: None,
-    //         templates: None,
-    //         repository_url: None,
-    //         repository_branch: None,
-    //         output_dir: None,
-    //         targets: Vec::default(),
-    //         sources: Vec::default(),
-    //         url_sources: Vec::default(),
-    //         link_format: None,
-    //         source_link_prefix: None,
-    //     };
-    //
-    //     let settings = super::build_settings(opt).unwrap();
-    //     // TODO: add asserts
-    //     info!("{:?}", settings);
-    // }
 
     #[test]
     fn verify_cli_args() {
@@ -1233,36 +1218,7 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
-    fn should_log_when_missing_snippets_behavior_is_warning() {
-        let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
-            IndexMap::from([(
-                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-                String::from("{{snippet}}"),
-            )]),
-            vec![SnippetSource::Local {
-                files: vec!["./tests/samples/no_snippets.rs".into()],
-            }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            Some(vec!["./tests/targets/specify_template.md".into()]),
-            None,
-            None,
-            MissingSnippetsBehavior::Warn,
-        );
-
-        let validation_result = super::extract(settings);
-
-        assert!(validation_result.is_ok());
-        assert!(logs_contain(
-            "Snippet main missing in \"tests/targets/specify_template.md\" at line 2"
-        ));
-    }
-
-    #[test]
-    fn should_return_error_when_missing_snippets_behavior_is_fail() {
+    fn should_return_error_when_missing_snippets_behavior_is_fail_no_snippets() {
         let settings = SnippextSettings::new(
             String::from("snippet::start::"),
             String::from("snippet::end::"),
@@ -1300,6 +1256,80 @@ mod tests {
                 panic!("invalid SnippextError");
             }
         }
+    }
+
+    #[test]
+    fn should_return_error_when_missing_snippets_behavior_is_fail_multiple_snippets() {
+        let dir = tempdir().unwrap();
+        let target = Path::new(&dir.path()).join("target.md");
+        fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
+
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/main.rs".into()],
+            }],
+            Some(String::from("./snippets/")),
+            Some(String::from("md")),
+            Some(vec![target.to_string_lossy().to_string()]),
+            None,
+            None,
+            MissingSnippetsBehavior::Fail,
+        );
+
+        let validation_result = super::extract(settings);
+        let error = validation_result.err().unwrap();
+
+        match error {
+            SnippextError::MissingSnippetsError(missing_snippets) => {
+                assert_eq!(1, missing_snippets.len());
+
+                let missing = missing_snippets.get(0).unwrap();
+                assert_eq!("fn_1", missing.key);
+                assert_eq!(
+                    target.to_string_lossy(),
+                    missing.path.to_string_lossy()
+                );
+                assert_eq!(6, missing.line_number);
+            }
+            _ => {
+                panic!("invalid SnippextError");
+            }
+        }
+    }
+
+    #[test]
+    #[traced_test]
+    fn should_log_when_missing_snippets_behavior_is_warning() {
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/no_snippets.rs".into()],
+            }],
+            Some(String::from("./snippets/")),
+            Some(String::from("md")),
+            Some(vec!["./tests/targets/specify_template.md".into()]),
+            None,
+            None,
+            MissingSnippetsBehavior::Warn,
+        );
+
+        let validation_result = super::extract(settings);
+
+        assert!(validation_result.is_ok());
+        assert!(logs_contain(
+            "Snippet main missing in \"tests/targets/specify_template.md\" at line 2"
+        ));
     }
 
     #[test]

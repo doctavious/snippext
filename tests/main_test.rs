@@ -285,12 +285,8 @@ fn should_successfully_extract_from_local_sources_file() {
 #[test]
 fn should_update_specified_targets() {
     let dir = tempdir().unwrap();
-
-    fs::copy(
-        Path::new("./tests/targets/target.md"),
-        Path::new(&dir.path()).join("./target.md"),
-    )
-    .unwrap();
+    let target = Path::new(&dir.path()).join("target.md");
+    fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
@@ -304,10 +300,7 @@ fn should_update_specified_targets() {
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
-        Some(vec![Path::new(&dir.path())
-            .join("./target.md")
-            .to_string_lossy()
-            .to_string()]),
+        Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
         MissingSnippetsBehavior::default(),
@@ -335,12 +328,9 @@ fn sample_fn_1() {
 #[test]
 fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     let dir = tempdir().unwrap();
+    let target = Path::new(&dir.path()).join("target.md");
+    fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-    fs::copy(
-        Path::new("./tests/targets/target.md"),
-        Path::new(&dir.path()).join("./target.md"),
-    )
-    .unwrap();
 
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
@@ -354,10 +344,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         }],
         Some(dir.path().to_string_lossy().to_string()),
         Some(String::from("md")),
-        Some(vec![Path::new(&dir.path())
-            .join("./target.md")
-            .to_string_lossy()
-            .to_string()]),
+        Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
         MissingSnippetsBehavior::default(),
@@ -418,12 +405,8 @@ fn main() {
 #[test]
 fn support_target_snippet_specifies_template() {
     let dir = tempdir().unwrap();
-
-    fs::copy(
-        Path::new("./tests/targets/specify_template.md"),
-        Path::new(&dir.path()).join("./specify_template.md"),
-    )
-    .unwrap();
+    let target = Path::new(&dir.path()).join("specify_template.md");
+    fs::copy(Path::new("./tests/targets/specify_template.md"), &target).unwrap();
 
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
@@ -443,17 +426,14 @@ fn support_target_snippet_specifies_template() {
         }],
         None,
         None,
-        Some(vec![Path::new(&dir.path())
-            .join("./specify_template.md")
-            .to_string_lossy()
-            .to_string()]),
+        Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
 
-    let actual = fs::read_to_string(Path::new(&dir.path()).join("./specify_template.md")).unwrap();
+    let actual = fs::read_to_string(target).unwrap();
     let expected = r#"Specify template
 <!-- snippet::start::main[template=code] -->
 ```rust
