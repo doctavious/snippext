@@ -242,8 +242,9 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
 
     let missing_snippets_behavior = Select::new(
         "Missing Snippet Behavior?",
-        MissingSnippetsBehavior::value_variants().to_vec()
-    ).prompt()?;
+        MissingSnippetsBehavior::value_variants().to_vec(),
+    )
+    .prompt()?;
 
     Ok(SnippextSettings {
         begin,

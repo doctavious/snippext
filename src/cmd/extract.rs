@@ -22,8 +22,8 @@ use walkdir::WalkDir;
 
 use crate::cmd::is_line_snippet;
 use crate::constants::{
-    DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES,
-    DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
+    DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG,
+    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
 };
 use crate::error::SnippextError;
 use crate::sanitize::sanitize;
@@ -154,11 +154,15 @@ impl SnippetExtractionState {
     }
 }
 
+#[derive(Debug)]
 struct SourceFile {
     pub full_path: PathBuf,
     pub relative_path: PathBuf,
+    pub link_format: Option<LinkFormat>,
+    pub base_source_link: Option<String>,
 }
 
+#[derive(Debug)]
 struct SourceSnippets {
     pub source: SnippetSource,
     pub snippets: HashMap<String, Snippet>,
@@ -182,9 +186,9 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     // file / snippet prefix cache
     let mut cache = HashMap::new();
     for source in &snippext_settings.sources {
-        let source_files = get_source_files(source)?;
+        let source_files = get_source_files(source, &snippext_settings)?;
         for source_file in source_files {
-            let snippets = extract_snippets(&source_file, &snippext_settings, &mut cache)?;
+            let snippets = extract_snippets(source, &source_file, &snippext_settings, &mut cache)?;
 
             if let Some(output_dir) = &snippext_settings.output_dir {
                 let base_path = Path::new(output_dir.as_str()).join(
@@ -199,7 +203,9 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    let result = render_template(snippet, source, &snippext_settings, None)?;
+                    // let result = render_template(snippet, source, &snippext_settings, None)?;
+                    let result = render_template(snippet, &snippext_settings, None)?;
+
                     fs::write(output_path, result).unwrap();
                 }
             }
@@ -350,7 +356,10 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 // TODO: This code is absolute shit. Clean this up
 // Need both the absolute path and the relative path so that for when we output generated files
 // we only include relative directories within the output directory.
-fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
+fn get_source_files(
+    source: &SnippetSource,
+    settings: &SnippextSettings,
+) -> SnippextResult<Vec<SourceFile>> {
     let mut source_files: Vec<SourceFile> = Vec::new();
 
     match source {
@@ -376,35 +385,53 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
                     };
 
                     if !path.is_dir() {
+                        let mut base_source_link = String::new();
+                        if let Some(source_link_prefix) = &settings.source_link_prefix {
+                            base_source_link.push_str(source_link_prefix.as_str());
+                            if !base_source_link.ends_with("/") {
+                                base_source_link.push('/');
+                            }
+                        }
+                        base_source_link.push_str(&relative_path.to_str().unwrap_or_default());
                         source_files.push(SourceFile {
                             full_path: path.clone(),
                             relative_path,
+                            base_source_link: Some(base_source_link),
+                            link_format: settings.link_format,
                         });
                     }
                 }
             }
         }
-        // default reference to master/main
         SnippetSource::Git {
-            repository: url,
+            repository,
             branch,
             cone_patterns,
             files,
         } => {
-            let repo = url;
-            let repo_name = Path::new(repo)
-                .file_stem()
-                .ok_or(SnippextError::GeneralError(format!(
-                    "Could not get repository name from {}",
-                    &repo
-                )))?;
+            let repository_url =
+                Url::from_str(repository).expect("Git repository must be a valid URL");
+            let repo_name =
+                Path::new(repository)
+                    .file_stem()
+                    .ok_or(SnippextError::GeneralError(format!(
+                        "Could not get repository name from {}",
+                        &repository
+                    )))?;
             let download_dir = get_download_directory()?.join(repo_name);
+
             // dont need this second check but being safe
             if download_dir.exists() && download_dir.starts_with(std::env::temp_dir()) {
                 fs::remove_dir_all(&download_dir)?;
             }
+
             fs::create_dir_all(&download_dir)?;
-            git::checkout_files(&repo, branch.clone(), cone_patterns.clone(), &download_dir)?;
+            git::checkout_files(
+                &repository,
+                branch.clone(),
+                cone_patterns.clone(),
+                &download_dir,
+            )?;
 
             let dir_length = download_dir.to_string_lossy().len();
             let patterns = files
@@ -412,6 +439,17 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
                 .map(|f| Pattern::new(f))
                 .filter_map(|p| p.ok())
                 .collect::<Vec<Pattern>>();
+
+            let branch = if let Some(branch) = branch {
+                branch.clone()
+            } else {
+                git::abbrev_ref(Some(&download_dir)).unwrap_or(DEFAULT_GIT_BRANCH.to_string())
+            };
+
+            let link_format = settings.link_format.or_else(|| {
+                let domain = repository_url.domain()?;
+                LinkFormat::from_domain(domain)
+            });
 
             for entry in WalkDir::new(&download_dir)
                 .into_iter()
@@ -421,9 +459,36 @@ fn get_source_files(source: &SnippetSource) -> SnippextResult<Vec<SourceFile>> {
                 let relative_path_str = &path[dir_length..];
 
                 if entry.path().is_file() && patterns.iter().any(|p| p.matches(relative_path_str)) {
+                    let relative_path = PathBuf::from(relative_path_str);
+                    let base_source_link =
+                        if let Some(repo_stripped_suffix) = repository.strip_suffix(".git") {
+                            let mut base_source_link = repo_stripped_suffix.to_string();
+
+                            match link_format {
+                                None => None,
+                                Some(link_format) => {
+                                    base_source_link.push_str(
+                                        format!(
+                                            "{}{}{}",
+                                            link_format.blob_path_segment(),
+                                            branch,
+                                            &relative_path_str
+                                        )
+                                        .as_str(),
+                                    );
+
+                                    Some(base_source_link)
+                                }
+                            }
+                        } else {
+                            None
+                        };
+
                     source_files.push(SourceFile {
                         full_path: entry.path().to_path_buf(),
-                        relative_path: PathBuf::from(relative_path_str),
+                        relative_path,
+                        base_source_link,
+                        link_format,
                     });
                 }
             }
@@ -481,6 +546,8 @@ fn download_url(url: &String) -> SnippextResult<SourceFile> {
             return Ok(SourceFile {
                 full_path: download_path,
                 relative_path: url_file_path,
+                base_source_link: Some(url.to_string()),
+                link_format: None,
             });
         }
     }
@@ -502,6 +569,8 @@ fn download_url(url: &String) -> SnippextResult<SourceFile> {
                 return Ok(SourceFile {
                     full_path: download_path,
                     relative_path: url_file_path,
+                    base_source_link: Some(url.to_string()),
+                    link_format: None,
                 });
             }
         }
@@ -524,6 +593,8 @@ fn download_url(url: &String) -> SnippextResult<SourceFile> {
     return Ok(SourceFile {
         full_path: download_path,
         relative_path: url_file_path,
+        base_source_link: Some(url.to_string()),
+        link_format: None,
     });
 }
 
@@ -535,6 +606,7 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
 }
 
 fn extract_snippets(
+    source: &SnippetSource,
     source_file: &SourceFile,
     settings: &SnippextSettings,
     cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
@@ -597,6 +669,13 @@ fn extract_snippets(
         if let Some(_) = is_line_snippet(current_line, &snippet_end_prefixes) {
             if let Some(state) = state.pop() {
                 let id = state.key;
+                let source_link = append_selected_lines_to_source_link(
+                    source,
+                    &source_file,
+                    state.start_line,
+                    current_line_number,
+                );
+
                 let old_value = snippets.insert(
                     id.clone(),
                     Snippet {
@@ -606,6 +685,7 @@ fn extract_snippets(
                         attributes: state.attributes,
                         start_line: state.start_line,
                         end_line: current_line_number,
+                        source_link,
                     },
                 );
 
@@ -633,12 +713,34 @@ fn extract_snippets(
     Ok(snippets)
 }
 
+fn append_selected_lines_to_source_link(
+    source: &SnippetSource,
+    source_file: &SourceFile,
+    start_line: usize,
+    end_line: usize,
+) -> Option<String> {
+    match source {
+        SnippetSource::Local { .. } => {
+            let base_source_link = source_file.base_source_link.clone()?;
+            let link_format = source_file.link_format?;
+            Some(link_format.source_link(&base_source_link, start_line, end_line))
+        }
+        SnippetSource::Git { .. } => {
+            let base_source_link = &source_file.base_source_link.clone()?;
+            let link_format = source_file.link_format?;
+            Some(link_format.source_link(&base_source_link, start_line, end_line))
+        }
+        SnippetSource::Url(url) => Some(url.to_string()),
+    }
+}
+
 fn extract_id_and_attributes(
     line: &str,
     begin: &String,
 ) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
-    let re = Regex::new(format!("{begin}[ ]*(?P<key>[\\w-]*)(?P<attributes>\\[[^]]+])?").as_str())
-        .unwrap();
+    let re =
+        Regex::new(format!("{begin}[ ]*(?P<key>[\\w\\-./:]*)(?P<attributes>\\[[^]]+])?").as_str())
+            .unwrap();
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
         let Some(key) = capture_groups.name("key") else {
@@ -724,23 +826,17 @@ fn process_target_file(
         };
 
         let mut found = false;
-        for source_snippet in source_snippets {
-            if let Some(snippet) = source_snippet.snippets.get(&key) {
-                found = true;
+        if let Some(snippet) = find_snippet(source_snippets, &key) {
+            found = true;
+            let result = render_template(
+                &snippet, // &source_snippet.source,
+                &settings, attributes,
+            )?;
 
-                let result = render_template(
-                    &snippet,
-                    &source_snippet.source,
-                    &settings,
-                    attributes
-                )?;
-
-                let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
-                new_file_lines.extend(result_lines);
-                updated = true;
-                in_current_snippet = Some(key.clone());
-                break;
-            }
+            let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
+            new_file_lines.extend(result_lines);
+            updated = true;
+            in_current_snippet = Some(key.clone());
         }
 
         if !found {
@@ -750,7 +846,6 @@ fn process_target_file(
                 path: target.to_owned(),
             });
         }
-
     }
 
     if let Some(in_current_snippet) = in_current_snippet {
@@ -765,6 +860,56 @@ fn process_target_file(
     }
 
     Ok(missing_snippets)
+}
+
+fn find_snippet(source_snippets: &Vec<SourceSnippets>, key: &String) -> Option<Snippet> {
+    let snippet = source_snippets.iter().find_map(|x| x.snippets.get(key));
+
+    if snippet.is_some() {
+        return snippet.cloned();
+    }
+
+    if key.starts_with("http") {
+        let source = download_url(key);
+        println!("{:?}", &source);
+        match source {
+            Ok(s) => {
+                if let Ok(content) = fs::read_to_string(&s.full_path) {
+                    let line_count = content.lines().count();
+                    // TODO: I would like this build source link the same way in all spots
+                    return Some(Snippet {
+                        identifier: key.to_string(),
+                        path: s.full_path.clone(),
+                        text: content,
+                        attributes: Default::default(),
+                        start_line: 1,
+                        end_line: line_count,
+                        source_link: Some(key.to_string()),
+                    });
+                }
+            }
+            Err(e) => {
+                warn!("Failed to download snippet with error {}", e);
+                return None;
+            }
+        }
+    }
+
+    // TODO: only read from path if it was a source file
+    if let Ok(content) = fs::read_to_string(key) {
+        let line_count = content.lines().count();
+        return Some(Snippet {
+            identifier: key.to_string(),
+            path: PathBuf::from(key),
+            text: content,
+            attributes: Default::default(),
+            start_line: 1,
+            end_line: line_count,
+            source_link: Some(key.to_string()),
+        });
+    }
+
+    return None;
 }
 
 // https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
@@ -910,11 +1055,13 @@ mod tests {
     use tracing_test::traced_test;
 
     use super::Args;
-    use crate::cmd::extract::MissingSnippetsBehavior;
+    use crate::cmd::extract::{
+        append_selected_lines_to_source_link, MissingSnippetsBehavior, SourceFile,
+    };
     use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
-    use crate::types::SnippetSource;
+    use crate::types::{LinkFormat, SnippetSource};
 
     #[test]
     fn verify_cli_args() {
@@ -1291,10 +1438,7 @@ mod tests {
 
                 let missing = missing_snippets.get(0).unwrap();
                 assert_eq!("fn_1", missing.key);
-                assert_eq!(
-                    target.to_string_lossy(),
-                    missing.path.to_string_lossy()
-                );
+                assert_eq!(target.to_string_lossy(), missing.path.to_string_lossy());
                 assert_eq!(6, missing.line_number);
             }
             _ => {
@@ -1370,4 +1514,185 @@ some content
 <!-- snippet::end::fn_1 -->"#;
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn should_successfully_include_url_snippet() {
+        let dir = tempdir().unwrap();
+        let target = Path::new(&dir.path()).join("./url_snippet.md");
+        fs::copy(Path::new("./tests/targets/url_snippet.md"), &target).unwrap();
+
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/**".into()],
+            }],
+            None,
+            None,
+            Some(vec![target.to_string_lossy().to_string()]),
+            None,
+            None,
+            MissingSnippetsBehavior::default(),
+        );
+
+        super::extract(settings).expect("Should extract from URL");
+
+        let actual = fs::read_to_string(target).unwrap();
+        let expected = r#"This snippet comes from a url
+<!-- snippet::start::https://raw.githubusercontent.com/doctavious/snippext/main/LICENSE -->
+MIT License
+
+Copyright (c) 2021 Doctavious
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+<!-- snippet::end::main -->"#;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn should_successfully_include_file_snippet() {
+        let dir = tempdir().unwrap();
+        let target = Path::new(&dir.path()).join("./file_snippet.md");
+        fs::copy(Path::new("./tests/targets/file_snippet.md"), &target).unwrap();
+
+        let settings = SnippextSettings::new(
+            String::from("snippet::start::"),
+            String::from("snippet::end::"),
+            IndexMap::from([(
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            )]),
+            vec![SnippetSource::Local {
+                files: vec!["./tests/samples/**".into()],
+            }],
+            None,
+            None,
+            Some(vec![target.to_string_lossy().to_string()]),
+            None,
+            None,
+            MissingSnippetsBehavior::default(),
+        );
+
+        super::extract(settings).expect("Should extract from URL");
+
+        let actual = fs::read_to_string(target).unwrap();
+        let expected = r#"This snippet comes from a file
+<!-- snippet::start::LICENSE -->
+MIT License
+
+Copyright (c) 2021 Doctavious
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+<!-- snippet::end::LICENSE -->"#;
+        assert_eq!(expected, actual);
+    }
+
+    // fn source_link(
+    //     source: &SnippetSource,
+    //     source_file: &SourceFile,
+    //     start_line: usize,
+    //     end_line: usize,
+    // )
+
+    #[test]
+    fn local_source_link_without_prefix() {
+        let source = SnippetSource::Local {
+            files: vec!["**".to_string()],
+        };
+
+        let source_file = SourceFile {
+            full_path: "src/main.rs".into(),
+            relative_path: "src/main.rs".into(),
+            link_format: Some(LinkFormat::GitHub),
+            base_source_link: Some("src/main.rs".to_string()),
+        };
+
+        let source_link = append_selected_lines_to_source_link(&source, &source_file, 1, 10)
+            .expect("Should build source link");
+
+        assert_eq!("src/main.rs#L1-L10", source_link);
+    }
+
+    #[test]
+    fn local_source_without_link_format_should_not_build_source_link() {
+        let source = SnippetSource::Local {
+            files: vec!["**".to_string()],
+        };
+
+        let source_file = SourceFile {
+            full_path: "src/main.rs".into(),
+            relative_path: "src/main.rs".into(),
+            link_format: None,
+            base_source_link: Some("src/main.rs".to_string()),
+        };
+
+        let source_link = append_selected_lines_to_source_link(&source, &source_file, 1, 10);
+        assert!(source_link.is_none());
+    }
+
+    // TODO: add back when we refactor away from collecting all source files
+    // #[test]
+    // fn local_source_link_with_prefix() {
+    //     let source = SnippetSource::Local {
+    //         files: vec!["**".to_string()],
+    //     };
+    //
+    //     let snippet = Snippet {
+    //         identifier: "example".to_string(),
+    //         path: PathBuf::from("src/main.rs"),
+    //         text: "{{snippet}}".to_string(),
+    //         attributes: HashMap::new(),
+    //         start_line: 1,
+    //         end_line: 10,
+    //     };
+    //
+    //     let source_link = build_source_link(
+    //         &snippet,
+    //         &source,
+    //         Some(LinkFormat::GitHub),
+    //         Some(&"https://github.com/doctavious/snippext/blob/main/".to_string()),
+    //     )
+    //     .expect("Should build source link");
+    //
+    //     assert_eq!(
+    //         "https://github.com/doctavious/snippext/blob/main/src/main.rs#L1-L10",
+    //         source_link
+    //     );
+    // }
 }

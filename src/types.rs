@@ -15,6 +15,7 @@ pub struct Snippet {
     pub attributes: HashMap<String, String>,
     pub start_line: usize,
     pub end_line: usize,
+    pub source_link: Option<String>,
 }
 
 // source details
@@ -74,19 +75,16 @@ impl LinkFormat {
         Self::Gitee,
     ];
 
-    pub fn source_link(&self, url: &String, snippet: &Snippet) -> String {
+    pub fn source_link(&self, url: &String, start_line: usize, end_line: usize) -> String {
         match self {
-            LinkFormat::AzureRepos => format!(
-                "{}&line={}&lineEnd={}",
-                url, snippet.start_line, snippet.end_line
-            ),
+            LinkFormat::AzureRepos => format!("{}&line={}&lineEnd={}", url, start_line, end_line),
             LinkFormat::BitBucket => {
-                format!("{}#lines={}:{}", url, snippet.start_line, snippet.end_line)
+                format!("{}#lines={}:{}", url, start_line, end_line)
             }
-            LinkFormat::GitHub => format!("{}#L{}-L{}", url, snippet.start_line, snippet.end_line),
-            LinkFormat::GitLab => format!("{}#L{}-{}", url, snippet.start_line, snippet.end_line),
-            LinkFormat::Gitea => format!("{}#L{}-L{}", url, snippet.start_line, snippet.end_line),
-            LinkFormat::Gitee => format!("{}#L{}-{}", url, snippet.start_line, snippet.end_line),
+            LinkFormat::GitHub => format!("{}#L{}-L{}", url, start_line, end_line),
+            LinkFormat::GitLab => format!("{}#L{}-{}", url, start_line, end_line),
+            LinkFormat::Gitea => format!("{}#L{}-L{}", url, start_line, end_line),
+            LinkFormat::Gitee => format!("{}#L{}-{}", url, start_line, end_line),
         }
     }
 

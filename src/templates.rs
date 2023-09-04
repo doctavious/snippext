@@ -1,21 +1,16 @@
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use handlebars::{no_escape, Handlebars};
-use url::Url;
 
-use crate::constants::{
-    DEFAULT_GIT_BRANCH, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT_TEMPLATE_ATTRIBUTE,
-};
+use crate::constants::{DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT_TEMPLATE_ATTRIBUTE};
 use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
-use crate::types::{LinkFormat, Snippet, SnippetSource};
+use crate::types::Snippet;
 use crate::unindent::unindent;
-use crate::{git, SnippextResult};
+use crate::SnippextResult;
 
 pub fn render_template(
     snippet: &Snippet,
-    source: &SnippetSource,
     snippext_settings: &SnippextSettings,
     target_attributes: Option<HashMap<String, String>>,
 ) -> SnippextResult<String> {
@@ -35,13 +30,7 @@ pub fn render_template(
         snippet.path.to_string_lossy().to_string(),
     );
 
-    let source_link = build_source_link(
-        snippet,
-        source,
-        snippext_settings.link_format,
-        snippext_settings.source_link_prefix.as_ref(),
-    );
-    if let Some(source_link) = source_link {
+    if let Some(source_link) = &snippet.source_link {
         if !data.contains_key("source_links_enabled") {
             data.insert("source_links_enabled".to_string(), "true".to_string());
         }
@@ -54,7 +43,7 @@ pub fn render_template(
                 .unwrap_or_default(),
         );
 
-        data.insert("source_link".to_string(), source_link);
+        data.insert("source_link".to_string(), source_link.to_string());
     }
 
     let template = get_template(data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE), snippext_settings)?;
@@ -68,60 +57,6 @@ fn render(content: &String, data: &HashMap<String, String>) -> SnippextResult<St
     let rendered = hbs.render_template(content.as_str(), data)?;
 
     Ok(rendered)
-}
-
-fn build_source_link(
-    snippet: &Snippet,
-    source: &SnippetSource,
-    link_format: Option<LinkFormat>,
-    source_link_prefix: Option<&String>,
-) -> Option<String> {
-    match source {
-        SnippetSource::Local { .. } => {
-            let link_format = link_format?;
-            let mut path = String::new();
-            if let Some(source_link_prefix) = source_link_prefix {
-                path.push_str(source_link_prefix);
-                if !path.ends_with("/") {
-                    path.push('/');
-                }
-            }
-            path.push_str(snippet.path.to_str().unwrap_or_default());
-            Some(link_format.source_link(&path, &snippet))
-        }
-        SnippetSource::Git {
-            repository, branch, ..
-        } => {
-            let url = Url::from_str(repository).expect("Git repository must be a valid URL");
-            let link_format = link_format.or_else(|| {
-                let domain = url.domain()?;
-                LinkFormat::from_domain(domain)
-            })?;
-
-            let mut path = url.to_string().strip_suffix(".git")?.to_string();
-            // TODO: would like to hoist this logic up as there is no reason this needs to run for
-            // every file. We should determine it once and use it for ever snippet we generate
-            let branch = if let Some(branch) = branch {
-                branch.clone()
-            } else {
-                git::abbrev_ref(Some(&snippet.path.clone()))
-                    .unwrap_or(DEFAULT_GIT_BRANCH.to_string())
-            };
-
-            path.push_str(
-                format!(
-                    "{}{}{}",
-                    link_format.blob_path_segment(),
-                    branch,
-                    &snippet.path.to_str().unwrap_or_default()
-                )
-                .as_str(),
-            );
-
-            Some(link_format.source_link(&path, &snippet))
-        }
-        SnippetSource::Url(url) => Some(url.to_string()),
-    }
 }
 
 /// find appropriate Snippext Template using the following rules
@@ -158,83 +93,4 @@ fn get_template<'a>(
             )))
         };
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-    use std::path::PathBuf;
-
-    use crate::templates::build_source_link;
-    use crate::types::{LinkFormat, Snippet, SnippetSource};
-
-    #[test]
-    fn local_source_link_without_prefix() {
-        let source = SnippetSource::Local {
-            files: vec!["**".to_string()],
-        };
-
-        let snippet = Snippet {
-            identifier: "example".to_string(),
-            path: PathBuf::from("src/main.rs"),
-            text: "{{snippet}}".to_string(),
-            attributes: HashMap::new(),
-            start_line: 1,
-            end_line: 10,
-        };
-
-        let source_link = build_source_link(&snippet, &source, Some(LinkFormat::GitHub), None)
-            .expect("Should build source link");
-
-        assert_eq!("src/main.rs#L1-L10", source_link);
-    }
-
-    #[test]
-    fn local_source_link_with_prefix() {
-        let source = SnippetSource::Local {
-            files: vec!["**".to_string()],
-        };
-
-        let snippet = Snippet {
-            identifier: "example".to_string(),
-            path: PathBuf::from("src/main.rs"),
-            text: "{{snippet}}".to_string(),
-            attributes: HashMap::new(),
-            start_line: 1,
-            end_line: 10,
-        };
-
-        let source_link = build_source_link(
-            &snippet,
-            &source,
-            Some(LinkFormat::GitHub),
-            Some(&"https://github.com/doctavious/snippext/blob/main/".to_string()),
-        )
-        .expect("Should build source link");
-
-        assert_eq!(
-            "https://github.com/doctavious/snippext/blob/main/src/main.rs#L1-L10",
-            source_link
-        );
-    }
-
-    #[test]
-    fn local_source_without_link_format_should_not_build_source_link() {
-        let source = SnippetSource::Local {
-            files: vec!["**".to_string()],
-        };
-
-        let snippet = Snippet {
-            identifier: "example".to_string(),
-            path: PathBuf::from("src/main.rs"),
-            text: "{{snippet}}".to_string(),
-            attributes: HashMap::new(),
-            start_line: 1,
-            end_line: 10,
-        };
-
-        let source_link = build_source_link(&snippet, &source, None, None);
-
-        assert!(source_link.is_none());
-    }
 }

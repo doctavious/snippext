@@ -331,7 +331,6 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     let target = Path::new(&dir.path()).join("target.md");
     fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-
     extract(SnippextSettings::new(
         String::from("snippet::start::"),
         String::from("snippet::end::"),
