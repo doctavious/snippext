@@ -1,2 +1,2 @@
-// snippet::start::some_fn
+// snippet::start some_fn
 fn some_fn() {}

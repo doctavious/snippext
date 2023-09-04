@@ -21,9 +21,9 @@ pub struct Args {
     #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    /// Prefix that marks the beginning of a snippet
+    /// Prefix that marks the start of a snippet
     #[arg(short, long)]
-    pub begin: Option<String>,
+    pub start: Option<String>,
 
     /// Prefix that marks the ending of a snippet
     #[arg(short, long)]
@@ -46,7 +46,7 @@ pub struct Args {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ClearSettings {
-    pub begin: String,
+    pub start: String,
     pub end: String,
     pub targets: Vec<String>,
     pub delete: bool,
@@ -71,7 +71,7 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
 
     builder = builder.add_source(Environment::with_prefix(SNIPPEXT));
     builder = builder
-        .set_override_option("begin", opt.begin)?
+        .set_override_option("start", opt.start)?
         .set_override_option("end", opt.end)?
         .set_override_option("targets", opt.targets)?;
 
@@ -91,7 +91,7 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
             Entry::Vacant(entry) => entry.insert((
                 files::get_snippet_start_prefixes(
                     extension.as_str().clone(),
-                    settings.begin.as_str(),
+                    settings.start.as_str(),
                 )?,
                 files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
             )),
@@ -132,8 +132,8 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
 fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
     let mut failures = vec![];
 
-    if settings.begin.is_empty() {
-        failures.push("begin must not be empty".to_string())
+    if settings.start.is_empty() {
+        failures.push("start must not be empty".to_string())
     }
 
     if settings.end.is_empty() {
@@ -178,7 +178,7 @@ More content
             .unwrap();
 
         super::clear(ClearSettings {
-            begin: "snippet::".to_string(),
+            start: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
             delete: false,
@@ -212,7 +212,7 @@ More content
             .unwrap();
 
         super::clear(ClearSettings {
-            begin: "snippet::".to_string(),
+            start: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
             delete: true,
@@ -240,7 +240,7 @@ More content
             .unwrap();
 
         super::clear(ClearSettings {
-            begin: "snippet::".to_string(),
+            start: "snippet::".to_string(),
             end: "end::".to_string(),
             targets: vec![String::from(target.path().to_string_lossy())],
             delete: false,
@@ -255,9 +255,9 @@ More content
     }
 
     #[test]
-    fn clear_target_should_require_non_empty_begin_and_end() {
+    fn clear_target_should_require_non_empty_start_and_end() {
         let validation_result = super::clear(ClearSettings {
-            begin: String::from(""),
+            start: String::from(""),
             end: String::from(""),
             targets: vec!["".to_string()],
             delete: false,
@@ -268,7 +268,7 @@ More content
             SnippextError::ValidationError(failures) => {
                 assert_eq!(2, failures.len());
                 assert_eq!(
-                    String::from("begin must not be empty"),
+                    String::from("start must not be empty"),
                     failures.get(0).unwrap().to_string()
                 );
                 assert_eq!(

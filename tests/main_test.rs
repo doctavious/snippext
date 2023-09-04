@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
-use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
+use snippext::constants::{DEFAULT_START, DEFAULT_END, DEFAULT_TEMPLATE_IDENTIFIER};
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
@@ -16,8 +16,8 @@ fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -71,8 +71,8 @@ fn error_when_extracting_from_unavailable_remote() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -102,8 +102,8 @@ fn should_error_when_snippet_is_not_closed() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -133,8 +133,8 @@ fn should_successfully_extract_from_remote_git_repository() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}{{source_link}}"),
@@ -173,8 +173,8 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -215,8 +215,8 @@ fn url_source_link() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}{{source_link}}"),
@@ -257,8 +257,8 @@ fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -289,8 +289,8 @@ fn should_update_specified_targets() {
     fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -310,18 +310,18 @@ fn should_update_specified_targets() {
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
     let expected = r#"This is some static content
 
-<!-- snippet::start::main -->
+<!-- snippet::start main -->
 fn main() {
 
     println!("printing...")
 }
-<!-- snippet::end::main -->
+<!-- snippet::end -->
 
-<!-- snippet::start::fn_1 -->
+<!-- snippet::start fn_1 -->
 fn sample_fn_1() {
 
 }
-<!-- snippet::end::fn_1 -->"#;
+<!-- snippet::end -->"#;
     assert_eq!(expected, actual);
 }
 
@@ -332,8 +332,8 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -353,16 +353,16 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
     let expected = r#"This is some static content
 
-<!-- snippet::start::main -->
+<!-- snippet::start main -->
 fn main() {
 
     println!("printing...")
 }
-<!-- snippet::end::main -->
+<!-- snippet::end -->
 
-<!-- snippet::start::fn_1 -->
+<!-- snippet::start fn_1 -->
 some content
-<!-- snippet::end::fn_1 -->"#;
+<!-- snippet::end -->"#;
     assert_eq!(expected, actual);
 }
 
@@ -371,8 +371,8 @@ fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{lang}}\n{{snippet}}```\n"),
@@ -408,8 +408,8 @@ fn support_target_snippet_specifies_template() {
     fs::copy(Path::new("./tests/targets/specify_template.md"), &target).unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([
             (
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
@@ -434,14 +434,14 @@ fn support_target_snippet_specifies_template() {
 
     let actual = fs::read_to_string(target).unwrap();
     let expected = r#"Specify template
-<!-- snippet::start::main[template=code] -->
+<!-- snippet::start main[template=code] -->
 ```rust
 fn main() {
 
     println!("printing...")
 }
 ```
-<!-- snippet::end::main -->"#;
+<!-- snippet::end -->"#;
     assert_eq!(expected, actual);
 }
 
@@ -450,8 +450,8 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{unknown}}\n{{snippet}}```\n"),
@@ -485,8 +485,8 @@ fn should_support_files_with_no_snippets() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -519,8 +519,8 @@ fn invalid_glob() {
     let dir = tempdir().unwrap();
 
     let result = extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -552,8 +552,8 @@ fn glob_returns_no_files() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
@@ -586,8 +586,8 @@ fn support_source_links() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
@@ -619,8 +619,8 @@ fn source_links_should_support_prefix() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
@@ -652,8 +652,8 @@ fn support_csharp_regions() {
     let dir = tempdir().unwrap();
 
     extract(SnippextSettings::new(
-        String::from("snippet::start::"),
-        String::from("snippet::end::"),
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),

@@ -7,7 +7,7 @@ use inquire::{Confirm, CustomUserError, Editor, Select, Text};
 use tracing::warn;
 
 use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_START, DEFAULT_END, DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION,
     DEFAULT_SNIPPEXT_CONFIG, DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
 };
 use crate::error::SnippextError;
@@ -36,10 +36,10 @@ pub fn execute(init_opt: Args) -> SnippextResult<()> {
 }
 
 fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
-    let begin = Text::new("Begin prefix:")
-        .with_default(DEFAULT_BEGIN)
+    let start = Text::new("Start prefix:")
+        .with_default(DEFAULT_START)
         .with_validator(NotEmptyValidator::default())
-        .with_help_message("Prefix that marks the beginning of a snippet")
+        .with_help_message("Prefix that marks the start of a snippet")
         .prompt()?;
 
     let end = Text::new("End prefix:")
@@ -247,7 +247,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     .prompt()?;
 
     Ok(SnippextSettings {
-        begin,
+        start,
         end,
         output_extension,
         templates,

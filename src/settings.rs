@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_BEGIN, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
+    DEFAULT_START, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
 };
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
@@ -13,7 +13,7 @@ use crate::SnippextResult;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SnippextSettings {
-    pub begin: String,
+    pub start: String,
     pub end: String,
     pub templates: IndexMap<String, String>,
     pub sources: Vec<SnippetSource>,
@@ -33,7 +33,7 @@ pub struct SnippextSettings {
 
 impl SnippextSettings {
     /// Create default SnippextSettings which will have the following
-    /// begin: [`DEFAULT_BEGIN`]
+    /// start: [`DEFAULT_START`]
     /// end: [`DEFAULT_END`]
     /// extension: [`DEFAULT_FILE_EXTENSION`]
     /// template: [`DEFAULT_TEMPLATE`]
@@ -41,7 +41,7 @@ impl SnippextSettings {
     /// output_dir: [`DEFAULT_OUTPUT_DIR`]
     pub fn default() -> Self {
         Self {
-            begin: String::from(DEFAULT_BEGIN),
+            start: String::from(DEFAULT_START),
             end: String::from(DEFAULT_END),
             templates: IndexMap::from([(
                 String::from(DEFAULT_TEMPLATE_IDENTIFIER),
@@ -72,7 +72,7 @@ impl SnippextSettings {
 
     // TODO: <S: Into<String>>
     pub fn new(
-        begin: String,
+        start: String,
         end: String,
         templates: IndexMap<String, String>,
         sources: Vec<SnippetSource>,
@@ -84,7 +84,7 @@ impl SnippextSettings {
         missing_snippets_behavior: MissingSnippetsBehavior,
     ) -> Self {
         Self {
-            begin,
+            start,
             end,
             templates,
             sources,

@@ -38,9 +38,9 @@ pub struct Args {
     #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    /// Prefix that marks the beginning of a snippet
-    #[arg(short, long)]
-    pub begin: Option<String>,
+    /// Prefix that marks the start of a snippet
+    #[arg(short = 'S', long)]
+    pub start: Option<String>,
 
     /// Prefix that marks the ending of a snippet
     #[arg(short, long)]
@@ -268,8 +268,8 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()> {
     let mut failures = Vec::new();
 
-    if settings.begin.is_empty() {
-        failures.push(String::from("begin must not be an empty string"));
+    if settings.start.is_empty() {
+        failures.push(String::from("start must not be an empty string"));
     }
 
     if settings.end.is_empty() {
@@ -624,7 +624,7 @@ fn extract_snippets(
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
         Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.begin.as_str())?,
+            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.start.as_str())?,
             files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
         )),
     };
@@ -737,10 +737,10 @@ fn append_selected_lines_to_source_link(
 
 fn extract_id_and_attributes(
     line: &str,
-    begin: &String,
+    start: &String,
 ) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
     let re =
-        Regex::new(format!("{begin}[ ]*(?P<key>[\\w\\-./:]*)(?P<attributes>\\[[^]]+])?").as_str())
+        Regex::new(format!("{start}[ ]*(?P<key>[\\w\\-./:]*)(?P<attributes>\\[[^]]+])?").as_str())
             .unwrap();
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
@@ -766,7 +766,7 @@ fn extract_id_and_attributes(
         } else {
             None
         };
-
+        println!("{}", key.as_str().to_string());
         return Ok((key.as_str().to_string(), attributes));
     }
 
@@ -791,7 +791,7 @@ fn process_target_file(
     let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
         Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.begin.as_str())?,
+            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.start.as_str())?,
             files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
         )),
     };
@@ -818,7 +818,7 @@ fn process_target_file(
             continue;
         }
 
-        let Ok((key, attributes)) = extract_id_and_attributes(current_line, &settings.begin) else {
+        let Ok((key, attributes)) = extract_id_and_attributes(current_line, &settings.start) else {
             warn!("Failed to extract id/attributes from snippet. File {} line number {}",
                 target.to_string_lossy(),
                 line_number
@@ -831,7 +831,8 @@ fn process_target_file(
             found = true;
             let result = render_template(
                 &snippet, // &source_snippet.source,
-                &settings, attributes,
+                &settings,
+                attributes,
             )?;
 
             let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
@@ -872,7 +873,6 @@ fn find_snippet(source_snippets: &Vec<SourceSnippets>, key: &String) -> Option<S
 
     if key.starts_with("http") {
         let source = download_url(key);
-        println!("{:?}", &source);
         match source {
             Ok(s) => {
                 if let Ok(content) = fs::read_to_string(&s.full_path) {
@@ -936,7 +936,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
     builder = builder
         .add_source(Environment::with_prefix(SNIPPEXT))
-        .set_override_option("begin", opt.begin)?
+        .set_override_option("start", opt.start)?
         .set_override_option("end", opt.end)?
         .set_override_option("output_dir", opt.output_dir)?
         .set_override_option("output_extension", opt.output_extension)?;
@@ -1059,7 +1059,7 @@ mod tests {
     use crate::cmd::extract::{
         append_selected_lines_to_source_link, MissingSnippetsBehavior, SourceFile,
     };
-    use crate::constants::DEFAULT_TEMPLATE_IDENTIFIER;
+    use crate::constants::{DEFAULT_START, DEFAULT_END, DEFAULT_TEMPLATE_IDENTIFIER};
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
     use crate::types::{LinkFormat, SnippetSource};
@@ -1068,7 +1068,7 @@ mod tests {
     fn verify_cli_args() {
         let args = Args {
             config: None,
-            begin: Some(String::from("snippext::begin::")),
+            start: Some(String::from(DEFAULT_START)),
             end: Some(String::from("finish::")),
             templates: Some(String::from("./tests/templates")),
             repository_url: Some(String::from("https://github.com/doctavious/snippext.git")),
@@ -1086,7 +1086,7 @@ mod tests {
 
         let settings = super::build_settings(args).unwrap();
 
-        assert_eq!("snippext::begin::", settings.begin);
+        assert_eq!("snippet::start", settings.start);
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
         println!("{}", serde_json::to_string(&settings).unwrap());
@@ -1126,7 +1126,7 @@ mod tests {
 
         let opt = Args {
             config: Some(PathBuf::from("./tests/custom_snippext.yaml")),
-            begin: None,
+            start: None,
             end: None,
             templates: None,
             repository_url: None,
@@ -1176,7 +1176,7 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 println!("{:?}", failures);
                 assert_eq!(5, failures.len());
-                assert!(failures.contains(&String::from("begin must not be an empty string")));
+                assert!(failures.contains(&String::from("start must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
                 assert!(failures.contains(&String::from(
                     "templates[0] identifier must not be an empty string"
@@ -1215,7 +1215,7 @@ mod tests {
             SnippextError::ValidationError(failures) => {
                 println!("{:?}", failures);
                 assert_eq!(3, failures.len());
-                assert!(failures.contains(&String::from("begin must not be an empty string")));
+                assert!(failures.contains(&String::from("start must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
                 assert!(failures.contains(&String::from(
                     "templates[default] template must not be an empty string"
@@ -1230,8 +1230,8 @@ mod tests {
     #[test]
     fn at_least_one_template_is_required() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::new(),
             vec![SnippetSource::Local {
                 files: vec![String::from("**")],
@@ -1263,8 +1263,8 @@ mod tests {
     #[test]
     fn one_template_must_be_named_default() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([
                 ("first".to_string(), String::from("{{snippet}}")),
                 ("second".to_string(), String::from("{{snippet}}")),
@@ -1299,8 +1299,8 @@ mod tests {
     #[test]
     fn sources_must_not_be_empty() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1333,8 +1333,8 @@ mod tests {
     #[test]
     fn local_sources_must_have_at_least_one_files_entry() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1368,8 +1368,8 @@ mod tests {
     #[test]
     fn should_return_error_when_missing_snippets_behavior_is_fail_no_snippets() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1413,8 +1413,8 @@ mod tests {
         fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1452,8 +1452,8 @@ mod tests {
     #[traced_test]
     fn should_log_when_missing_snippets_behavior_is_warning() {
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1484,13 +1484,13 @@ mod tests {
         fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into())],
+            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/9fbf1c3e127034d9701e05417e19cb6f28fd5c82/snippext_example.rs".into())],
             None,
             None,
             Some(vec![target.to_string_lossy().to_string()]),
@@ -1504,15 +1504,15 @@ mod tests {
         let actual = fs::read_to_string(target).unwrap();
         let expected = r#"This is some static content
 
-<!-- snippet::start::main -->
+<!-- snippet::start main -->
 fn main() {
     println!("Hello, World!");
 }
-<!-- snippet::end::main -->
+<!-- snippet::end -->
 
-<!-- snippet::start::fn_1 -->
+<!-- snippet::start fn_1 -->
 some content
-<!-- snippet::end::fn_1 -->"#;
+<!-- snippet::end -->"#;
         assert_eq!(expected, actual);
     }
 
@@ -1523,8 +1523,8 @@ some content
         fs::copy(Path::new("./tests/targets/url_snippet.md"), &target).unwrap();
 
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1544,7 +1544,7 @@ some content
 
         let actual = fs::read_to_string(target).unwrap();
         let expected = r#"This snippet comes from a url
-<!-- snippet::start::https://raw.githubusercontent.com/doctavious/snippext/main/LICENSE -->
+<!-- snippet::start https://raw.githubusercontent.com/doctavious/snippext/main/LICENSE -->
 MIT License
 
 Copyright (c) 2021 Doctavious
@@ -1566,7 +1566,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-<!-- snippet::end::main -->"#;
+<!-- snippet::end -->"#;
         assert_eq!(expected, actual);
     }
 
@@ -1577,8 +1577,8 @@ SOFTWARE.
         fs::copy(Path::new("./tests/targets/file_snippet.md"), &target).unwrap();
 
         let settings = SnippextSettings::new(
-            String::from("snippet::start::"),
-            String::from("snippet::end::"),
+            String::from(DEFAULT_START),
+            String::from(DEFAULT_END),
             IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -1598,7 +1598,7 @@ SOFTWARE.
 
         let actual = fs::read_to_string(target).unwrap();
         let expected = r#"This snippet comes from a file
-<!-- snippet::start::LICENSE -->
+<!-- snippet::start LICENSE -->
 MIT License
 
 Copyright (c) 2021 Doctavious
@@ -1620,7 +1620,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-<!-- snippet::end::LICENSE -->"#;
+<!-- snippet::end -->"#;
         assert_eq!(expected, actual);
     }
 
