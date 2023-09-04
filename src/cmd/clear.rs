@@ -13,29 +13,33 @@ use crate::constants::{DEFAULT_SNIPPEXT_CONFIG, SNIPPEXT};
 use crate::error::SnippextError;
 use crate::{files, SnippextResult};
 
+/// Clear snippets in target files
 #[derive(Clone, Debug, Parser)]
-#[command(about = "Clear snippets in target files")]
+#[command()]
 pub struct Args {
-    #[arg(short, long, value_parser, help = "Config file to use")]
+    /// Config file to use
+    #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    #[arg(short, long, help = "Prefix that marks the beginning of a snippet")]
+    /// Prefix that marks the beginning of a snippet
+    #[arg(short, long)]
     pub begin: Option<String>,
 
-    #[arg(short, long, help = "Prefix that marks the ending of a snippet")]
+    /// Prefix that marks the ending of a snippet
+    #[arg(short, long)]
     pub end: Option<String>,
 
+    /// The local directories, separated by spaces, that contain the files to be spliced
+    /// with the code snippets.
     #[arg(
         short = 't',
-        long,
-        help = "The local directories, separated by spaces, that contain the files to be spliced \
-            with the code snippets."
+        long
     )]
     pub targets: Option<Vec<String>>,
 
+    /// Flag that will delete the entire snippet including the snippet comment
     #[arg(
         long,
-        help = "Flag that will delete the entire snippet including the snippet comment"
     )]
     pub delete: bool,
 }

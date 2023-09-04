@@ -34,110 +34,111 @@ use crate::{files, git, SnippextResult, SnippextSettings};
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    #[arg(short, long, value_parser, help = "Config file to use")]
+    /// Config file to use
+    #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    #[arg(short, long, help = "Prefix that marks the beginning of a snippet")]
+    /// Prefix that marks the beginning of a snippet
+    #[arg(short, long)]
     pub begin: Option<String>,
 
-    #[arg(short, long, help = "Prefix that marks the ending of a snippet")]
+    /// Prefix that marks the ending of a snippet
+    #[arg(short, long)]
     pub end: Option<String>,
 
+    /// Directory where templates exists. File names act as keys
     #[arg(
         short,
         long,
-        value_name = "DIR",
-        help = "Directory where templates exists. File names act as keys"
+        value_name = "DIR"
     )]
     pub templates: Option<String>,
 
-    #[arg(long, value_name = "REPO", help = "The repository to clone from")]
+    /// The repository to clone from
+    #[arg(long, value_name = "REPO")]
     pub repository_url: Option<String>,
 
+    /// Branch name to use during git clone
     #[arg(
         long,
         requires = "repository_url",
-        value_name = "BRANCH",
-        help = "Branch name to use during git clone"
+        value_name = "BRANCH"
     )]
     pub repository_branch: Option<String>,
 
+    /// A list of directories, space separated, to be included in the sparse checkout
     #[arg(
         long,
         requires = "repository_url",
-        value_name = "PATTERN",
-        help = "A list of directories, space separated, to be included in the sparse checkout"
+        value_name = "PATTERN"
     )]
     pub repository_cone_patterns: Option<Vec<String>>,
 
+    /// Directory in which the generated snippet files be will output to. Is required unless
+    /// targets is provided. Generated snippets will be rendered with the default template
     #[arg(
         short,
         long,
         value_name = "DIR",
         required_unless_present = "targets",
-        help = "Directory in which the generated snippet files be will output to. Is required unless \
-                targets is provided. Generated snippets will be rendered with the default template"
     )]
     pub output_dir: Option<String>,
 
+    /// Extension for generated files. Defaults to md when not specified.
     #[arg(
         short = 'x',
-        long,
-        help = "Extension for generated files. Defaults to md when not specified."
+        long
     )]
     pub output_extension: Option<String>,
 
+    /// List of glob patters, separated by spaces, that contain the files to be spliced
+    /// with the code snippets.
     #[arg(
         short = 'T',
         long,
         required_unless_present = "output_dir",
-        value_delimiter = ' ',
-        help = "List of glob patters, separated by spaces, that contain the files to be spliced \
-            with the code snippets."
+        value_delimiter = ' '
     )]
     pub targets: Vec<String>,
 
+    /// List of glob patterns, separated by space, to look for snippets. Not applicable for
+    /// URL sources
     #[arg(
         short,
         long,
-        value_delimiter = ' ',
-        help = "List of glob patterns, separated by space, to look for snippets. Not applicable for \
-            URL sources."
+        value_delimiter = ' '
     )]
     pub sources: Vec<String>,
 
-    /// Urls to files to be included as snippets.
-    /// Each url will be accessible using the file name as a key.
-    /// Any snippets within the files will be extracted and accessible as individual keyed snippets.
+    /// List of URLs, separated by space, to download and extract snippets from.
+    /// URLs must return raw text in order for snippets to be successfully extracted.
     #[arg(
         long,
-        value_delimiter = ' ',
-        help = "List of URLs, separated by space, to download and extract snippets from. URLs must \
-            return raw text in order for snippets to be successfully extracted."
+        value_delimiter = ' '
     )]
     pub url_sources: Vec<String>,
 
+    /// Defines the format of snippet source links that appear under each snippet.
+    /// Source links for local sources will not be included if not specified.
+    /// If not provided For git sources links will attempt to determine based on git repository url.
     #[arg(
         short = 'l',
         long,
         value_name = "FORMAT",
-        value_enum,
-        help = "Defines the format of snippet source links that appear under each snippet. \
-                Source links for local sources will not be included if not specified. \
-                If not provided For git sources links will attempt to determine based on git \
-                repository url"
+        value_enum
     )]
     pub link_format: Option<LinkFormat>,
 
+    /// String that will prefix all local snippet source links. This is useful when markdown
+    /// files are hosted on a site that is not co-located with the source code files.
     #[arg(
         long,
-        value_name = "PREFIX",
-        help = "String that will prefix all local snippet source links. This is useful when markdown \
-            files are hosted on a site that is not co-located with the source code files."
+        value_name = "PREFIX"
     )]
     pub source_link_prefix: Option<String>,
 
-    #[arg(short, long)]
+    /// Defined behavior for what to do when missing snippets are present.
+    #[arg(short, long, value_name = "BEHAVIOR")]
     pub missing_snippets_behavior: Option<MissingSnippetsBehavior>,
 }
 
