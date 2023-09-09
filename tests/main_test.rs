@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
-use snippext::constants::{DEFAULT_START, DEFAULT_END, DEFAULT_TEMPLATE_IDENTIFIER};
+use snippext::constants::{DEFAULT_END, DEFAULT_START, DEFAULT_TEMPLATE_IDENTIFIER};
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
