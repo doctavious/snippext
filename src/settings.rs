@@ -5,8 +5,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_START, DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION,
-    DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
+    DEFAULT_END, DEFAULT_OUTPUT_DIR, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SOURCE_FILES,
+    DEFAULT_START, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER,
 };
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::SnippextResult;

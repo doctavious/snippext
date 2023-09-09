@@ -31,16 +31,11 @@ pub struct Args {
 
     /// The local directories, separated by spaces, that contain the files to be spliced
     /// with the code snippets.
-    #[arg(
-        short = 't',
-        long
-    )]
+    #[arg(short = 't', long)]
     pub targets: Option<Vec<String>>,
 
     /// Flag that will delete the entire snippet including the snippet comment
-    #[arg(
-        long,
-    )]
+    #[arg(long)]
     pub delete: bool,
 }
 
