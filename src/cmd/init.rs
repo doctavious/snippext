@@ -14,12 +14,12 @@ use crate::error::SnippextError;
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::{SnippextResult, SnippextSettings};
 
-/// Initialize a snippext configuration file which contains options for extracting snippets
+/// Initialize a Snippext configuration file which contains options for extracting snippets
 /// from target files as well as options for splicing snippets into target files.
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    /// Initializes snippext config using the default snippext config file
+    /// Initializes Snippext config using the default Snippext configuration
     #[arg(long)]
     pub default: bool,
 }

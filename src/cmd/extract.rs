@@ -35,19 +35,21 @@ use crate::{files, git, SnippextResult, SnippextSettings};
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    /// Config file to use
+    /// Config file to use. If not provided the default Snippext configuration will be used
     #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    /// Prefix that marks the start of a snippet
+    /// Prefix that marks the start of a snippet. If provided overrides start defined in configuration
     #[arg(short = 'S', long)]
     pub start: Option<String>,
 
-    /// Prefix that marks the ending of a snippet
+    /// Prefix that marks the ending of a snippet. If provided overrides end defined in configuration
     #[arg(short, long)]
     pub end: Option<String>,
 
-    /// Directory where templates exists. File names act as keys
+    /// Directory where Snippext templates exists used to render snippets.
+    /// File names act as template identifiers which can be used in target files to pick which template
+    /// should be used to render snippet.
     #[arg(short, long, value_name = "DIR")]
     pub templates: Option<String>,
 
@@ -63,12 +65,12 @@ pub struct Args {
     #[arg(long, requires = "repository_url", value_name = "PATTERN")]
     pub repository_cone_patterns: Option<Vec<String>>,
 
-    /// Directory in which the generated snippet files be will output to. Is required unless
-    /// targets is provided. Generated snippets will be rendered with the default template
+    /// Directory in which the generated snippet files be will output to. This is required unless
+    /// `targets` is provided. Generated snippets will be rendered with the default template
     #[arg(short, long, value_name = "DIR", required_unless_present = "targets")]
     pub output_dir: Option<String>,
 
-    /// Extension for generated files. Defaults to md when not specified.
+    /// Extension for generated files. Defaults to `md` when not specified.
     #[arg(short = 'x', long)]
     pub output_extension: Option<String>,
 
@@ -83,7 +85,7 @@ pub struct Args {
     pub targets: Vec<String>,
 
     /// List of glob patterns, separated by space, to look for snippets. Not applicable for
-    /// URL sources
+    /// URL sources. Defaults to `**`.
     #[arg(short, long, value_delimiter = ' ')]
     pub sources: Vec<String>,
 
@@ -253,6 +255,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                     .with_extension(extension);
 
                 fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+                // TODO: output for each template
                 let result = render_template(snippet, &snippext_settings, None)?;
 
                 fs::write(output_path, result).unwrap();

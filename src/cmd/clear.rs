@@ -17,24 +17,24 @@ use crate::{files, SnippextResult};
 #[derive(Clone, Debug, Parser)]
 #[command()]
 pub struct Args {
-    /// Config file to use
+    /// Config file to use. If not provided the default Snippext configuration will be used
     #[arg(short, long, value_parser)]
     pub config: Option<PathBuf>,
 
-    /// Prefix that marks the start of a snippet
+    /// Prefix that marks the start of a snippet. If provided overrides start defined in configuration
     #[arg(short, long)]
     pub start: Option<String>,
 
-    /// Prefix that marks the ending of a snippet
+    /// Prefix that marks the ending of a snippet. If provided overrides end defined in configuration
     #[arg(short, long)]
     pub end: Option<String>,
 
     /// The local directories, separated by spaces, that contain the files to be spliced
-    /// with the code snippets.
+    /// with the code snippets. If provided overrides targets defined in configuration
     #[arg(short = 't', long)]
     pub targets: Option<Vec<String>>,
 
-    /// Flag that will delete the entire snippet including the snippet comment
+    /// Flag that will delete entire snippets, including the snippet comment, from target files
     #[arg(long)]
     pub delete: bool,
 }
