@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 use crate::cmd::*;
 
+/// Snippext is a CLI use to extract snippets from source files and merge into your documentation.
 #[derive(Parser, Debug)]
 #[command(about, version, author)]
 pub struct Args {
