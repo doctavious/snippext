@@ -30,6 +30,7 @@ fn should_successfully_extract_from_local_sources_directory() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -91,6 +92,7 @@ fn error_when_extracting_from_unavailable_remote() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ));
 
@@ -116,6 +118,7 @@ fn should_error_when_snippet_is_not_closed() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ));
 
@@ -153,6 +156,7 @@ fn should_successfully_extract_from_remote_git_repository() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -193,6 +197,7 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -232,6 +237,7 @@ fn url_source_link() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
         .unwrap();
@@ -271,6 +277,7 @@ fn should_successfully_extract_from_local_sources_file() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -303,6 +310,7 @@ fn should_update_specified_targets() {
         Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -346,6 +354,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -385,6 +394,7 @@ fn should_support_template_with_attributes() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -428,6 +438,7 @@ fn support_target_snippet_specifies_template() {
         Some(vec![target.to_string_lossy().to_string()]),
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -464,6 +475,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -499,6 +511,7 @@ fn should_support_files_with_no_snippets() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -533,6 +546,7 @@ fn invalid_glob() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ));
 
@@ -566,6 +580,7 @@ fn glob_returns_no_files() {
         None,
         None,
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -590,7 +605,7 @@ fn support_source_links() {
         String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+            String::from("```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
@@ -600,6 +615,7 @@ fn support_source_links() {
         None,
         Some(LinkFormat::GitHub),
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -623,7 +639,7 @@ fn source_links_should_support_prefix() {
         String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+            String::from("```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
@@ -633,6 +649,7 @@ fn source_links_should_support_prefix() {
         None,
         Some(LinkFormat::GitHub),
         Some("http://github.com/foo".into()),
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();
@@ -648,6 +665,40 @@ fn source_links_should_support_prefix() {
 }
 
 #[test]
+fn omit_source_links() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
+        IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}"),
+        )]),
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
+        }],
+        Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
+        None,
+        Some(LinkFormat::GitHub),
+        None,
+        true,
+        MissingSnippetsBehavior::default(),
+    ))
+        .unwrap();
+
+    let content =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+            .unwrap();
+
+    assert_eq!(
+        "```puts \"Hello, Ruby!\"\n```",
+        content
+    );
+}
+
+#[test]
 fn support_csharp_regions() {
     let dir = tempdir().unwrap();
 
@@ -656,7 +707,7 @@ fn support_csharp_regions() {
         String::from(DEFAULT_END),
         IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-            String::from("```{{snippet}}```{{#if source_links_enabled}}\n{{source_link}}{{/if}}"),
+            String::from("```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}"),
         )]),
         vec![SnippetSource::Local {
             files: vec![String::from("./tests/main.cs")],
@@ -666,6 +717,7 @@ fn support_csharp_regions() {
         None,
         Some(LinkFormat::GitHub),
         None,
+        false,
         MissingSnippetsBehavior::default(),
     ))
     .unwrap();

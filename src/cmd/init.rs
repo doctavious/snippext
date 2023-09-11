@@ -256,6 +256,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
         link_format,
         source_link_prefix,
+        omit_source_links: false,
         missing_snippets_behavior: MissingSnippetsBehavior::from_str(
             &missing_snippets_behavior.to_string(),
             true,

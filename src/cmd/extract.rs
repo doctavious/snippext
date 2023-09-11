@@ -9,6 +9,7 @@ use std::{env, fs};
 
 use chrono::DateTime;
 use clap::Parser;
+use clap::ArgAction::SetTrue;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
@@ -104,6 +105,10 @@ pub struct Args {
     /// files are hosted on a site that is not co-located with the source code files.
     #[arg(long, value_name = "PREFIX")]
     pub source_link_prefix: Option<String>,
+
+    /// Flag that determines whether source links will be omitted from being rendered
+    #[arg(long, action = SetTrue)]
+    pub omit_source_links: Option<bool>,
 
     /// Defined behavior for what to do when missing snippets are present.
     #[arg(short, long, value_name = "BEHAVIOR")]
@@ -907,13 +912,6 @@ fn find_snippet(snippets: &HashMap<String, Snippet>, key: &String) -> Option<Sni
     return None;
 }
 
-// https://stackoverflow.com/questions/27244465/merge-two-hashmaps-in-rust
-// Precedence of options
-// If you specify an option by using one of the environment variables described in this topic,
-// it overrides any value loaded from a profile in the configuration file.
-// If you specify an option by using a parameter on the AWS CLI command line, it overrides any
-// value from either the corresponding environment variable or a profile in the configuration file.
-// TODO: update fn to build_snippext_settings which should be extract settings?
 fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     let mut builder = Config::builder();
 
@@ -933,7 +931,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         .set_override_option("start", opt.start)?
         .set_override_option("end", opt.end)?
         .set_override_option("output_dir", opt.output_dir)?
-        .set_override_option("output_extension", opt.output_extension)?;
+        .set_override_option("output_extension", opt.output_extension)?
+        .set_override_option("omit_source_links", opt.omit_source_links)?;
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -1073,6 +1072,7 @@ mod tests {
             targets: vec![String::from("README.md")],
             link_format: None,
             source_link_prefix: None,
+            omit_source_links: None,
             missing_snippets_behavior: None,
         };
 
@@ -1131,6 +1131,7 @@ mod tests {
             url_sources: Vec::default(),
             link_format: None,
             source_link_prefix: None,
+            omit_source_links: Some(true),
             missing_snippets_behavior: None,
         };
 
@@ -1142,6 +1143,7 @@ mod tests {
         );
         // cli arg overrides env
         assert_eq!(Some("txt".into()), settings.output_extension);
+        assert_eq!(true, settings.omit_source_links);
     }
 
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
@@ -1159,6 +1161,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1198,6 +1201,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1233,6 +1237,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1269,6 +1274,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1303,6 +1309,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1337,6 +1344,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1374,6 +1382,7 @@ mod tests {
             Some(vec!["./tests/targets/specify_template.md".into()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::Fail,
         );
 
@@ -1419,6 +1428,7 @@ mod tests {
             Some(vec![target.to_string_lossy().to_string()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::Fail,
         );
 
@@ -1458,6 +1468,7 @@ mod tests {
             Some(vec!["./tests/targets/specify_template.md".into()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::Warn,
         );
 
@@ -1488,6 +1499,7 @@ mod tests {
             Some(vec![target.to_string_lossy().to_string()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1529,6 +1541,7 @@ some content
             Some(vec![target.to_string_lossy().to_string()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 
@@ -1583,6 +1596,7 @@ SOFTWARE.
             Some(vec![target.to_string_lossy().to_string()]),
             None,
             None,
+            false,
             MissingSnippetsBehavior::default(),
         );
 

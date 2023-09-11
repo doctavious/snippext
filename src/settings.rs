@@ -28,6 +28,8 @@ pub struct SnippextSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_link_prefix: Option<String>,
     #[serde(default)]
+    pub omit_source_links: bool,
+    #[serde(default)]
     pub missing_snippets_behavior: MissingSnippetsBehavior,
 }
 
@@ -55,6 +57,7 @@ impl SnippextSettings {
             targets: None,
             link_format: None,
             source_link_prefix: None,
+            omit_source_links: false,
             missing_snippets_behavior: MissingSnippetsBehavior::default(),
         }
     }
@@ -81,6 +84,7 @@ impl SnippextSettings {
         targets: Option<Vec<String>>,
         link_format: Option<LinkFormat>,
         source_link_prefix: Option<String>,
+        omit_source_links: bool,
         missing_snippets_behavior: MissingSnippetsBehavior,
     ) -> Self {
         Self {
@@ -93,6 +97,7 @@ impl SnippextSettings {
             targets,
             link_format,
             source_link_prefix,
+            omit_source_links,
             missing_snippets_behavior,
         }
     }
