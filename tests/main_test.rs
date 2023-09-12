@@ -9,6 +9,7 @@ use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
+use walkdir::WalkDir;
 
 #[test]
 #[traced_test]
@@ -36,7 +37,7 @@ fn should_successfully_extract_from_local_sources_directory() {
     .unwrap();
 
     let main_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md")).unwrap();
     let main_content_expected = r#"fn main() {
 
     println!("printing...")
@@ -45,11 +46,11 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(main_content_expected, main_content_actual);
 
     let main_nested_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/nested_default.md")).unwrap();
     assert_eq!("println!(\"printing...\")\n", main_nested_content_actual);
 
     let sample_fn_1_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_1_default.md"))
             .unwrap();
     let sample_fn_1_content_expected = r#"fn sample_fn_1() {
 
@@ -58,7 +59,7 @@ fn should_successfully_extract_from_local_sources_directory() {
     assert_eq!(sample_fn_1_content_expected, sample_fn_1_content_actual);
 
     let sample_fn_2_content_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/sample_file.rs/fn_2_default.md"))
             .unwrap();
     let sample_fn_2_content_expected = r#"fn sample_fn_2() {
 
@@ -66,6 +67,42 @@ fn should_successfully_extract_from_local_sources_directory() {
 "#;
     assert_eq!(sample_fn_2_content_expected, sample_fn_2_content_actual);
 }
+
+#[test]
+#[traced_test]
+fn should_successfully_output_snippet_for_each_template() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
+        IndexMap::from([
+            (DEFAULT_TEMPLATE_IDENTIFIER.to_string(), String::from("{{snippet}}")),
+            ("another_template".to_string(), String::from("{{snippet}}")),
+        ]),
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/main.rs")],
+        }],
+        Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
+        None,
+        None,
+        None,
+        false,
+        MissingSnippetsBehavior::default(),
+    ))
+        .unwrap();
+
+    let count = WalkDir::new(Path::new(&dir.path()))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .count();
+
+    assert_eq!(4, count);
+}
+
+
 
 #[test]
 fn error_when_extracting_from_unavailable_remote() {
@@ -162,7 +199,7 @@ fn should_successfully_extract_from_remote_git_repository() {
     .unwrap();
 
     let main_content_actual = fs::read_to_string(
-        Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),
+        Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main_default.md"),
     )
     .unwrap();
     let main_content_expected = r#"fn main() {
@@ -203,7 +240,7 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
     .unwrap();
 
     let main_content_actual = fs::read_to_string(
-        Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main.md"),
+        Path::new(&dir.path()).join("generated-snippets/tests/samples/main.rs/main_default.md"),
     )
     .unwrap();
 
@@ -247,7 +284,7 @@ fn url_source_link() {
             .join("generated-snippets")
             .join("gist.githubusercontent.com")
             .join("_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example_rs")
-            .join("main.md"),
+            .join("main_default.md"),
     ).unwrap();
 
     let expected = r#"fn main() {
@@ -283,7 +320,7 @@ fn should_successfully_extract_from_local_sources_file() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
             .unwrap();
 
     assert_eq!("puts \"Hello, Ruby!\"\n", content);
@@ -400,7 +437,7 @@ fn should_support_template_with_attributes() {
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md")).unwrap();
     let expected = r#"```rust
 fn main() {
 
@@ -481,7 +518,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
     .unwrap();
 
     let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md")).unwrap();
     let expected = r#"```
 fn main() {
 
@@ -621,7 +658,7 @@ fn support_source_links() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
             .unwrap();
 
     assert_eq!(
@@ -655,7 +692,7 @@ fn source_links_should_support_prefix() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
             .unwrap();
 
     assert_eq!(
@@ -689,7 +726,7 @@ fn omit_source_links() {
         .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby.md"))
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
             .unwrap();
 
     assert_eq!(
@@ -723,7 +760,7 @@ fn support_csharp_regions() {
     .unwrap();
 
     let content =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console.md")).unwrap();
+        fs::read_to_string(Path::new(&dir.path()).join("tests/main.cs/console_default.md")).unwrap();
 
     assert_eq!(
         "```Console.WriteLine(\"Hello World!\");\n```\ntests/main.cs#L1-L3",

@@ -249,21 +249,24 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
         if let Some(output_dir) = &snippext_settings.output_dir {
             let base_path = Path::new(output_dir.as_str());
             for (_, snippet) in &extraced_snippets {
-                let output_path = base_path
-                    .join(
-                        snippet
-                            .path
-                            .to_string_lossy()
-                            .trim_start_matches(trim_chars),
-                    )
-                    .join(sanitize(snippet.identifier.to_owned()))
-                    .with_extension(extension);
+                for identifier in snippext_settings.templates.keys() {
+                    let output_path = base_path
+                        .join(
+                            snippet
+                                .path
+                                .to_string_lossy()
+                                .trim_start_matches(trim_chars),
+                        )
+                        .join(format!("{}_{}", sanitize(snippet.identifier.to_owned()), identifier))
+                        .with_extension(extension);
 
-                fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                // TODO: output for each template
-                let result = render_template(snippet, &snippext_settings, None)?;
+                    // println!("{:?}", output_path);
+                    fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+                    // TODO: output for each template
+                    let result = render_template(snippet, &snippext_settings, None)?;
 
-                fs::write(output_path, result).unwrap();
+                    fs::write(output_path, result).unwrap();
+                }
             }
         }
 
