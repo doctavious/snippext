@@ -1,4 +1,4 @@
-// snippet::start main[lang=rust]
+// snippet::start main { "lang": "rust" }
 fn main() {
 
     // snippet::start nested

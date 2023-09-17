@@ -1,93 +1,136 @@
-use std::collections::HashSet;
 use std::path::Path;
 
-use crate::SnippextResult;
+use lazy_static::lazy_static;
 
-pub fn file_comments(extension: &str) -> SnippextResult<Vec<&'static str>> {
+pub type CommentLexicalTokens = (&'static str, Option<&'static str>);
+
+lazy_static! {
+    pub static ref HTML_COMMENT: CommentLexicalTokens = ("<!--", Some("-->"));
+    pub static ref LISP_COMMENT: CommentLexicalTokens = (";;", None);
+    pub static ref DASH_COMMENT: CommentLexicalTokens = ("--", None);
+    pub static ref POUND_COMMENT: CommentLexicalTokens = ("#", None);
+    pub static ref SLASH_COMMENT: CommentLexicalTokens = ("//", None);
+    pub static ref RESTRUCTUREDTEXT_COMMENT: CommentLexicalTokens = ("..", None);
+    pub static ref VB_COMMENT: CommentLexicalTokens = ("'", None);
+}
+
+pub struct SnippextComment {
+    pub start: String,
+    pub start_close: Option<String>,
+    pub end: String,
+}
+
+pub struct SnippextComments {
+    comments: Vec<SnippextComment>,
+}
+
+impl SnippextComments {
+    pub fn new(extension: &str, start: &str, end: &str) -> Self {
+        Self {
+            comments: get_snippet_comments(extension, start, end),
+        }
+    }
+
+    pub fn is_line_start_snippet(&self, line: &str) -> Option<&SnippextComment> {
+        for comment in &self.comments {
+            if line.starts_with(comment.start.as_str()) {
+                return Some(comment);
+            }
+        }
+        None
+    }
+
+    pub fn is_line_end_snippet(&self, line: &str) -> Option<&SnippextComment> {
+        for comment in &self.comments {
+            if line.starts_with(comment.end.as_str()) {
+                return Some(comment);
+            }
+        }
+        None
+    }
+}
+
+pub fn get_snippet_comments(
+    extension: &str,
+    start: &str,
+    end: &str,
+) -> Vec<SnippextComment> {
+    let mut snippet_comments = Vec::new();
+    for comment in file_comments(extension) {
+        let start_close = comment.1.map(str::to_string);
+        snippet_comments.push(SnippextComment {
+            start: format!("{}{}", comment.0, start.to_string()),
+            start_close: start_close.clone(),
+            end: format!("{}{}", comment.0, end.to_string()),
+        });
+        snippet_comments.push(SnippextComment {
+            start: format!("{} {}", comment.0, start.to_string()),
+            start_close: start_close.clone(),
+            end: format!("{} {}", comment.0, end.to_string()),
+        });
+    }
+
+    if extension == "cs" {
+        snippet_comments.push(SnippextComment {
+            start: "#region".into(),
+            start_close: None,
+            end: "#endregion".into(),
+        });
+    }
+
+    if extension == "vb" {
+        snippet_comments.push(SnippextComment {
+            start: "#Region".into(),
+            start_close: None,
+            end: "#End Region".into(),
+        });
+    }
+
+    return snippet_comments;
+}
+
+pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
     match extension {
-        "adoc" => Ok(vec!["//"]), // AsciiDoc
-        "sh" => Ok(vec!["#"]),    // bash
-        "c" => Ok(vec!["//"]),
-        "cpp" => Ok(vec!["//"]),
-        "cs" => Ok(vec!["//"]), // C#
-        "css" => Ok(vec!["//"]),
-        "ex" | "exs" => Ok(vec!["#"]), // Elixir
-        "fs" => Ok(vec!["//"]),        // F#
-        "go" => Ok(vec!["//"]),
-        "h" | "hpp" => Ok(vec!["//"]),
-        "hs" => Ok(vec!["//"]), // Haskell
-        "html" => Ok(vec!["<!--"]),
-        "java" => Ok(vec!["//"]),
-        "js" => Ok(vec!["//"]),
-        "json5" => Ok(vec!["//"]),
-        "kt" => Ok(vec!["//"]),  // Kotlin
-        "lsp" => Ok(vec![";;"]), // Lisp
-        "lua" => Ok(vec!["--"]),
-        "md" => Ok(vec!["<!--"]), // Markdown
-        "m" => Ok(vec!["//"]),    // Objective-c
-        "php" => Ok(vec!["//"]),
-        "pl" => Ok(vec!["#"]), // Perl
-        "py" => Ok(vec!["#"]), // Python
+        "adoc" => vec![*SLASH_COMMENT], // AsciiDoc
+        "sh" => vec![*POUND_COMMENT],   // bash
+        "c" => vec![*SLASH_COMMENT],
+        "cpp" => vec![*SLASH_COMMENT],
+        "cs" => vec![*SLASH_COMMENT], // C#
+        "css" => vec![*SLASH_COMMENT],
+        "ex" | "exs" => vec![*POUND_COMMENT], // Elixir
+        "fs" => vec![*SLASH_COMMENT], // F#
+        "go" => vec![*SLASH_COMMENT],
+        "h" | "hpp" => vec![*SLASH_COMMENT],
+        "hs" => vec![*SLASH_COMMENT], // Haskell
+        "html" => vec![*HTML_COMMENT],
+        "java" => vec![*SLASH_COMMENT],
+        "js" => vec![*SLASH_COMMENT],
+        "json5" => vec![*SLASH_COMMENT],
+        "kt" => vec![*SLASH_COMMENT], // Kotlin
+        "lsp" => vec![*LISP_COMMENT], // Lisp
+        "lua" => vec![*DASH_COMMENT],
+        "md" => vec![*HTML_COMMENT], // Markdown
+        "m" => vec![*SLASH_COMMENT], // Objective-c
+        "php" => vec![*SLASH_COMMENT],
+        "pl" => vec![*POUND_COMMENT], // Perl
+        "py" => vec![*POUND_COMMENT], // Python
 
         // For RestructuredText its considered by some as bad practice to have text on same line
         // but thats what we have to work with.
-        "rst" => Ok(vec![".."]), // ReStructuredText
-        "rb" => Ok(vec!["#"]),   // Ruby
-        "rs" => Ok(vec!["//"]),  // Rust
-        "scala" => Ok(vec!["//"]),
-        "sql" => Ok(vec!["--"]),
-        "swift" => Ok(vec!["//"]),
-        "tf" => Ok(vec!["#"]), // Terraform
-        "toml" => Ok(vec!["#"]),
-        "ts" => Ok(vec!["//"]), // TypeScript
-        "vb" => Ok(vec!["'"]),
-        "xml" => Ok(vec!["<!--"]),
-        "yaml" | "yml" => Ok(vec!["#"]),
-        _ => Ok(vec!["<!--", "#", "//"]),
+        "rst" => vec![*RESTRUCTUREDTEXT_COMMENT], // ReStructuredText
+        "rb" => vec![*POUND_COMMENT], // Ruby
+        "rs" => vec![*SLASH_COMMENT], // Rust
+        "scala" => vec![*SLASH_COMMENT],
+        "sql" => vec![*DASH_COMMENT],
+        "swift" => vec![*SLASH_COMMENT],
+        "tf" => vec![*POUND_COMMENT], // Terraform
+        "toml" => vec![*POUND_COMMENT],
+        "ts" => vec![*SLASH_COMMENT], // TypeScript
+        "vb" => vec![*VB_COMMENT],
+        "xml" => vec![*HTML_COMMENT],
+        "yaml" | "yml" => vec![*POUND_COMMENT],
+        _ => vec![*HTML_COMMENT, *POUND_COMMENT, *SLASH_COMMENT],
     }
-}
-
-pub fn get_snippet_start_prefixes(
-    extension: &str,
-    prefix: &str,
-) -> SnippextResult<HashSet<String>> {
-    let mut prefixes = get_comment_prefixes(extension, prefix)?;
-
-    if extension == "cs" {
-        prefixes.insert("#region".into());
-    }
-
-    if extension == "vb" {
-        prefixes.insert("#Region".into());
-    }
-
-    Ok(prefixes)
-}
-
-pub fn get_snippet_end_prefixes(extension: &str, prefix: &str) -> SnippextResult<HashSet<String>> {
-    let mut prefixes = get_comment_prefixes(extension, prefix)?;
-
-    // support C# and VB regions
-    if extension == "cs" {
-        prefixes.insert("#endregion".into());
-    }
-
-    if extension == "vb" {
-        prefixes.insert("#End Region".into());
-    }
-
-    Ok(prefixes)
-}
-
-fn get_comment_prefixes(extension: &str, prefix: &str) -> SnippextResult<HashSet<String>> {
-    let mut comments = HashSet::new();
-
-    for comment in file_comments(extension)? {
-        comments.insert(format!("{comment}{prefix}"));
-        comments.insert(format!("{comment} {prefix}"));
-    }
-
-    Ok(comments)
 }
 
 pub fn extension_from_path(path: &Path) -> String {

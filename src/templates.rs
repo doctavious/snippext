@@ -13,54 +13,45 @@ use crate::SnippextResult;
 pub fn render_template(
     snippet: &Snippet,
     snippext_settings: &SnippextSettings,
-    target_attributes: Option<HashMap<String, String>>,
+    target_attributes: Option<HashMap<String, Value>>,
 ) -> SnippextResult<String> {
     let mut data: HashMap<String, Value> = HashMap::new();
-    for attribute in &snippet.attributes {
-        data.insert(attribute.0.to_string(), Value::String(attribute.1.to_string()));
-    }
+    // TODO: add global attributes first so that per-snippet attributes can be added to override them
+    data.insert(
+        "omit_source_link".to_string(),
+        Value::Bool(snippext_settings.omit_source_links),
+    );
 
+    data.extend(snippet.attributes.clone());
     if let Some(target_attributes) = target_attributes {
-        data.extend(target_attributes
-            .iter()
-            .map(|e| (e.0.to_string(), Value::String(e.1.to_string())))
-        );
+        data.extend(target_attributes);
     }
 
     // TODO: do we want to make unindent optional?
-    data.insert("snippet".to_string(), Value::String(unindent(snippet.text.as_str())));
+    data.insert(
+        "snippet".to_string(),
+        Value::String(unindent(snippet.text.as_str())),
+    );
     data.insert(
         "source_path".to_string(),
         Value::String(snippet.path.to_string_lossy().to_string()),
     );
 
-    if snippext_settings.omit_source_links {
-        data.insert("omit_source_link".to_string(), Value::Bool(true));
-    } else {
-        // TODO: hate this
-        let omit_source_link = if let Some(omit) = data.get("omit_source_link") {
-            match omit {
-                Value::Bool(b) => b.clone(),
-                Value::String(s) => s.parse::<bool>().is_ok(),
-                _ => false
-            }
-        } else {
-            false
-        };
-
-        data.insert("omit_source_link".to_string(), Value::Bool(omit_source_link));
-        data.insert(
-            "source_link_prefix".to_string(),
-            Value::String(snippext_settings
+    data.insert(
+        "source_link_prefix".to_string(),
+        Value::String(
+            snippext_settings
                 .source_link_prefix
                 .to_owned()
-                .unwrap_or_default()
-            ),
-        );
+                .unwrap_or_default(),
+        ),
+    );
 
-        if let Some(source_link) = &snippet.source_link {
-            data.insert("source_link".to_string(), Value::String(source_link.to_string()));
-        }
+    if let Some(source_link) = &snippet.source_link {
+        data.insert(
+            "source_link".to_string(),
+            Value::String(source_link.to_string()),
+        );
     }
 
     let template = get_template(&data, snippext_settings)?;
@@ -92,12 +83,10 @@ fn get_template<'a>(
                     ))))
                 }
             }
-            _ => {
-                Err(SnippextError::TemplateNotFound(String::from(format!(
-                    "{} has wrong type",
-                    template_identifier.to_string()
-                ))))
-            }
+            _ => Err(SnippextError::TemplateNotFound(String::from(format!(
+                "{} has wrong type",
+                template_identifier.to_string()
+            )))),
         }
     } else {
         let default_template = snippext_settings

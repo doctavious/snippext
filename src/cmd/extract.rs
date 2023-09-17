@@ -8,25 +8,24 @@ use std::time::SystemTime;
 use std::{env, fs};
 
 use chrono::DateTime;
-use clap::Parser;
 use clap::ArgAction::SetTrue;
+use clap::Parser;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
 use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
-use serde_json::json;
+use serde_json::{json, Value};
 use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
-
-use crate::cmd::is_line_snippet;
 use crate::constants::{
     DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG,
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
 };
 use crate::error::SnippextError;
+use crate::files::{SnippextComment, SnippextComments};
 use crate::sanitize::sanitize;
 use crate::templates::render_template;
 use crate::types::{LinkFormat, MissingSnippet, MissingSnippetsBehavior, Snippet, SnippetSource};
@@ -119,7 +118,7 @@ struct SnippetExtractionState {
     pub key: String,
     pub start_line: usize,
     pub lines: String,
-    pub attributes: HashMap<String, String>,
+    pub attributes: HashMap<String, Value>,
 }
 
 impl SnippetExtractionState {
@@ -257,7 +256,11 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                                 .to_string_lossy()
                                 .trim_start_matches(trim_chars),
                         )
-                        .join(format!("{}_{}", sanitize(snippet.identifier.to_owned()), identifier))
+                        .join(format!(
+                            "{}_{}",
+                            sanitize(snippet.identifier.to_owned()),
+                            identifier
+                        ))
                         .with_extension(extension);
 
                     // println!("{:?}", output_path);
@@ -407,7 +410,7 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 fn extract_snippets(
     source: &SnippetSource,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
+    cache: &mut HashMap<String, SnippextComments>,
     snippet_ids: &mut HashSet<String>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
     let mut snippets = HashMap::new();
@@ -632,7 +635,7 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
 fn extract_snippets_from_file(
     source_file: SourceFile,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
+    cache: &mut HashMap<String, SnippextComments>,
     snippet_ids: &mut HashSet<String>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
     let f = File::open(&source_file.full_path)?;
@@ -643,11 +646,12 @@ fn extract_snippets_from_file(
     let mut snippets = HashMap::new();
     let extension = files::extension_from_path(&source_file.full_path);
 
-    let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
+    let snippet_comments = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.start.as_str())?,
-            files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+        Entry::Vacant(entry) => entry.insert(SnippextComments::new(
+            extension.as_str().clone(),
+            settings.start.as_str(),
+            settings.end.as_str(),
         )),
     };
 
@@ -656,24 +660,26 @@ fn extract_snippets_from_file(
         let l = line?;
         let current_line = l.trim();
 
-        if let Some(start_prefix) = is_line_snippet(current_line, &snippet_start_prefixes) {
+        if let Some(comment) = snippet_comments.is_line_start_snippet(current_line) {
             let mut attributes = HashMap::from([
                 (
                     "path".to_string(),
-                    source_file.relative_path.to_string_lossy().to_string(),
+                    Value::String(source_file.relative_path.to_string_lossy().to_string()),
                 ),
                 (
                     "filename".to_string(),
-                    source_file
-                        .full_path
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string(),
+                    Value::String(
+                        source_file
+                            .full_path
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string(),
+                    ),
                 ),
             ]);
 
-            let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, &start_prefix) else {
+            let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, comment) else {
                 // TODO: error
                 continue;
             };
@@ -697,7 +703,7 @@ fn extract_snippets_from_file(
             continue;
         }
 
-        if is_line_snippet(current_line, &snippet_end_prefixes).is_some() {
+        if snippet_comments.is_line_end_snippet(current_line).is_some() {
             if let Some(state) = state.pop() {
                 let id = state.key;
                 snippets.insert(
@@ -744,11 +750,18 @@ fn extract_snippets_from_file(
 
 fn extract_id_and_attributes(
     line: &str,
-    start: &String,
-) -> SnippextResult<(String, Option<HashMap<String, String>>)> {
-    let re =
-        Regex::new(format!("{start}[ ]*(?P<key>[\\w\\-./:]*)(?P<attributes>\\[[^]]+])?").as_str())
-            .unwrap();
+    comment: &SnippextComment,
+) -> SnippextResult<(String, Option<HashMap<String, Value>>)> {
+    let regex_close = comment.start_close.as_ref()
+        .and_then(|s| Some(format!("({}|$)", s)))
+        .unwrap_or("$".to_string());
+
+    let format = format!(
+        "{}[ ]*(?P<key>[\\S]*)(?P<attributes>.*?){}",
+        comment.start, regex_close
+    );
+
+    let re = Regex::new(&format).unwrap();
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
         let Some(key) = capture_groups.name("key") else {
@@ -756,20 +769,13 @@ fn extract_id_and_attributes(
         };
 
         let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
-            let mut attributes = HashMap::new();
-            let trim_ends: &[_] = &['[', ']'];
-            let parts: Vec<&str> = match_attributes
-                .as_str()
-                .trim_matches(trim_ends)
-                .split("=")
-                .collect();
-            if parts.len() == 2 {
-                attributes.insert(
-                    parts.get(0).unwrap().to_string(),
-                    parts.get(1).unwrap().to_string(),
-                );
+            let attributes_str = match_attributes.as_str().trim();
+            if attributes_str == "" {
+                None
+            } else {
+                let attributes = serde_json::from_str(attributes_str)?;
+                Some(attributes)
             }
-            Some(attributes)
         } else {
             None
         };
@@ -787,7 +793,7 @@ fn process_target_file(
     target: &Path,
     snippets: &HashMap<String, Snippet>,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, (HashSet<String>, HashSet<String>)>,
+    cache: &mut HashMap<String, SnippextComments>,
 ) -> SnippextResult<Vec<MissingSnippet>> {
     let mut new_file_lines = Vec::new();
     let mut updated = false;
@@ -795,11 +801,12 @@ fn process_target_file(
     let mut line_number = 0;
     let mut missing_snippets = Vec::new();
     let extension = files::extension_from_path(target);
-    let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
+    let snippet_comments = match cache.entry(extension.clone()) {
         Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => entry.insert((
-            files::get_snippet_start_prefixes(extension.as_str().clone(), settings.start.as_str())?,
-            files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+        Entry::Vacant(entry) => entry.insert(SnippextComments::new(
+            extension.as_str().clone(),
+            settings.start.as_str(),
+            settings.end.as_str(),
         )),
     };
 
@@ -811,7 +818,7 @@ fn process_target_file(
         let current_line = line.trim();
 
         if in_current_snippet.is_some() {
-            if is_line_snippet(current_line, &snippet_end_prefixes).is_some() {
+            if snippet_comments.is_line_end_snippet(current_line).is_some() {
                 new_file_lines.push(line.clone());
                 in_current_snippet = None;
             }
@@ -821,11 +828,12 @@ fn process_target_file(
 
         new_file_lines.push(line.clone());
 
-        if is_line_snippet(current_line, &snippet_start_prefixes).is_none() {
+        let snippet_comment = snippet_comments.is_line_start_snippet(current_line);
+        if snippet_comment.is_none() {
             continue;
         }
 
-        let Ok((key, attributes)) = extract_id_and_attributes(current_line, &settings.start) else {
+        let Ok((key, attributes)) = extract_id_and_attributes(current_line, snippet_comment.unwrap()) else {
             warn!("Failed to extract id/attributes from snippet. File {} line number {}",
                 target.to_string_lossy(),
                 line_number

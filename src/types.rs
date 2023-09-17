@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -12,30 +13,15 @@ pub struct Snippet {
     /// The path the snippet was read from.
     pub path: PathBuf,
     pub text: String,
-    pub attributes: HashMap<String, String>,
+    pub attributes: HashMap<String, Value>,
     pub start_line: usize,
     pub end_line: usize,
     pub source_link: Option<String>,
 }
 
-// source details
-// pub enum SnippetLocation {
-//     // Git {
-//     //     source: String,
-//     //     branch: String,
-//     // },
-//
-// }
-
-// SourceLocation
-
-// SnippetSource
-// path: string
-
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-// #[serde(tag = "type")]
 #[serde(untagged)]
 pub enum SnippetSource {
     Git {
@@ -75,19 +61,6 @@ impl LinkFormat {
         Self::Gitee,
     ];
 
-    pub fn source_link(&self, url: &String, start_line: usize, end_line: usize) -> String {
-        match self {
-            LinkFormat::AzureRepos => format!("{}&line={}&lineEnd={}", url, start_line, end_line),
-            LinkFormat::BitBucket => {
-                format!("{}#lines={}:{}", url, start_line, end_line)
-            }
-            LinkFormat::GitHub => format!("{}#L{}-L{}", url, start_line, end_line),
-            LinkFormat::GitLab => format!("{}#L{}-{}", url, start_line, end_line),
-            LinkFormat::Gitea => format!("{}#L{}-L{}", url, start_line, end_line),
-            LinkFormat::Gitee => format!("{}#L{}-{}", url, start_line, end_line),
-        }
-    }
-
     pub fn from_domain(domain: &str) -> Option<Self> {
         match domain.split('.').next()? {
             "azure" => Some(LinkFormat::AzureRepos),
@@ -97,21 +70,6 @@ impl LinkFormat {
             "gitea" => Some(LinkFormat::Gitea),
             "gitee" => Some(LinkFormat::Gitee),
             _ => None,
-        }
-    }
-
-    // TODO: not a fan that this is separate from generally building source link
-    // Would prefer something with better cohesion but not sure what that looks like
-    // TODO: figure out appropriate value for Azure Repos. See
-    // https://github.com/dotnet/sourcelink/blob/bf63e726a31d7bdb25b4589627cef44da0072174/src/SourceLink.AzureRepos.Git/GetSourceLinkUrl.cs#L33
-    pub fn blob_path_segment(&self) -> &str {
-        match self {
-            LinkFormat::AzureRepos => "",
-            LinkFormat::BitBucket => "/raw/",
-            LinkFormat::GitHub => "/blob/",
-            LinkFormat::GitLab => "/-/blob/",
-            LinkFormat::Gitea => "-/blob/",
-            LinkFormat::Gitee => "/blob/",
         }
     }
 }

@@ -1,5 +1,5 @@
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -7,11 +7,10 @@ use std::path::PathBuf;
 use clap::Parser;
 use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
-
-use crate::cmd::is_line_snippet;
 use crate::constants::{DEFAULT_SNIPPEXT_CONFIG, SNIPPEXT};
 use crate::error::SnippextError;
 use crate::{files, SnippextResult};
+use crate::files::SnippextComments;
 
 /// Clear snippets in target files
 #[derive(Clone, Debug, Parser)]
@@ -78,17 +77,15 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
 pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
     validate_clear_settings(&settings)?;
 
-    let mut cache: HashMap<String, (HashSet<String>, HashSet<String>)> = HashMap::new();
+    let mut cache = HashMap::new();
     for target in settings.targets {
         let extension = files::extension(target.as_str());
-        let (snippet_start_prefixes, snippet_end_prefixes) = match cache.entry(extension.clone()) {
+        let snippet_comments = match cache.entry(extension.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert((
-                files::get_snippet_start_prefixes(
-                    extension.as_str().clone(),
-                    settings.start.as_str(),
-                )?,
-                files::get_snippet_end_prefixes(extension.clone().as_str(), settings.end.as_str())?,
+            Entry::Vacant(entry) => entry.insert(SnippextComments::new(
+                extension.as_str().clone(),
+                settings.start.as_str(),
+                settings.end.as_str(),
             )),
         };
 
@@ -100,12 +97,12 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
         for line in reader.lines() {
             let l = line?;
 
-            if is_line_snippet(l.as_str(), &snippet_start_prefixes).is_some() {
+            if snippet_comments.is_line_start_snippet(l.as_str()).is_some() {
                 omit = true;
                 if !settings.delete {
                     new_lines.push(l.clone());
                 }
-            } else if is_line_snippet(l.as_str(), &snippet_end_prefixes).is_some() {
+            } else if snippet_comments.is_line_end_snippet(l.as_str()).is_some() {
                 omit = false;
                 if !settings.delete {
                     new_lines.push(l.clone());
