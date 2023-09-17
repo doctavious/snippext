@@ -269,7 +269,7 @@ fn url_source_link() {
             String::from("{{snippet}}{{source_link}}"),
         )]),
         vec![SnippetSource::Url (
-            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs".into()
+            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into()
         )],
         Some(format!(
             "{}/generated-snippets/",
@@ -288,14 +288,14 @@ fn url_source_link() {
         Path::new(&dir.path())
             .join("generated-snippets")
             .join("gist.githubusercontent.com")
-            .join("_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_e87bd099a28b3a5c8112145e227ee176b3169439_snippext_example_rs")
+            .join("_seancarroll_94629074d8cb36e9f5a0bc47b72ba6a5_raw_2b9d5db6482c7ff90a0cf3689d2a36b99e77d189_snippext_example_rs")
             .join("main_default.md"),
     ).unwrap();
 
     let expected = r#"fn main() {
     println!("Hello, World!");
 }
-https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/e87bd099a28b3a5c8112145e227ee176b3169439/snippext_example.rs"#;
+https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs"#;
 
     assert_eq!(actual, expected);
 }
@@ -489,7 +489,7 @@ fn support_target_snippet_specifies_template() {
 
     let actual = fs::read_to_string(target).unwrap();
     let expected = r#"Specify template
-<!-- snippet::start main[template=code] -->
+<!-- snippet::start main { "template": "code" } -->
 ```rust
 fn main() {
 
