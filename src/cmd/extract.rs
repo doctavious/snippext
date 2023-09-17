@@ -263,7 +263,6 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         ))
                         .with_extension(extension);
 
-                    // println!("{:?}", output_path);
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
                     // TODO: output for each template
                     let result = render_template(snippet, &snippext_settings, None)?;
@@ -1092,7 +1091,6 @@ mod tests {
         assert_eq!("snippet::start", settings.start);
         assert_eq!("finish::", settings.end);
         assert_eq!(Some("txt".into()), settings.output_extension);
-        println!("{}", serde_json::to_string(&settings).unwrap());
         assert_eq!(2, settings.templates.len());
 
         let default_template = settings.templates.get(DEFAULT_TEMPLATE_IDENTIFIER).unwrap();
@@ -1180,7 +1178,6 @@ mod tests {
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
-                println!("{:?}", failures);
                 assert_eq!(5, failures.len());
                 assert!(failures.contains(&String::from("start must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
@@ -1220,7 +1217,6 @@ mod tests {
         let error = validation_result.err().unwrap();
         match error {
             SnippextError::ValidationError(failures) => {
-                println!("{:?}", failures);
                 assert_eq!(3, failures.len());
                 assert!(failures.contains(&String::from("start must not be an empty string")));
                 assert!(failures.contains(&String::from("end must not be an empty string")));
@@ -1504,7 +1500,7 @@ mod tests {
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/9fbf1c3e127034d9701e05417e19cb6f28fd5c82/snippext_example.rs".into())],
+            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into())],
             None,
             None,
             Some(vec![target.to_string_lossy().to_string()]),
