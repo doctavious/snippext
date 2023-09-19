@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
+
 use crate::constants::{
     DEFAULT_GIT_BRANCH, DEFAULT_OUTPUT_FILE_EXTENSION, DEFAULT_SNIPPEXT_CONFIG,
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
@@ -751,7 +752,9 @@ fn extract_id_and_attributes(
     line: &str,
     comment: &SnippextComment,
 ) -> SnippextResult<(String, Option<HashMap<String, Value>>)> {
-    let regex_close = comment.start_close.as_ref()
+    let regex_close = comment
+        .start_close
+        .as_ref()
         .and_then(|s| Some(format!("({}|$)", s)))
         .unwrap_or("$".to_string());
 

@@ -501,6 +501,50 @@ fn main() {
 }
 
 #[test]
+fn should_support_selected_lines() {
+    let dir = tempdir().unwrap();
+    let target = Path::new(&dir.path()).join("selected_lines.md");
+    fs::copy(Path::new("./tests/targets/selected_lines.md"), &target).unwrap();
+
+    extract(SnippextSettings::new(
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
+        IndexMap::from([
+            (
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("{{snippet}}"),
+            ),
+            (
+                "code".to_string(),
+                String::from("```{{lang}}\n{{snippet}}```\n"),
+            ),
+        ]),
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/main.rs")],
+        }],
+        None,
+        None,
+        Some(vec![target.to_string_lossy().to_string()]),
+        None,
+        None,
+        false,
+        MissingSnippetsBehavior::default(),
+    ))
+    .unwrap();
+
+    let actual = fs::read_to_string(target).unwrap();
+    let expected = r#"Select Lines
+<!-- snippet::start main { "template": "code", "selected_lines": ["1", "3-4"] } -->
+```rust
+fn main() {
+    println!("printing...")
+}
+```
+<!-- snippet::end -->"#;
+    assert_eq!(expected, actual);
+}
+
+#[test]
 fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 

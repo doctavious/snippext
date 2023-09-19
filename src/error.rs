@@ -1,3 +1,4 @@
+use std::num::ParseIntError;
 use std::path::StripPrefixError;
 use std::string::FromUtf8Error;
 
@@ -71,4 +72,7 @@ pub enum SnippextError {
 
     #[error("Missing Snippets: `{0:?}`")]
     MissingSnippetsError(Vec<MissingSnippet>),
+
+    #[error(transparent)]
+    IntError(#[from] ParseIntError),
 }

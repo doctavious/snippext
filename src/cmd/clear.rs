@@ -7,10 +7,11 @@ use std::path::PathBuf;
 use clap::Parser;
 use config::{Config, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
+
 use crate::constants::{DEFAULT_SNIPPEXT_CONFIG, SNIPPEXT};
 use crate::error::SnippextError;
-use crate::{files, SnippextResult};
 use crate::files::SnippextComments;
+use crate::{files, SnippextResult};
 
 /// Clear snippets in target files
 #[derive(Clone, Debug, Parser)]

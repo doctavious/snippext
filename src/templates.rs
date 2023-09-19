@@ -16,7 +16,6 @@ pub fn render_template(
     target_attributes: Option<HashMap<String, Value>>,
 ) -> SnippextResult<String> {
     let mut data: HashMap<String, Value> = HashMap::new();
-    // TODO: add global attributes first so that per-snippet attributes can be added to override them
     data.insert(
         "omit_source_link".to_string(),
         Value::Bool(snippext_settings.omit_source_links),
@@ -27,10 +26,47 @@ pub fn render_template(
         data.extend(target_attributes);
     }
 
+    let snippet_content = if let Some(selected_lines) = data.get("selected_lines") {
+        let selected_numbers = selected_lines
+            .as_array()
+            .ok_or(SnippextError::GeneralError(
+                "selected_lines must be an array".to_string(),
+            ))?;
+
+        let snippet_content_lines: Vec<&str> = snippet.text.as_str().lines().collect();
+        let mut new_lines = Vec::new();
+        for selected_number in selected_numbers {
+            let sn = selected_number.as_str().ok_or(SnippextError::GeneralError(
+                "select_lines values must be strings".to_string(),
+            ))?;
+
+            let include_lines = if sn.contains("-") {
+                let line_nums: Vec<&str> = sn.split("-").collect();
+                [
+                    line_nums[0].parse::<usize>()? - 1,
+                    line_nums[1].parse::<usize>()?,
+                ]
+            } else {
+                let num = sn.trim().parse::<usize>()?;
+                [num - 1, num]
+            };
+
+            new_lines.extend_from_slice(&snippet_content_lines[include_lines[0]..include_lines[1]]);
+        }
+
+        new_lines.iter().fold(String::new(), |mut a, b| {
+            a.push_str(b);
+            a.push_str("\n");
+            a
+        })
+    } else {
+        snippet.text.clone()
+    };
+
     // TODO: do we want to make unindent optional?
     data.insert(
         "snippet".to_string(),
-        Value::String(unindent(snippet.text.as_str())),
+        Value::String(unindent(snippet_content.as_str())),
     );
     data.insert(
         "source_path".to_string(),

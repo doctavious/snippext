@@ -50,11 +50,7 @@ impl SnippextComments {
     }
 }
 
-pub fn get_snippet_comments(
-    extension: &str,
-    start: &str,
-    end: &str,
-) -> Vec<SnippextComment> {
+pub fn get_snippet_comments(extension: &str, start: &str, end: &str) -> Vec<SnippextComment> {
     let mut snippet_comments = Vec::new();
     for comment in file_comments(extension) {
         let start_close = comment.1.map(str::to_string);
@@ -98,7 +94,7 @@ pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
         "cs" => vec![*SLASH_COMMENT], // C#
         "css" => vec![*SLASH_COMMENT],
         "ex" | "exs" => vec![*POUND_COMMENT], // Elixir
-        "fs" => vec![*SLASH_COMMENT], // F#
+        "fs" => vec![*SLASH_COMMENT],         // F#
         "go" => vec![*SLASH_COMMENT],
         "h" | "hpp" => vec![*SLASH_COMMENT],
         "hs" => vec![*SLASH_COMMENT], // Haskell
@@ -118,8 +114,8 @@ pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
         // For RestructuredText its considered by some as bad practice to have text on same line
         // but thats what we have to work with.
         "rst" => vec![*RESTRUCTUREDTEXT_COMMENT], // ReStructuredText
-        "rb" => vec![*POUND_COMMENT], // Ruby
-        "rs" => vec![*SLASH_COMMENT], // Rust
+        "rb" => vec![*POUND_COMMENT],             // Ruby
+        "rs" => vec![*SLASH_COMMENT],             // Rust
         "scala" => vec![*SLASH_COMMENT],
         "sql" => vec![*DASH_COMMENT],
         "swift" => vec![*SLASH_COMMENT],
