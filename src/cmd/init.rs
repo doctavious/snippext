@@ -240,6 +240,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         None
     };
 
+    let omit_source_links = Confirm::new("Omit source links?")
+        .with_default(false)
+        .with_help_message("Determines whether source links should be omitted from when snippets are rendered")
+        .prompt()?;
+
     let missing_snippets_behavior = Select::new(
         "Missing Snippet Behavior?",
         MissingSnippetsBehavior::value_variants().to_vec(),
@@ -256,7 +261,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
         link_format,
         source_link_prefix,
-        omit_source_links: false,
+        omit_source_links,
         missing_snippets_behavior: MissingSnippetsBehavior::from_str(
             &missing_snippets_behavior.to_string(),
             true,
