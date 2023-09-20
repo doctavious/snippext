@@ -33,6 +33,7 @@ fn should_successfully_extract_from_local_sources_directory() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -97,6 +98,7 @@ fn should_successfully_output_snippet_for_each_template() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -136,6 +138,7 @@ fn error_when_extracting_from_unavailable_remote() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ));
 
     assert!(result.is_err());
@@ -162,6 +165,7 @@ fn should_error_when_snippet_is_not_closed() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ));
 
     assert!(result.is_err());
@@ -200,6 +204,7 @@ fn should_successfully_extract_from_remote_git_repository() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -241,6 +246,7 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -281,6 +287,7 @@ fn url_source_link() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
         .unwrap();
 
@@ -321,6 +328,7 @@ fn should_successfully_extract_from_local_sources_file() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -355,6 +363,7 @@ fn should_update_specified_targets() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -399,6 +408,7 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -439,6 +449,7 @@ fn should_support_template_with_attributes() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -484,6 +495,7 @@ fn support_target_snippet_specifies_template() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -529,6 +541,7 @@ fn should_support_selected_lines() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -565,6 +578,7 @@ fn should_treat_unknown_template_variables_as_empty_string() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -602,6 +616,7 @@ fn should_support_files_with_no_snippets() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -637,6 +652,7 @@ fn invalid_glob() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ));
 
     assert!(result.is_err());
@@ -671,6 +687,7 @@ fn glob_returns_no_files() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -708,6 +725,7 @@ fn support_source_links() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -745,6 +763,7 @@ fn source_links_should_support_prefix() {
         Some("http://github.com/foo".into()),
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -782,6 +801,7 @@ fn omit_source_links() {
         None,
         true,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -816,6 +836,7 @@ fn support_csharp_regions() {
         None,
         false,
         MissingSnippetsBehavior::default(),
+        false,
     ))
     .unwrap();
 
@@ -827,4 +848,44 @@ fn support_csharp_regions() {
         "```Console.WriteLine(\"Hello World!\");\n```\ntests/main.cs#L1-L3",
         content
     );
+}
+
+#[test]
+fn should_retain_nested_snippet_comments() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings::new(
+        String::from(DEFAULT_START),
+        String::from(DEFAULT_END),
+        IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{lang}}\n{{snippet}}```\n"),
+        )]),
+        vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/main.rs")],
+        }],
+        Some(dir.path().to_string_lossy().to_string()),
+        Some(String::from("md")),
+        None,
+        None,
+        None,
+        false,
+        MissingSnippetsBehavior::default(),
+        true,
+    ))
+        .unwrap();
+
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
+            .unwrap();
+    let expected = r#"```rust
+fn main() {
+
+    // snippet::start nested
+    println!("printing...")
+    // snippet::end
+}
+```
+"#;
+    assert_eq!(expected, actual);
 }

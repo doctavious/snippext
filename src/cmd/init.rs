@@ -251,6 +251,11 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
     )
     .prompt()?;
 
+    let retain_nested_snippet_comments = Confirm::new("Retain nested snippet comments?")
+        .with_default(false)
+        .with_help_message("Determines whether nested snippet comments should be included in parent snippet content")
+        .prompt()?;
+
     Ok(SnippextSettings {
         start,
         end,
@@ -267,6 +272,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
             true,
         )
         .map_err(SnippextError::GeneralError)?,
+        retain_nested_snippet_comments,
     })
 }
 

@@ -113,6 +113,11 @@ pub struct Args {
     /// Defined behavior for what to do when missing snippets are present.
     #[arg(short, long, value_name = "BEHAVIOR")]
     pub missing_snippets_behavior: Option<MissingSnippetsBehavior>,
+
+    /// Flag that determines whether nested snippet comments are included in parent snippets
+    #[arg(long, action = SetTrue)]
+    pub retain_nested_snippet_comments: Option<bool>,
+
 }
 
 struct SnippetExtractionState {
@@ -265,9 +270,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    // TODO: output for each template
                     let result = render_template(snippet, &snippext_settings, None)?;
-
                     fs::write(output_path, result).unwrap();
                 }
             }
@@ -642,7 +645,7 @@ fn extract_snippets_from_file(
     let reader = BufReader::new(f);
 
     let mut current_line_number = 0;
-    let mut state = Vec::new();
+    let mut state: Vec<SnippetExtractionState> = Vec::new();
     let mut snippets = HashMap::new();
     let extension = files::extension_from_path(&source_file.full_path);
 
@@ -688,6 +691,16 @@ fn extract_snippets_from_file(
                 attributes.extend(snippet_attributes);
             }
 
+            let retain_nested_comments = attributes.get("retain_nested_snippet_comments")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(settings.retain_nested_snippet_comments);
+
+            if retain_nested_comments && !state.is_empty() {
+                for e in state.iter_mut() {
+                    e.append_line((l.clone() + "\n").as_str());
+                }
+            }
+
             state.push(SnippetExtractionState {
                 key,
                 start_line: current_line_number,
@@ -704,21 +717,25 @@ fn extract_snippets_from_file(
         }
 
         if snippet_comments.is_line_end_snippet(current_line).is_some() {
-            if let Some(state) = state.pop() {
-                let id = state.key;
+            if let Some(snippet_extraction_state) = state.pop() {
+                let id = snippet_extraction_state.key;
+                let retain_nested_comments = snippet_extraction_state.attributes.get("retain_nested_snippet_comments")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(settings.retain_nested_snippet_comments);
+
                 snippets.insert(
                     id.clone(),
                     Snippet {
                         identifier: id.clone(),
                         path: source_file.relative_path.to_owned(),
-                        text: state.lines,
-                        attributes: state.attributes,
-                        start_line: state.start_line,
+                        text: snippet_extraction_state.lines,
+                        attributes: snippet_extraction_state.attributes,
+                        start_line: snippet_extraction_state.start_line,
                         end_line: current_line_number,
                         source_link: Some(
                             source_file
                                 .source_link
-                                .append_lines(state.start_line, current_line_number),
+                                .append_lines(snippet_extraction_state.start_line, current_line_number),
                         ),
                     },
                 );
@@ -727,10 +744,16 @@ fn extract_snippets_from_file(
                 if previously_seen_id {
                     warn!("multiple snippets with id {} found", id.clone());
                 }
+
+                if retain_nested_comments && !state.is_empty() {
+                    for e in state.iter_mut() {
+                        e.append_line((l.clone() + "\n").as_str());
+                    }
+                }
             }
         } else {
             for e in state.iter_mut() {
-                e.append_line((l.clone() + "\n").as_str())
+                e.append_line((l.clone() + "\n").as_str());
             }
         }
     }
@@ -775,8 +798,7 @@ fn extract_id_and_attributes(
             if attributes_str == "" {
                 None
             } else {
-                let attributes = serde_json::from_str(attributes_str)?;
-                Some(attributes)
+                Some(serde_json::from_str(attributes_str)?)
             }
         } else {
             None
@@ -945,7 +967,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         .set_override_option("end", opt.end)?
         .set_override_option("output_dir", opt.output_dir)?
         .set_override_option("output_extension", opt.output_extension)?
-        .set_override_option("omit_source_links", opt.omit_source_links)?;
+        .set_override_option("omit_source_links", opt.omit_source_links)?
+        .set_override_option("retain_nested_snippet_comments", opt.retain_nested_snippet_comments)?;
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -1087,6 +1110,7 @@ mod tests {
             source_link_prefix: None,
             omit_source_links: None,
             missing_snippets_behavior: None,
+            retain_nested_snippet_comments: None,
         };
 
         let settings = super::build_settings(args).unwrap();
@@ -1145,6 +1169,7 @@ mod tests {
             source_link_prefix: None,
             omit_source_links: Some(true),
             missing_snippets_behavior: None,
+            retain_nested_snippet_comments: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -1175,6 +1200,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1214,6 +1240,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1249,6 +1276,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1286,6 +1314,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1321,6 +1350,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1356,6 +1386,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1394,6 +1425,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::Fail,
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1440,6 +1472,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::Fail,
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1480,6 +1513,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::Warn,
+            false,
         );
 
         let validation_result = super::extract(settings);
@@ -1511,6 +1545,7 @@ mod tests {
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         super::extract(settings).expect("Should extract from URL");
@@ -1553,6 +1588,7 @@ some content
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         super::extract(settings).expect("Should extract from URL");
@@ -1608,6 +1644,7 @@ SOFTWARE.
             None,
             false,
             MissingSnippetsBehavior::default(),
+            false,
         );
 
         super::extract(settings).expect("Should extract from URL");

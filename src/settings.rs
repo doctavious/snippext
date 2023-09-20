@@ -31,6 +31,8 @@ pub struct SnippextSettings {
     pub omit_source_links: bool,
     #[serde(default)]
     pub missing_snippets_behavior: MissingSnippetsBehavior,
+    #[serde(default)]
+    pub retain_nested_snippet_comments: bool,
 }
 
 impl SnippextSettings {
@@ -59,6 +61,7 @@ impl SnippextSettings {
             source_link_prefix: None,
             omit_source_links: false,
             missing_snippets_behavior: MissingSnippetsBehavior::default(),
+            retain_nested_snippet_comments: false,
         }
     }
 
@@ -86,6 +89,7 @@ impl SnippextSettings {
         source_link_prefix: Option<String>,
         omit_source_links: bool,
         missing_snippets_behavior: MissingSnippetsBehavior,
+        retain_nested_snippet_comments: bool,
     ) -> Self {
         Self {
             start,
@@ -99,6 +103,7 @@ impl SnippextSettings {
             source_link_prefix,
             omit_source_links,
             missing_snippets_behavior,
+            retain_nested_snippet_comments,
         }
     }
 }
