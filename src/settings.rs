@@ -11,7 +11,7 @@ use crate::constants::{
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::SnippextResult;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SnippextSettings {
     pub start: String,
     pub end: String,
@@ -35,7 +35,7 @@ pub struct SnippextSettings {
     pub retain_nested_snippet_comments: bool,
 }
 
-impl SnippextSettings {
+impl Default for SnippextSettings {
     /// Create default SnippextSettings which will have the following
     /// start: [`DEFAULT_START`]
     /// end: [`DEFAULT_END`]
@@ -43,7 +43,7 @@ impl SnippextSettings {
     /// template: [`DEFAULT_TEMPLATE`]
     /// sources: all files via [`DEFAULT_SOURCE_FILES`] glob
     /// output_dir: [`DEFAULT_OUTPUT_DIR`]
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             start: String::from(DEFAULT_START),
             end: String::from(DEFAULT_END),
@@ -64,7 +64,9 @@ impl SnippextSettings {
             retain_nested_snippet_comments: false,
         }
     }
+}
 
+impl SnippextSettings {
     /// Create SnippextSettings from config file
     ///
     /// # Arguments

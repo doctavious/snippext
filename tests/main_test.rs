@@ -889,3 +889,36 @@ fn main() {
 "#;
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn should_allow_custom_highlighted_attributes() {
+    let dir = tempdir().unwrap();
+    let target = Path::new(&dir.path()).join("highlighted_lines.md");
+    fs::copy(Path::new("./tests/targets/highlighted_lines.md"), &target).unwrap();
+
+    extract(SnippextSettings {
+        templates: IndexMap::from([
+            (
+                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+                String::from("```{{lang}} hl_lines=\"{{highlighted_lines}}\"\n{{snippet}}```\n"),
+            ),
+        ]),
+        sources: vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/main.rs")],
+        }],
+        targets: Some(vec![target.to_string_lossy().to_string()]),
+        ..Default::default()
+    }).unwrap();
+
+    let actual = fs::read_to_string(target).unwrap();
+    let expected = r#"Highlighted Lines
+<!-- snippet::start main { "highlighted_lines": "1 3-5" } -->
+```rust hl_lines="1 3-5"
+fn main() {
+
+    println!("printing...")
+}
+```
+<!-- snippet::end -->"#;
+    assert_eq!(expected, actual);
+}
