@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
-use snippext::constants::{DEFAULT_END, DEFAULT_START, DEFAULT_TEMPLATE_IDENTIFIER};
+use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
-use snippext::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
+use snippext::types::{LinkFormat, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
 use walkdir::WalkDir;
@@ -16,25 +16,18 @@ use walkdir::WalkDir;
 fn should_successfully_extract_from_local_sources_directory() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/*")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let main_content_actual =
@@ -78,28 +71,21 @@ fn should_successfully_extract_from_local_sources_directory() {
 fn should_successfully_output_snippet_for_each_template() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([
+    extract(SnippextSettings {
+        templates: IndexMap::from([
             (
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             ),
             ("another_template".to_string(), String::from("{{snippet}}")),
         ]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let count = WalkDir::new(Path::new(&dir.path()))
@@ -115,31 +101,24 @@ fn should_successfully_output_snippet_for_each_template() {
 fn error_when_extracting_from_unavailable_remote() {
     let dir = tempdir().unwrap();
 
-    let result = extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    let result = extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Git {
+        sources: vec![SnippetSource::Git {
             repository: String::from("https://some_bad_url_that_doesnt_exist.blah/not_found.git"),
             branch: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/**/*")],
         }],
-        Some(format!(
+        output_dir: Some(format!(
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ));
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    });
 
     assert!(result.is_err());
 }
@@ -148,25 +127,18 @@ fn error_when_extracting_from_unavailable_remote() {
 fn should_error_when_snippet_is_not_closed() {
     let dir = tempdir().unwrap();
 
-    let result = extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    let result = extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/snippet_left_open.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ));
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    });
 
     assert!(result.is_err());
 }
@@ -181,31 +153,24 @@ fn test_git_sources() {
 fn should_successfully_extract_from_remote_git_repository() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}{{source_link}}"),
         )]),
-        vec![SnippetSource::Git {
+        sources: vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
             branch: Some(String::from("tests")),
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
         }],
-        Some(format!(
+        output_dir: Some(format!(
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let main_content_actual = fs::read_to_string(
@@ -223,31 +188,24 @@ https://github.com/doctavious/snippext/blob/tests/tests/samples/main.rs#L1-L8"#;
 fn should_successfully_extract_from_remote_without_branch_provided() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Git {
+        sources: vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
             branch: None,
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
         }],
-        Some(format!(
+        output_dir: Some(format!(
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let main_content_actual = fs::read_to_string(
@@ -267,28 +225,21 @@ fn should_successfully_extract_from_remote_without_branch_provided() {
 fn url_source_link() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}{{source_link}}"),
         )]),
-        vec![SnippetSource::Url (
+        sources: vec![SnippetSource::Url(
             "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into()
         )],
-        Some(format!(
+        output_dir: Some(format!(
             "{}/generated-snippets/",
             dir.path().to_string_lossy()
         )),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
         .unwrap();
 
     let actual = fs::read_to_string(
@@ -311,25 +262,18 @@ https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/
 fn should_successfully_extract_from_local_sources_file() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let content = fs::read_to_string(
@@ -346,25 +290,19 @@ fn should_update_specified_targets() {
     let target = Path::new(&dir.path()).join("target.md");
     fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/*")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        Some(vec![target.to_string_lossy().to_string()]),
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        targets: Some(vec![target.to_string_lossy().to_string()]),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
@@ -391,25 +329,19 @@ fn should_keep_default_content_in_target_when_snippet_key_is_not_found() {
     let target = Path::new(&dir.path()).join("target.md");
     fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        Some(vec![target.to_string_lossy().to_string()]),
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        targets: Some(vec![target.to_string_lossy().to_string()]),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual = fs::read_to_string(Path::new(&dir.path()).join("./target.md")).unwrap();
@@ -432,25 +364,18 @@ some content
 fn should_support_template_with_attributes() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{lang}}\n{{snippet}}```\n"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual =
@@ -472,10 +397,8 @@ fn support_target_snippet_specifies_template() {
     let target = Path::new(&dir.path()).join("specify_template.md");
     fs::copy(Path::new("./tests/targets/specify_template.md"), &target).unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([
+    extract(SnippextSettings {
+        templates: IndexMap::from([
             (
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -485,18 +408,12 @@ fn support_target_snippet_specifies_template() {
                 String::from("```{{lang}}\n{{snippet}}```\n"),
             ),
         ]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        None,
-        None,
-        Some(vec![target.to_string_lossy().to_string()]),
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        targets: Some(vec![target.to_string_lossy().to_string()]),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual = fs::read_to_string(target).unwrap();
@@ -518,10 +435,8 @@ fn should_support_selected_lines() {
     let target = Path::new(&dir.path()).join("selected_lines.md");
     fs::copy(Path::new("./tests/targets/selected_lines.md"), &target).unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([
+    extract(SnippextSettings {
+        templates: IndexMap::from([
             (
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
@@ -531,18 +446,12 @@ fn should_support_selected_lines() {
                 String::from("```{{lang}}\n{{snippet}}```\n"),
             ),
         ]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        None,
-        None,
-        Some(vec![target.to_string_lossy().to_string()]),
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        targets: Some(vec![target.to_string_lossy().to_string()]),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual = fs::read_to_string(target).unwrap();
@@ -561,25 +470,18 @@ fn main() {
 fn should_treat_unknown_template_variables_as_empty_string() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{unknown}}\n{{snippet}}```\n"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let actual =
@@ -599,25 +501,18 @@ fn main() {
 fn should_support_files_with_no_snippets() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/no_snippets.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let files: Vec<PathBuf> = fs::read_dir(&dir)
@@ -635,25 +530,18 @@ fn should_support_files_with_no_snippets() {
 fn invalid_glob() {
     let dir = tempdir().unwrap();
 
-    let result = extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    let result = extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("[&")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ));
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    });
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -670,25 +558,18 @@ fn invalid_glob() {
 fn glob_returns_no_files() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/*.md")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
     .unwrap();
 
     let files: Vec<PathBuf> = fs::read_dir(&dir)
@@ -706,27 +587,21 @@ fn glob_returns_no_files() {
 fn support_source_links() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from(
                 "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
             ),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        Some(LinkFormat::GitHub),
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        link_format: Some(LinkFormat::GitHub),
+        ..Default::default()
+    })
     .unwrap();
 
     let content = fs::read_to_string(
@@ -744,27 +619,22 @@ fn support_source_links() {
 fn source_links_should_support_prefix() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from(
                 "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
             ),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        Some(LinkFormat::GitHub),
-        Some("http://github.com/foo".into()),
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        link_format: Some(LinkFormat::GitHub),
+        source_link_prefix: Some("http://github.com/foo".into()),
+        ..Default::default()
+    })
     .unwrap();
 
     let content = fs::read_to_string(
@@ -782,27 +652,22 @@ fn source_links_should_support_prefix() {
 fn omit_source_links() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from(
-                "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
+            "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
             ),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/custom_prefix.rb")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        Some(LinkFormat::GitHub),
-        None,
-        true,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        link_format: Some(LinkFormat::GitHub),
+        omit_source_links: true,
+        ..Default::default()
+    })
     .unwrap();
 
     let content = fs::read_to_string(
@@ -817,27 +682,21 @@ fn omit_source_links() {
 fn support_csharp_regions() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from(
                 "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
             ),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/main.cs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        Some(LinkFormat::GitHub),
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        false,
-    ))
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        link_format: Some(LinkFormat::GitHub),
+        ..Default::default()
+    })
     .unwrap();
 
     let content =
@@ -854,26 +713,19 @@ fn support_csharp_regions() {
 fn should_retain_nested_snippet_comments() {
     let dir = tempdir().unwrap();
 
-    extract(SnippextSettings::new(
-        String::from(DEFAULT_START),
-        String::from(DEFAULT_END),
-        IndexMap::from([(
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("```{{lang}}\n{{snippet}}```\n"),
         )]),
-        vec![SnippetSource::Local {
+        sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
-        Some(dir.path().to_string_lossy().to_string()),
-        Some(String::from("md")),
-        None,
-        None,
-        None,
-        false,
-        MissingSnippetsBehavior::default(),
-        true,
-    ))
-        .unwrap();
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        retain_nested_snippet_comments: true,
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    }).unwrap();
 
     let actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
