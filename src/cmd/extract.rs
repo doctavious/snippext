@@ -118,6 +118,11 @@ pub struct Args {
     #[arg(long, action = SetTrue)]
     pub retain_nested_snippet_comments: Option<bool>,
 
+    /// Flag that determines whether source file language should be autodetected. Language
+    /// autodetect is used to set `lang` attribute that can be used in snippet templates.
+    #[arg(long, action = SetTrue)]
+    pub disable_language_autodetect: Option<bool>,
+
 }
 
 struct SnippetExtractionState {
@@ -248,12 +253,12 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
     let mut cache = HashMap::new();
 
     for source in &snippext_settings.sources {
-        let extraced_snippets =
+        let extracted_snippets =
             extract_snippets(source, &snippext_settings, &mut cache, &mut snippet_ids)?;
 
         if let Some(output_dir) = &snippext_settings.output_dir {
             let base_path = Path::new(output_dir.as_str());
-            for (_, snippet) in &extraced_snippets {
+            for (_, snippet) in &extracted_snippets {
                 for identifier in snippext_settings.templates.keys() {
                     let output_path = base_path
                         .join(
@@ -276,7 +281,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
             }
         }
 
-        snippets.extend(extraced_snippets);
+        snippets.extend(extracted_snippets);
     }
 
     if let Some(targets) = &snippext_settings.targets {
@@ -658,6 +663,21 @@ fn extract_snippets_from_file(
         )),
     };
 
+
+    let language = if settings.enable_autodetect_language {
+        match hyperpolyglot::detect(&source_file.full_path) {
+            Ok(detection) => {
+                detection.and_then(|x| Some(x.language().to_ascii_lowercase()))
+            }
+            Err(_) => {
+                warn!("failed to detect language for file {}", &source_file.full_path.to_string_lossy());
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     for line in reader.lines() {
         current_line_number += 1;
         let l = line?;
@@ -681,6 +701,10 @@ fn extract_snippets_from_file(
                     ),
                 ),
             ]);
+
+            if let Some(language) = &language {
+                attributes.insert("lang".to_string(), Value::String(language.clone()));
+            }
 
             let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, comment) else {
                 // TODO: error
@@ -989,6 +1013,11 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         )?;
     }
 
+    if opt.disable_language_autodetect.is_some_and(|disabled| disabled) {
+        builder = builder.set_override("enable_autodetect_language", false)?;
+    }
+
+
     if let Some(template) = opt.templates {
         let templates_path = Path::new(template.as_str());
         if !templates_path.exists() {
@@ -1086,7 +1115,7 @@ mod tests {
 
     use super::Args;
     use crate::cmd::extract::{MissingSnippetsBehavior, SourceLink};
-    use crate::constants::{DEFAULT_END, DEFAULT_START, DEFAULT_TEMPLATE_IDENTIFIER};
+    use crate::constants::{DEFAULT_START, DEFAULT_TEMPLATE_IDENTIFIER};
     use crate::error::SnippextError;
     use crate::settings::SnippextSettings;
     use crate::types::{LinkFormat, SnippetSource};
@@ -1111,6 +1140,7 @@ mod tests {
             omit_source_links: None,
             missing_snippets_behavior: None,
             retain_nested_snippet_comments: None,
+            disable_language_autodetect: None,
         };
 
         let settings = super::build_settings(args).unwrap();
@@ -1170,6 +1200,7 @@ mod tests {
             omit_source_links: Some(true),
             missing_snippets_behavior: None,
             retain_nested_snippet_comments: None,
+            disable_language_autodetect: None,
         };
 
         let settings = super::build_settings(opt).unwrap();
@@ -1186,22 +1217,17 @@ mod tests {
     // https://users.rust-lang.org/t/whats-the-rust-way-to-unit-test-for-an-error/23677/2
     #[test]
     fn strings_must_not_be_empty() {
-        let settings = SnippextSettings::new(
-            String::from(""),
-            String::from(""),
-            IndexMap::from([("".to_string(), "".to_string())]),
-            vec![SnippetSource::Local {
+        let settings = SnippextSettings {
+            start: String::from(""),
+            end: String::from(""),
+            templates: IndexMap::from([("".to_string(), "".to_string())]),
+            sources: vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("")),
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1226,22 +1252,16 @@ mod tests {
 
     #[test]
     fn template_content_must_not_be_empty() {
-        let settings = SnippextSettings::new(
-            String::from(""),
-            String::from(""),
-            IndexMap::from([("default".to_string(), "".to_string())]),
-            vec![SnippetSource::Local {
+        let settings = SnippextSettings {
+            start: String::from(""),
+            end: String::from(""),
+            templates: IndexMap::from([("default".to_string(), "".to_string())]),
+            sources: vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
-            Some(String::from("./snippets/")),
-            None,
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1262,22 +1282,15 @@ mod tests {
 
     #[test]
     fn at_least_one_template_is_required() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::new(),
-            vec![SnippetSource::Local {
+        let settings = SnippextSettings {
+            templates: IndexMap::new(),
+            sources: vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1297,25 +1310,18 @@ mod tests {
 
     #[test]
     fn one_template_must_be_named_default() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([
+        let settings = SnippextSettings {
+            templates: IndexMap::from([
                 ("first".to_string(), String::from("{{snippet}}")),
                 ("second".to_string(), String::from("{{snippet}}")),
             ]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec![String::from("**")],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1335,23 +1341,16 @@ mod tests {
 
     #[test]
     fn sources_must_not_be_empty() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            sources: vec![],
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1371,23 +1370,16 @@ mod tests {
 
     #[test]
     fn local_sources_must_have_at_least_one_files_entry() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local { files: vec![] }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            None,
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            sources: vec![SnippetSource::Local { files: vec![] }],
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1408,25 +1400,20 @@ mod tests {
 
     #[test]
     fn should_return_error_when_missing_snippets_behavior_is_fail_no_snippets() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec!["./tests/samples/no_snippets.rs".into()],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            Some(vec!["./tests/targets/specify_template.md".into()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::Fail,
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            targets: Some(vec!["./tests/targets/specify_template.md".into()]),
+            missing_snippets_behavior: MissingSnippetsBehavior::Fail,
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1455,25 +1442,20 @@ mod tests {
         let target = Path::new(&dir.path()).join("target.md");
         fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec!["./tests/samples/main.rs".into()],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            Some(vec![target.to_string_lossy().to_string()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::Fail,
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            targets: Some(vec![target.to_string_lossy().to_string()]),
+            missing_snippets_behavior: MissingSnippetsBehavior::Fail,
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
         let error = validation_result.err().unwrap();
@@ -1496,25 +1478,20 @@ mod tests {
     #[test]
     #[traced_test]
     fn should_log_when_missing_snippets_behavior_is_warning() {
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec!["./tests/samples/no_snippets.rs".into()],
             }],
-            Some(String::from("./snippets/")),
-            Some(String::from("md")),
-            Some(vec!["./tests/targets/specify_template.md".into()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::Warn,
-            false,
-        );
+            output_dir: Some(String::from("./snippets/")),
+            output_extension: Some(String::from("md")),
+            targets: Some(vec!["./tests/targets/specify_template.md".into()]),
+            missing_snippets_behavior: MissingSnippetsBehavior::Warn,
+            ..Default::default()
+        };
 
         let validation_result = super::extract(settings);
 
@@ -1530,23 +1507,15 @@ mod tests {
         let target = Path::new(&dir.path()).join("./target.md");
         fs::copy(Path::new("./tests/targets/target.md"), &target).unwrap();
 
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into())],
-            None,
-            None,
-            Some(vec![target.to_string_lossy().to_string()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            sources: vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into())],
+            targets: Some(vec![target.to_string_lossy().to_string()]),
+            ..Default::default()
+        };
 
         super::extract(settings).expect("Should extract from URL");
 
@@ -1571,25 +1540,17 @@ some content
         let target = Path::new(&dir.path()).join("./url_snippet.md");
         fs::copy(Path::new("./tests/targets/url_snippet.md"), &target).unwrap();
 
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec!["./tests/samples/**".into()],
             }],
-            None,
-            None,
-            Some(vec![target.to_string_lossy().to_string()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            targets: Some(vec![target.to_string_lossy().to_string()]),
+            ..Default::default()
+        };
 
         super::extract(settings).expect("Should extract from URL");
 
@@ -1627,25 +1588,17 @@ SOFTWARE.
         let target = Path::new(&dir.path()).join("./file_snippet.md");
         fs::copy(Path::new("./tests/targets/file_snippet.md"), &target).unwrap();
 
-        let settings = SnippextSettings::new(
-            String::from(DEFAULT_START),
-            String::from(DEFAULT_END),
-            IndexMap::from([(
+        let settings = SnippextSettings {
+            templates: IndexMap::from([(
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            vec![SnippetSource::Local {
+            sources: vec![SnippetSource::Local {
                 files: vec!["./tests/samples/**".into()],
             }],
-            None,
-            None,
-            Some(vec![target.to_string_lossy().to_string()]),
-            None,
-            None,
-            false,
-            MissingSnippetsBehavior::default(),
-            false,
-        );
+            targets: Some(vec![target.to_string_lossy().to_string()]),
+            ..Default::default()
+        };
 
         super::extract(settings).expect("Should extract from URL");
 

@@ -774,3 +774,60 @@ fn main() {
 <!-- snippet::end -->"#;
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn should_autodetect_language() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{lang}}\n{{snippet}}```\n"),
+        )]),
+        sources: vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
+        }],
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        retain_nested_snippet_comments: true,
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    }).unwrap();
+
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
+            .unwrap();
+    let expected = r#"```ruby
+puts "Hello, Ruby!"
+```
+"#;
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn should_support_disabling_autodetect_language() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{lang}}\n{{snippet}}```\n"),
+        )]),
+        sources: vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/custom_prefix.rb")],
+        }],
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        retain_nested_snippet_comments: true,
+        output_extension: Some(String::from("md")),
+        enable_autodetect_language: false,
+        ..Default::default()
+    }).unwrap();
+
+    let actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
+            .unwrap();
+    let expected = r#"```
+puts "Hello, Ruby!"
+```
+"#;
+    assert_eq!(expected, actual);
+}

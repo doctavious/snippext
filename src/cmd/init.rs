@@ -256,6 +256,14 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .with_help_message("Determines whether nested snippet comments should be included in parent snippet content")
         .prompt()?;
 
+    let disable_language_autodetect = Confirm::new("Disable Language Autodetect?")
+        .with_default(false)
+        .with_help_message("Determines whether source file language should be autodetected. \
+                            Language autodetect is used to set `lang` attribute that can be used in \
+                            snippet templates"
+        )
+        .prompt()?;
+
     Ok(SnippextSettings {
         start,
         end,
@@ -273,6 +281,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         )
         .map_err(SnippextError::GeneralError)?,
         retain_nested_snippet_comments,
+        enable_autodetect_language: !disable_language_autodetect,
     })
 }
 

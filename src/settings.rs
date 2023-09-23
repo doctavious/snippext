@@ -33,7 +33,12 @@ pub struct SnippextSettings {
     pub missing_snippets_behavior: MissingSnippetsBehavior,
     #[serde(default)]
     pub retain_nested_snippet_comments: bool,
+    #[serde(default = "_default_true")]
+    pub enable_autodetect_language: bool,
 }
+
+
+const fn _default_true() -> bool { true }
 
 impl Default for SnippextSettings {
     /// Create default SnippextSettings which will have the following
@@ -62,6 +67,7 @@ impl Default for SnippextSettings {
             omit_source_links: false,
             missing_snippets_behavior: MissingSnippetsBehavior::default(),
             retain_nested_snippet_comments: false,
+            enable_autodetect_language: true
         }
     }
 }
@@ -76,36 +82,5 @@ impl SnippextSettings {
         let content = fs::read_to_string(path)?;
         let settings = serde_json::from_str(content.as_str())?;
         Ok(settings)
-    }
-
-    // TODO: <S: Into<String>>
-    pub fn new(
-        start: String,
-        end: String,
-        templates: IndexMap<String, String>,
-        sources: Vec<SnippetSource>,
-        output_dir: Option<String>,
-        output_extension: Option<String>,
-        targets: Option<Vec<String>>,
-        link_format: Option<LinkFormat>,
-        source_link_prefix: Option<String>,
-        omit_source_links: bool,
-        missing_snippets_behavior: MissingSnippetsBehavior,
-        retain_nested_snippet_comments: bool,
-    ) -> Self {
-        Self {
-            start,
-            end,
-            templates,
-            sources,
-            output_dir,
-            output_extension,
-            targets,
-            link_format,
-            source_link_prefix,
-            omit_source_links,
-            missing_snippets_behavior,
-            retain_nested_snippet_comments,
-        }
     }
 }
