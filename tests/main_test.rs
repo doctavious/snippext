@@ -743,6 +743,54 @@ fn main() {
 }
 
 #[test]
+fn should_retain_nested_snippet_comments_for_individual_snippets() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{lang}}\n{{snippet}}```\n"),
+        )]),
+        sources: vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/retain_nested_comments.rs")],
+        }],
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        retain_nested_snippet_comments: false,
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    }).unwrap();
+
+    let retain_actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/retain_default.md"))
+            .unwrap();
+    let retain_expected = r#"```rust
+fn main() {
+
+    // snippet::start loop { "retain_nested_snippet_comments": false }
+    for n in 1..10 {
+        // snippet::start print
+        println!("printing...")
+        // snippet::end
+    }
+    // snippet::end
+}
+```
+"#;
+    assert_eq!(retain_expected, retain_actual);
+
+    let loop_actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/loop_default.md"))
+            .unwrap();
+    let loop_expected = r#"```rust
+for n in 1..10 {
+    println!("printing...")
+}
+```
+"#;
+    assert_eq!(loop_expected, loop_actual);
+}
+
+#[test]
 fn should_allow_custom_highlighted_attributes() {
     let dir = tempdir().unwrap();
     let target = Path::new(&dir.path()).join("highlighted_lines.md");

@@ -17,7 +17,7 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
 use serde_json::{json, Value};
-use tracing::warn;
+use tracing::{info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
@@ -130,6 +130,7 @@ struct SnippetExtractionState {
     pub start_line: usize,
     pub lines: String,
     pub attributes: HashMap<String, Value>,
+    pub retain_nested_comments: bool,
 }
 
 impl SnippetExtractionState {
@@ -719,9 +720,11 @@ fn extract_snippets_from_file(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(settings.retain_nested_snippet_comments);
 
-            if retain_nested_comments && !state.is_empty() {
-                for e in state.iter_mut() {
-                    e.append_line((l.clone() + "\n").as_str());
+            if !state.is_empty() {
+                for app_state in state.iter_mut() {
+                    if app_state.retain_nested_comments {
+                        app_state.append_line((l.clone() + "\n").as_str());
+                    }
                 }
             }
 
@@ -730,6 +733,7 @@ fn extract_snippets_from_file(
                 start_line: current_line_number,
                 lines: String::new(),
                 attributes,
+                retain_nested_comments
             });
 
             continue;
@@ -743,9 +747,6 @@ fn extract_snippets_from_file(
         if snippet_comments.is_line_end_snippet(current_line).is_some() {
             if let Some(snippet_extraction_state) = state.pop() {
                 let id = snippet_extraction_state.key;
-                let retain_nested_comments = snippet_extraction_state.attributes.get("retain_nested_snippet_comments")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(settings.retain_nested_snippet_comments);
 
                 snippets.insert(
                     id.clone(),
@@ -764,20 +765,20 @@ fn extract_snippets_from_file(
                     },
                 );
 
-                let previously_seen_id = snippet_ids.insert(id.clone());
-                if previously_seen_id {
+                let new_id = snippet_ids.insert(id.clone());
+                if !new_id {
                     warn!("multiple snippets with id {} found", id.clone());
                 }
 
-                if retain_nested_comments && !state.is_empty() {
-                    for e in state.iter_mut() {
-                        e.append_line((l.clone() + "\n").as_str());
+                for app_state in state.iter_mut() {
+                    if app_state.retain_nested_comments {
+                        app_state.append_line((l.clone() + "\n").as_str());
                     }
                 }
             }
         } else {
             for e in state.iter_mut() {
-                e.append_line((l.clone() + "\n").as_str());
+                e.append_line((l.clone() + "\n").as_str())
             }
         }
     }
