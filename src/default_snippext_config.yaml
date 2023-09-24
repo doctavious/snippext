@@ -1,7 +1,7 @@
 start: "snippet::start"
 end: "snippet::end"
 templates:
-  default: "```{{lang}}\n{{snippet}}\n```{{#unless omit_source_link}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/unless}}"
+  default: "```{{lang}}\n{{snippet}}```{{#unless omit_source_link}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/unless}}"
   raw: "{{snippet}}"
 sources:
 # extract from local files
