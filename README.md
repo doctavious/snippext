@@ -4,119 +4,115 @@
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![CI](https://github.com/doctavious/snippext/workflows/CI/badge.svg)](https://github.com/doctavious/snippext/actions?query=workflow%3ACI)
 
-Extract snippets from source files and merge into your documentation.
+Snippext extracts snippets from source files and merges them into your documentation.
 
-## Snippets
+## Install
 
-Snippets are useful when you want to identify specific regions of a file to extract and include the context in other files. 
-Extracted snippets will be output to specified output directory keeping the source directory layout.
+TODO: provide instructions
 
-Snippets have the following start/end formats
+## Configuration
 
-```
-start: <comment> <begin flag><identifier>[<comma separated key=value pairs>]
-end: <comment> <end flag>
-```
+TODO: 
+- provide default config
+- explanation of fields
 
-Example
-```
-// snippet::main[lang=rust] // (1) (2) (3)
+
+## Defining Snippets
+
+Use comments that begin with a Snippext prefix to identify code snippets in source files and the locations where they should be merged into target files.
+
+## Source Files
+
+The first thing we need to do is define snippets in your source code. Wrap the code snippets in a comment that starts with the Snippext `start` prefix, default value is `snippet::start` followed by a unique snippet identifier. End the snippet with a comment that starts with the Snippext `end` prefix, default value is `snippet::end`. It should look something similar to this:
+
+<!-- snippext::start readme_example {"omit_source_link": true } -->
+```rust
+// snippext::start rust_main
 fn main() {
-
-    // snippet::nested // (5)
-    println!("printing...")
-    // end::nested
+    println!("Hello, Snippext!");
 }
-// end::main // (4)
+// snippext::end
 ```
-1. To indicate the start of a snippet, insert a comment line in the code.
-2. Assign an identifier to the snippet directive. In this example, the tag is named main. The snippet identifier will be sanitized. Unique identifiers can contain letters, numbers, hyphens, and underscores.
-3. Within the brackets `[]` you can include a comma separated list of key/value pairs which are called `attributes` and can be used  in custom templates. 
-4. Insert another comment line where you want the snippet to end.
-5. You can also include nested snippets. The nested snippet comment will not be included in the extracted output.
+<!-- snippext::end -->
 
-**Important**
-The snippet::[] and end::[] directives should be placed after a line comment as defined by the language of the source file. 
+[//]: # (TODO: mentioned id Unique identifiers can contain letters, numbers, hyphens, and underscores.)
 
-**Important: Indentation** Snippext will also attempt to remove any unnecessary indentation from snippets.
+[//]: # (TODO: mention The code snippets will do smart trimming of snippet indentation. remove leading spaces from indented code snippets.)
 
-**Tip** It is not mandatory to terminate a snippet, the extractor will simply add line until EOF.
 
-Assuming that the above example lives in `src/main.rs` two files will be created
-1. src/main.rs/main.md
-2. src/main.rs/nested.md
+> [!NOTE]  
+> Named C# regions will also be picked up, with the name of the region used as the identifier.
 
-### Advanced
+### Features
+
+#### Retain Nested Snippet Comments
+
+Snippets can be nested in other snippets. By default, nested snippet comments are omitted from being included in the parent snippet content. Nested snippet comments can be retained by globally by either passing the `retain_nested_snippet_comments` flag to the `extract` CLI command or setting it to true within the snippet configuration file. You can also enable it on individual snippets by including it in the JSON configuration of the source snippet.
+
+## Target Files
+
+Next, we need to identify places in target files where we want to insert snippets into. Similar to source files, we wrap the location with a comment that references the identifier of the code snippet that will be inserted there:
+
+```
+<!-- snippet::start readme_example -->
+<!-- snippet::end -->
+```
+
+In the example above, the "readme_example" code snippet will be spliced between the comments. Any text inside the comment will be replaced by the code snippet. This allows for a default snippet to be included if for any reason the referenced identifier was not extracted from the source.
+
+### Features
+
+To customize how a snippet is rendered add JSON configuration after the identifier of the snippet start line. An example would look like
+
+<!-- snippext::start readme_attributes_example {"omit_source_link": true } -->
+```rust
+// snippext::start snippet_with_attributes {"template": "raw" }
+fn main() {
+    println!("Hello, Snippext!");
+}
+// snippext::end
+```
+<!-- snippext::end -->
+
+#### Template
+
+The `template` attribute specifies the template that will be used to render the snippet. If not specified the default template will be used. 
+
+See [Custom Template](#custom-template)
+
+#### Omit Source Link
+
+The `omit_source_link` attribute determines whether source links should be included in the rendering of the snippet. If not specified it will default  to false.
+
+#### Select Specific Lines
+
+You can use a source snippet in multiple places, so you may wish to customize which lines are rendered in each location. Add a `selected_lines` configuration to the JSON configuration.
+
+### Including Snippet From URL
+
+Snippets that start with `http` will be downloaded and the contents rendered. For example:
+
+```
+<!-- snippet::start https://raw.githubusercontent.com/doctavious/snippext/main/LICENSE -->
+<!-- snippet::end -->
+```
+
+URL contents are downloaded to `temp/snippext`
+
+### Including Snippet From File
+
+If no snippet is found matching the identifier Snippext will treat it as a file and the contents rendered. For example:
+
+``` 
+<!-- snippet::start LICENSE -->
+<!-- snippet::end -->
+```
+
+## Advanced
 
 #### Custom Template
-
-snippext by default writes out the content of the snippet within the boundaries of the snippet/end directives. 
-You can alter the output by providing a custom template.
-
-Taking the example above lets say you want to add a fenced code block that included the source language. You could set the template to the following
-```
-"```{{lang}}\n{{snippet}}\n```\n",
-```
-
-which would produce the following
-
-    ```rust
-    fn main() {
-
-        println!("printing...")
-    }
-    ```
-
-## Configuration File
-
-Example 
-
-```yaml 
-```
-
-### Parameters
-
-
-
-## CLI Usage
-
-### Command Line Arguments
-
-```
-snippext [FLAGS] [OPTIONS] [sources]
-```
-
-**Flags:**
-```
--h, --help          Prints help information
--V, --version       Prints version information
-```
-
-**Options:**
-```
--b, --begin <begin>                      flag to mark beginning of a snippet [default: snippet::]
--c, --comment-prefix <comment-prefix>     [default: // ]
--e, --end <end>                          flag to mark ending of a snippet [default: end::]
--x, --extension <extension>              extension for generated files [default: .md]
--o, --output-dir <output-dir>            directory in which the files will be generated [default: ./snippets/]
-```
-
-**Args:**
-
-```
-<sources> space delimited list of files or directories [./file|./directory/]
-```
-
-
-TODO: add a note about nested snippets  - Notice that none of the lines with the tag directives are displayed.
-
-TODO: add a note about how start and end snippext tags in target must be on separate lines
 
 
 ## Clear Snippets
 
 To remove snippets from target files
-
-```bash
-
-```
