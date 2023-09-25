@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
@@ -41,7 +42,7 @@ pub enum SnippetSource {
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Copy, Debug, Deserialize, Parser, Serialize, ValueEnum)]
-#[clap(rename_all = "lowercase")]
+#[clap(rename_all = "lower")]
 pub enum LinkFormat {
     AzureRepos,
     BitBucket,
@@ -76,13 +77,16 @@ impl LinkFormat {
 
 impl fmt::Display for LinkFormat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO: This logic is used when converting to config-rs Config and their current version
+        // 0.13.3 doesnt ignore case when checking strings against variants so it will fail if
+        // string does not match variants exactly
         match self {
-            LinkFormat::AzureRepos => write!(f, "azure"),
-            LinkFormat::BitBucket => write!(f, "bitbucket"),
-            LinkFormat::GitHub => write!(f, "github"),
-            LinkFormat::GitLab => write!(f, "gitlab"),
-            LinkFormat::Gitea => write!(f, "gitea"),
-            LinkFormat::Gitee => write!(f, "gitee"),
+            LinkFormat::AzureRepos => write!(f, "AzureRepos"),
+            LinkFormat::BitBucket => write!(f, "BitBucket"),
+            LinkFormat::GitHub => write!(f, "GitHub"),
+            LinkFormat::GitLab => write!(f, "GitLab"),
+            LinkFormat::Gitea => write!(f, "Gitea"),
+            LinkFormat::Gitee => write!(f, "Gitee"),
         }
     }
 }
@@ -97,7 +101,7 @@ pub struct MissingSnippet {
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ValueEnum)]
-#[clap(rename_all = "lowercase")]
+#[clap(rename_all = "lower")]
 pub enum MissingSnippetsBehavior {
     Fail,
     #[default]
@@ -107,10 +111,13 @@ pub enum MissingSnippetsBehavior {
 
 impl fmt::Display for MissingSnippetsBehavior {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO: This logic is used when converting to config-rs Config and their current version
+        // 0.13.3 doesnt ignore case when checking strings against variants so it will fail if
+        // string does not match variants exactly
         match self {
-            MissingSnippetsBehavior::Fail => write!(f, "fail"),
-            MissingSnippetsBehavior::Ignore => write!(f, "ignore"),
-            MissingSnippetsBehavior::Warn => write!(f, "warn"),
+            MissingSnippetsBehavior::Fail => write!(f, "Fail"),
+            MissingSnippetsBehavior::Ignore => write!(f, "Ignore"),
+            MissingSnippetsBehavior::Warn => write!(f, "Warn"),
         }
     }
 }
