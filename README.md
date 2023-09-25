@@ -10,7 +10,30 @@ Snippext extracts snippets from source files and merges them into your documenta
 
 TODO: provide instructions
 
-## Configuration
+## Configure
+
+First thing you'll want to do is configure Snippext via a `snippext.yaml` configuration file. You an either create a `snippext.yaml` file at the root of your project or use the Snippext CLI `init` command which will present you with a series of prompts to configure the `snippext.yaml` configuration file for you. An example of a complete `snippext.yaml` file: 
+<!-- snippext::start default_snippext_config {"omit_source_link": true } -->
+```yaml
+start: "snippet::start"
+end: "snippet::end"
+templates:
+  default: "```{{lang}}\n{{snippet}}```{{#unless omit_source_link}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/unless}}"
+  raw: "{{snippet}}"
+sources:
+# extract from local files
+- files:
+  - "**"
+output_dir: "./generated-snippets/"
+output_extension: "md"
+# targets
+# link_format
+omit_source_links: false
+missing_snippets_behavior: "Warn" 
+retain_nested_snippet_comments: false
+enable_autodetect_language: true
+```
+<!-- snippext::end -->
 
 TODO: 
 - provide default config
@@ -27,11 +50,11 @@ The first thing we need to do is define snippets in your source code. Wrap the c
 
 <!-- snippext::start readme_example {"omit_source_link": true } -->
 ```rust
-// snippext::start rust_main
+// snippet::start rust_main
 fn main() {
     println!("Hello, Snippext!");
 }
-// snippext::end
+// snippet::end
 ```
 <!-- snippext::end -->
 
@@ -40,14 +63,14 @@ fn main() {
 [//]: # (TODO: mention The code snippets will do smart trimming of snippet indentation. remove leading spaces from indented code snippets.)
 
 
-> [!NOTE]  
+> [!NOTE]
 > Named C# regions will also be picked up, with the name of the region used as the identifier.
 
 ### Features
 
 #### Retain Nested Snippet Comments
 
-Snippets can be nested in other snippets. By default, nested snippet comments are omitted from being included in the parent snippet content. Nested snippet comments can be retained by globally by either passing the `retain_nested_snippet_comments` flag to the `extract` CLI command or setting it to true within the snippet configuration file. You can also enable it on individual snippets by including it in the JSON configuration of the source snippet.
+Snippets can be nested in other snippets. By default, nested snippet comments are omitted from being included in the parent snippet content. Nested snippet comments can be retained by globally by either passing the `--retain-nested-snippet-comments` flag to the `extract` CLI command or setting it to true within the snippet configuration file. You can also enable it on individual snippets by including it in the JSON configuration of the source snippet.
 
 ## Target Files
 
@@ -66,11 +89,11 @@ To customize how a snippet is rendered add JSON configuration after the identifi
 
 <!-- snippext::start readme_attributes_example {"omit_source_link": true } -->
 ```rust
-// snippext::start snippet_with_attributes {"template": "raw" }
+// snippet::start snippet_with_attributes {"template": "raw" }
 fn main() {
     println!("Hello, Snippext!");
 }
-// snippext::end
+// snippet::end
 ```
 <!-- snippext::end -->
 

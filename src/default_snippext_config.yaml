@@ -1,3 +1,4 @@
+# snippext::start default_snippext_config
 start: "snippet::start"
 end: "snippet::end"
 templates:
@@ -9,4 +10,10 @@ sources:
   - "**"
 output_dir: "./generated-snippets/"
 output_extension: "md"
-
+# targets
+# link_format
+omit_source_links: false
+missing_snippets_behavior: "Warn" # would like to make this lowercase
+retain_nested_snippet_comments: false
+enable_autodetect_language: true
+# snippext::end
