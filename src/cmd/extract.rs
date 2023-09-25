@@ -10,6 +10,7 @@ use std::{env, fs};
 use chrono::DateTime;
 use clap::ArgAction::SetTrue;
 use clap::Parser;
+use clap::ValueEnum;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
@@ -111,7 +112,7 @@ pub struct Args {
     pub omit_source_links: Option<bool>,
 
     /// Defined behavior for what to do when missing snippets are present.
-    #[arg(short, long, value_name = "BEHAVIOR")]
+    #[arg(short, long, value_name = "BEHAVIOR", value_enum)]
     pub missing_snippets_behavior: Option<MissingSnippetsBehavior>,
 
     /// Flag that determines whether nested snippet comments are included in parent snippets
@@ -1136,10 +1137,10 @@ mod tests {
             output_dir: Some(String::from("./snippext/")),
             output_extension: Some(String::from("txt")),
             targets: vec![String::from("README.md")],
-            link_format: None,
+            link_format: Some(LinkFormat::GitHub),
             source_link_prefix: None,
             omit_source_links: None,
-            missing_snippets_behavior: None,
+            missing_snippets_behavior: Some(MissingSnippetsBehavior::Warn),
             retain_nested_snippet_comments: None,
             disable_language_autodetect: None,
         };
