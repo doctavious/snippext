@@ -18,7 +18,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0"
 chrono = "0.4.26"
-clap = { version = "4.3", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 config = { version = "0.13.3", features = ["json", "json5", "toml", "yaml"] }
 filetime = "0.2.21"
 git2 = "0.17.2"
