@@ -1,18 +1,14 @@
 use std::path::Path;
 
-use lazy_static::lazy_static;
-
 pub type CommentLexicalTokens = (&'static str, Option<&'static str>);
 
-lazy_static! {
-    pub static ref HTML_COMMENT: CommentLexicalTokens = ("<!--", Some("-->"));
-    pub static ref LISP_COMMENT: CommentLexicalTokens = (";;", None);
-    pub static ref DASH_COMMENT: CommentLexicalTokens = ("--", None);
-    pub static ref POUND_COMMENT: CommentLexicalTokens = ("#", None);
-    pub static ref SLASH_COMMENT: CommentLexicalTokens = ("//", None);
-    pub static ref RESTRUCTUREDTEXT_COMMENT: CommentLexicalTokens = ("..", None);
-    pub static ref VB_COMMENT: CommentLexicalTokens = ("'", None);
-}
+pub const HTML_COMMENT: CommentLexicalTokens = ("<!--", Some("-->"));
+pub const LISP_COMMENT: CommentLexicalTokens = (";;", None);
+pub const DASH_COMMENT: CommentLexicalTokens = ("--", None);
+pub const POUND_COMMENT: CommentLexicalTokens = ("#", None);
+pub const SLASH_COMMENT: CommentLexicalTokens = ("//", None);
+pub const RESTRUCTUREDTEXT_COMMENT: CommentLexicalTokens = ("..", None);
+pub const VB_COMMENT: CommentLexicalTokens = ("'", None);
 
 pub struct SnippextComment {
     pub start: String,
@@ -87,45 +83,45 @@ pub fn get_snippet_comments(extension: &str, start: &str, end: &str) -> Vec<Snip
 
 pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
     match extension {
-        "adoc" => vec![*SLASH_COMMENT], // AsciiDoc
-        "sh" => vec![*POUND_COMMENT],   // bash
-        "c" => vec![*SLASH_COMMENT],
-        "cpp" => vec![*SLASH_COMMENT],
-        "cs" => vec![*SLASH_COMMENT], // C#
-        "css" => vec![*SLASH_COMMENT],
-        "ex" | "exs" => vec![*POUND_COMMENT], // Elixir
-        "fs" => vec![*SLASH_COMMENT],         // F#
-        "go" => vec![*SLASH_COMMENT],
-        "h" | "hpp" => vec![*SLASH_COMMENT],
-        "hs" => vec![*SLASH_COMMENT], // Haskell
-        "html" => vec![*HTML_COMMENT],
-        "java" => vec![*SLASH_COMMENT],
-        "js" => vec![*SLASH_COMMENT],
-        "json5" => vec![*SLASH_COMMENT],
-        "kt" => vec![*SLASH_COMMENT], // Kotlin
-        "lsp" => vec![*LISP_COMMENT], // Lisp
-        "lua" => vec![*DASH_COMMENT],
-        "md" => vec![*HTML_COMMENT], // Markdown
-        "m" => vec![*SLASH_COMMENT], // Objective-c
-        "php" => vec![*SLASH_COMMENT],
-        "pl" => vec![*POUND_COMMENT], // Perl
-        "py" => vec![*POUND_COMMENT], // Python
+        "adoc" => vec![SLASH_COMMENT], // AsciiDoc
+        "sh" => vec![POUND_COMMENT],   // bash
+        "c" => vec![SLASH_COMMENT],
+        "cpp" => vec![SLASH_COMMENT],
+        "cs" => vec![SLASH_COMMENT], // C#
+        "css" => vec![SLASH_COMMENT],
+        "ex" | "exs" => vec![POUND_COMMENT], // Elixir
+        "fs" => vec![SLASH_COMMENT],         // F#
+        "go" => vec![SLASH_COMMENT],
+        "h" | "hpp" => vec![SLASH_COMMENT],
+        "hs" => vec![SLASH_COMMENT], // Haskell
+        "html" => vec![HTML_COMMENT],
+        "java" => vec![SLASH_COMMENT],
+        "js" => vec![SLASH_COMMENT],
+        "json5" => vec![SLASH_COMMENT],
+        "kt" => vec![SLASH_COMMENT], // Kotlin
+        "lsp" => vec![LISP_COMMENT], // Lisp
+        "lua" => vec![DASH_COMMENT],
+        "md" => vec![HTML_COMMENT], // Markdown
+        "m" => vec![SLASH_COMMENT], // Objective-c
+        "php" => vec![SLASH_COMMENT],
+        "pl" => vec![POUND_COMMENT], // Perl
+        "py" => vec![POUND_COMMENT], // Python
 
         // For RestructuredText its considered by some as bad practice to have text on same line
         // but thats what we have to work with.
-        "rst" => vec![*RESTRUCTUREDTEXT_COMMENT], // ReStructuredText
-        "rb" => vec![*POUND_COMMENT],             // Ruby
-        "rs" => vec![*SLASH_COMMENT],             // Rust
-        "scala" => vec![*SLASH_COMMENT],
-        "sql" => vec![*DASH_COMMENT],
-        "swift" => vec![*SLASH_COMMENT],
-        "tf" => vec![*POUND_COMMENT], // Terraform
-        "toml" => vec![*POUND_COMMENT],
-        "ts" => vec![*SLASH_COMMENT], // TypeScript
-        "vb" => vec![*VB_COMMENT],
-        "xml" => vec![*HTML_COMMENT],
-        "yaml" | "yml" => vec![*POUND_COMMENT],
-        _ => vec![*HTML_COMMENT, *POUND_COMMENT, *SLASH_COMMENT],
+        "rst" => vec![RESTRUCTUREDTEXT_COMMENT], // ReStructuredText
+        "rb" => vec![POUND_COMMENT],             // Ruby
+        "rs" => vec![SLASH_COMMENT],             // Rust
+        "scala" => vec![SLASH_COMMENT],
+        "sql" => vec![DASH_COMMENT],
+        "swift" => vec![SLASH_COMMENT],
+        "tf" => vec![POUND_COMMENT], // Terraform
+        "toml" => vec![POUND_COMMENT],
+        "ts" => vec![SLASH_COMMENT], // TypeScript
+        "vb" => vec![VB_COMMENT],
+        "xml" => vec![HTML_COMMENT],
+        "yaml" | "yml" => vec![POUND_COMMENT],
+        _ => vec![HTML_COMMENT, POUND_COMMENT, SLASH_COMMENT],
     }
 }
 
