@@ -98,7 +98,7 @@ pub struct Args {
     /// Defines the format of snippet source links that appear under each snippet.
     /// Source links for local sources will not be included if not specified.
     /// If not provided For git sources links will attempt to determine based on git repository url.
-    #[arg(short = 'l', long, value_name = "FORMAT", value_enum)]
+    #[arg(short = 'l', long, value_name = "FORMAT", value_enum, ignore_case = true)]
     pub link_format: Option<LinkFormat>,
 
     /// String that will prefix all local snippet source links. This is useful when markdown
@@ -111,7 +111,7 @@ pub struct Args {
     pub omit_source_links: Option<bool>,
 
     /// Defined behavior for what to do when missing snippets are present.
-    #[arg(short, long, value_name = "BEHAVIOR", value_enum)]
+    #[arg(short, long, value_name = "BEHAVIOR", value_enum, ignore_case = true)]
     pub missing_snippets_behavior: Option<MissingSnippetsBehavior>,
 
     /// Flag that determines whether nested snippet comments are included in parent snippets
