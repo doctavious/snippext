@@ -3,13 +3,20 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
-use snippext::constants::DEFAULT_TEMPLATE_IDENTIFIER;
+use snippext::constants::{DEFAULT_SNIPPEXT_CONFIG, DEFAULT_TEMPLATE_IDENTIFIER};
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, SnippetSource};
 use tempfile::tempdir;
 use tracing_test::traced_test;
 use walkdir::WalkDir;
+
+#[test]
+fn should_deserialize_default_config_to_snippext_settings() {
+    let settings: Result<SnippextSettings, serde_yaml::Error> = serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG);
+    println!("{:?}", settings);
+    assert!(settings.is_ok());
+}
 
 #[test]
 #[traced_test]
