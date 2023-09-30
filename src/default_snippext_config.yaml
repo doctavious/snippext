@@ -30,4 +30,5 @@ omit_source_links: false
 missing_snippets_behavior: Warn
 retain_nested_snippet_comments: false
 enable_autodetect_language: true
+selected_lines_include_ellipses: false
 # snippext::end
