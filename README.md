@@ -1,6 +1,4 @@
 # Snippext
-[![crates.io](https://img.shields.io/crates/v/snippext.svg)](https://crates.io/crates/snippext)
-[![Released API docs](https://docs.rs/snippext/badge.svg)](https://docs.rs/snippext)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![CI](https://github.com/doctavious/snippext/workflows/CI/badge.svg)](https://github.com/doctavious/snippext/actions?query=workflow%3ACI)
 
@@ -18,7 +16,13 @@ First thing you'll want to do is configure Snippext via a `snippext.yaml` config
 start: "snippet::start"
 end: "snippet::end"
 templates:
-  default: "```{{lang}}\n{{snippet}}```{{#unless omit_source_link}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/unless}}"
+  default: |-
+    ```{{lang}}
+    {{snippet~}}
+    ```
+    {{#unless omit_source_link}}
+    <a href='{{source_link}}' title='Snippet source file'>snippet source</a>
+    {{/unless}}
   raw: "{{snippet}}"
 sources:
 # extract from local files
@@ -39,9 +43,9 @@ sources:
 #- !Url http://localhost/hi
 
 output_dir: "./generated-snippets/"
-output_extension: "md"
-# targets
-# link_format
+output_extension: "md"  # Extension for generated files written to the output directory
+# targets: ./docs  # List of glob patters, separated by spaces, that contain the files to be spliced with the code snippets.
+# link_format: GitHub  # Defines the format of snippet source links that appear under each snippet.
 omit_source_links: false
 missing_snippets_behavior: Warn
 retain_nested_snippet_comments: false
@@ -50,8 +54,7 @@ selected_lines_include_ellipses: false
 ```
 <!-- snippext::end -->
 
-TODO: 
-- provide default config
+TODO:
 - explanation of fields
 
 
@@ -129,7 +132,7 @@ You can use a source snippet in multiple places, so you may wish to customize wh
 > [!NOTE]
 > Nested comments don't count to line numbers unless you've enabled the flag to retain them in source content
 
-If you would like to include ellipses comments, // ...,  for any gaps when using `selected_lines` you can enable `selected_lines_include_ellipses`
+If you would like to include ellipses comments, `// ...`,  for any gaps when using `selected_lines` you can enable `selected_lines_include_ellipses`
 
 ### Including Snippet From URL
 
