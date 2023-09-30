@@ -74,13 +74,17 @@ impl<'a, T: ?Sized + Unindent> Unindent for &'a T {
 }
 
 // Number of leading spaces in the line, or None if the line is entirely spaces.
-fn count_spaces(line: &[u8]) -> Option<usize> {
+pub(crate) fn count_spaces(line: &[u8]) -> Option<usize> {
     for (i, ch) in line.iter().enumerate() {
         if *ch != b' ' && *ch != b'\t' {
             return Some(i);
         }
     }
     None
+}
+
+pub(crate) fn count_spaces_string<S: AsRef<str>>(line: S) -> Option<usize> {
+    count_spaces(line.as_ref().as_bytes())
 }
 
 // Based on core::str::StrExt.

@@ -81,6 +81,8 @@ pub fn get_snippet_comments(extension: &str, start: &str, end: &str) -> Vec<Snip
     return snippet_comments;
 }
 
+// TODO: given we have hyperpolyglot we an tie this to language instead of just file extension
+// this would allow us to make this more robust
 pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
     match extension {
         "adoc" => vec![SLASH_COMMENT], // AsciiDoc
@@ -97,6 +99,9 @@ pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
         "html" => vec![HTML_COMMENT],
         "java" => vec![SLASH_COMMENT],
         "js" => vec![SLASH_COMMENT],
+        "mjs" => vec![SLASH_COMMENT],
+        "cjs" => vec![SLASH_COMMENT],
+
         "json5" => vec![SLASH_COMMENT],
         "kt" => vec![SLASH_COMMENT], // Kotlin
         "lsp" => vec![LISP_COMMENT], // Lisp
@@ -123,6 +128,11 @@ pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
         "yaml" | "yml" => vec![POUND_COMMENT],
         _ => vec![HTML_COMMENT, POUND_COMMENT, SLASH_COMMENT],
     }
+}
+
+const TEXT_FILES: [&'static str; 4] = ["", "adoc", "md", "txt"];
+pub(crate) fn is_text_file(extension: &str) -> bool {
+    TEXT_FILES.contains(&extension)
 }
 
 pub fn extension_from_path(path: &Path) -> String {

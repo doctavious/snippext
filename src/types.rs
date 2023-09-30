@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,6 @@ pub struct Snippet {
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
 pub enum SnippetSource {
     Git {
         repository: String,

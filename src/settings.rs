@@ -11,6 +11,8 @@ use crate::constants::{
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::SnippextResult;
 
+const fn _default_true() -> bool { true }
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SnippextSettings {
     pub start: String,
@@ -35,10 +37,9 @@ pub struct SnippextSettings {
     pub retain_nested_snippet_comments: bool,
     #[serde(default = "_default_true")]
     pub enable_autodetect_language: bool,
+    #[serde(default)]
+    pub selected_lines_include_ellipses: bool,
 }
-
-
-const fn _default_true() -> bool { true }
 
 impl Default for SnippextSettings {
     /// Create default SnippextSettings which will have the following
@@ -48,6 +49,8 @@ impl Default for SnippextSettings {
     /// template: [`DEFAULT_TEMPLATE`]
     /// sources: all files via [`DEFAULT_SOURCE_FILES`] glob
     /// output_dir: [`DEFAULT_OUTPUT_DIR`]
+    /// missing_snippets_behavior: [`MissingSnippetsBehavior::default()`]
+    /// enable_autodetect_language: true
     fn default() -> Self {
         Self {
             start: String::from(DEFAULT_START),
@@ -67,7 +70,8 @@ impl Default for SnippextSettings {
             omit_source_links: false,
             missing_snippets_behavior: MissingSnippetsBehavior::default(),
             retain_nested_snippet_comments: false,
-            enable_autodetect_language: true
+            enable_autodetect_language: true,
+            selected_lines_include_ellipses: false,
         }
     }
 }

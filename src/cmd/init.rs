@@ -264,6 +264,13 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         )
         .prompt()?;
 
+    let selected_lines_include_ellipses = Confirm::new("Include ellipses?")
+        .with_default(false)
+        .with_help_message("Determines whether ellipsis should be added to gaps when \
+                            `select_lines` attribute is used to render snippets."
+        )
+        .prompt()?;
+
     Ok(SnippextSettings {
         start,
         end,
@@ -282,6 +289,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         .map_err(SnippextError::GeneralError)?,
         retain_nested_snippet_comments,
         enable_autodetect_language: !disable_language_autodetect,
+        selected_lines_include_ellipses
     })
 }
 

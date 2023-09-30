@@ -10,7 +10,6 @@ use std::{env, fs};
 use chrono::DateTime;
 use clap::ArgAction::SetTrue;
 use clap::Parser;
-use clap::ValueEnum;
 use config::{Config, Environment, FileFormat};
 use filetime::{set_file_mtime, FileTime};
 use glob::{glob, Pattern};
@@ -18,7 +17,7 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderValue, EXPIRES, LAST_MODIFIED};
 use serde_json::{json, Value};
-use tracing::{info, warn};
+use tracing::warn;
 use url::Url;
 use walkdir::WalkDir;
 
@@ -123,6 +122,11 @@ pub struct Args {
     /// autodetect is used to set `lang` attribute that can be used in snippet templates.
     #[arg(long, action = SetTrue)]
     pub disable_language_autodetect: Option<bool>,
+
+    /// Flag that determines whether ellipsis should be added to gaps when `select_lines` attribute
+    /// is used to render snippets.
+    #[arg(long, action = SetTrue)]
+    pub selected_lines_include_ellipses: Option<bool>
 
 }
 
@@ -994,7 +998,8 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         .set_override_option("output_dir", opt.output_dir)?
         .set_override_option("output_extension", opt.output_extension)?
         .set_override_option("omit_source_links", opt.omit_source_links)?
-        .set_override_option("retain_nested_snippet_comments", opt.retain_nested_snippet_comments)?;
+        .set_override_option("retain_nested_snippet_comments", opt.retain_nested_snippet_comments)?
+        .set_override_option("selected_lines_include_ellipses", opt.selected_lines_include_ellipses)?;
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -1143,6 +1148,7 @@ mod tests {
             missing_snippets_behavior: Some(MissingSnippetsBehavior::Warn),
             retain_nested_snippet_comments: None,
             disable_language_autodetect: None,
+            selected_lines_include_ellipses: None,
         };
 
         let settings = super::build_settings(args).unwrap();
@@ -1203,6 +1209,7 @@ mod tests {
             missing_snippets_behavior: None,
             retain_nested_snippet_comments: None,
             disable_language_autodetect: None,
+            selected_lines_include_ellipses: None,
         };
 
         let settings = super::build_settings(opt).unwrap();

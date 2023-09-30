@@ -6,14 +6,28 @@ templates:
   raw: "{{snippet}}"
 sources:
 # extract from local files
-- files:
+- !Local
+  files:
   - "**"
+
+# extract from remote Git repo
+#- !Git
+#  repository: https://github.com/doctavious/snippext.git
+#  branch: main
+#  cone_patterns:
+#    - ./src/*.rs
+#  files:
+#    - "**"
+
+# extract from URL
+#- !Url http://localhost/hi
+
 output_dir: "./generated-snippets/"
 output_extension: "md"
 # targets
 # link_format
 omit_source_links: false
-missing_snippets_behavior: "Warn" # would like to make this lowercase
+missing_snippets_behavior: Warn
 retain_nested_snippet_comments: false
 enable_autodetect_language: true
 # snippext::end

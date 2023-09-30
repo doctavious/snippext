@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use handlebars::{no_escape, Handlebars};
+use indexmap::IndexSet;
 use serde_json::Value;
 
 use crate::constants::{DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT_TEMPLATE_ATTRIBUTE};
@@ -8,7 +9,7 @@ use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::Snippet;
 use crate::unindent::unindent;
-use crate::SnippextResult;
+use crate::{files, SnippextResult, unindent};
 
 pub fn render_template(
     snippet: &Snippet,
@@ -35,6 +36,7 @@ pub fn render_template(
 
         let snippet_content_lines: Vec<&str> = snippet.text.as_str().lines().collect();
         let mut new_lines = Vec::new();
+        let mut sns = IndexSet::new();
         for selected_number in selected_numbers {
             let sn = selected_number.as_str().ok_or(SnippextError::GeneralError(
                 "select_lines values must be strings".to_string(),
@@ -51,7 +53,48 @@ pub fn render_template(
                 [num - 1, num]
             };
 
-            new_lines.extend_from_slice(&snippet_content_lines[include_lines[0]..include_lines[1]]);
+            sns.insert(include_lines);
+        }
+
+        let selected_lines_include_ellipses = data.get("selected_lines_include_ellipses")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(snippext_settings.selected_lines_include_ellipses);
+
+        if selected_lines_include_ellipses {
+            let extension = &files::extension_from_path(&snippet.path);
+            let ellipsis = if files::is_text_file(extension.as_str()) {
+                String::from("...")
+            } else {
+                files::file_comments(extension)[0].0.to_owned() + " ..."
+            };
+
+            // if line 1 (index 0) isn't selected add ellipsis to start
+            if sns[0][0] != 0 {
+                new_lines.push(ellipsis.clone())
+            }
+
+            for (idx, sn) in sns.iter().enumerate() {
+                // if there is a gap between selected lines or ranges then add an ellipsis
+                let content_lines = &snippet_content_lines[sn[0]..sn[1]];
+                // we subtract 1 from the end of the previous range because its an exclusive range.
+                if idx > 0 && sn[0] - (sns[idx - 1][1] - 1) > 1 {
+                    let spaces = unindent::count_spaces_string(content_lines[0]).unwrap_or(0);
+                    let ellipsis_comment = format!("{}{}", " ".repeat(spaces), ellipsis);
+                    new_lines.push(ellipsis_comment);
+                }
+                let a: Vec<String> = content_lines.iter().map(|l| l.to_string()).collect();
+                new_lines.extend(a);
+            }
+
+            // if we didnt highlight the last line add an ellipsis at the end.
+            if sns.last().is_some_and(|sn| sn[1] != snippet_content_lines.len()) {
+                new_lines.push(ellipsis.clone())
+            }
+        } else {
+            for sn in sns {
+                let a: Vec<String> = snippet_content_lines[sn[0]..sn[1]].iter().map(|l| l.to_string()).collect();
+                new_lines.extend(a);
+            }
         }
 
         new_lines.iter().fold(String::new(), |mut a, b| {
