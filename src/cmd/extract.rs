@@ -71,7 +71,8 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR", required_unless_present = "targets")]
     pub output_dir: Option<String>,
 
-    /// Extension for generated files. Defaults to `md` when not specified.
+    /// Extension for generated files written to the output directory.
+    /// Defaults to `md` when not specified.
     #[arg(short = 'x', long)]
     pub output_extension: Option<String>,
 

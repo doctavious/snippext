@@ -2,7 +2,13 @@
 start: "snippet::start"
 end: "snippet::end"
 templates:
-  default: "```{{lang}}\n{{snippet}}```{{#unless omit_source_link}}\n<a href='{source_link}' title='Snippet source file'>snippet source</a>{{/unless}}"
+  default: |-
+    ```{{lang}}
+    {{snippet~}}
+    ```
+    {{#unless omit_source_link}}
+    <a href='{{source_link}}' title='Snippet source file'>snippet source</a>
+    {{/unless}}
   raw: "{{snippet}}"
 sources:
 # extract from local files
@@ -23,9 +29,9 @@ sources:
 #- !Url http://localhost/hi
 
 output_dir: "./generated-snippets/"
-output_extension: "md"
-# targets
-# link_format
+output_extension: "md"  # Extension for generated files written to the output directory
+# targets: ./docs  # List of glob patters, separated by spaces, that contain the files to be spliced with the code snippets.
+# link_format: GitHub  # Defines the format of snippet source links that appear under each snippet.
 omit_source_links: false
 missing_snippets_behavior: Warn
 retain_nested_snippet_comments: false

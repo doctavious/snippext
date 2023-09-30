@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use snippext::cmd::extract::extract;
-use snippext::constants::{DEFAULT_SNIPPEXT_CONFIG, DEFAULT_TEMPLATE_IDENTIFIER};
+use snippext::constants::{DEFAULT_SNIPPEXT_CONFIG, DEFAULT_TEMPLATE, DEFAULT_TEMPLATE_IDENTIFIER};
 use snippext::error::SnippextError;
 use snippext::settings::SnippextSettings;
 use snippext::types::{LinkFormat, SnippetSource};
@@ -14,7 +14,6 @@ use walkdir::WalkDir;
 #[test]
 fn should_deserialize_default_config_to_snippext_settings() {
     let settings: Result<SnippextSettings, serde_yaml::Error> = serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG);
-    println!("{:?}", settings);
     assert!(settings.is_ok());
 }
 
@@ -72,6 +71,40 @@ fn should_successfully_extract_from_local_sources_directory() {
 "#;
     assert_eq!(sample_fn_2_content_expected, sample_fn_2_content_actual);
 }
+
+#[test]
+#[traced_test]
+fn should_successfully_extract_from_local_sources_directory_with_default_template() {
+    let dir = tempdir().unwrap();
+
+    extract(SnippextSettings {
+        templates: IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            DEFAULT_TEMPLATE.to_string(),
+        )]),
+        sources: vec![SnippetSource::Local {
+            files: vec![String::from("./tests/samples/*")],
+        }],
+        output_dir: Some(dir.path().to_string_lossy().to_string()),
+        output_extension: Some(String::from("md")),
+        ..Default::default()
+    })
+        .unwrap();
+
+    let main_content_actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
+            .unwrap();
+    let main_content_expected = r#"```rust
+fn main() {
+
+    println!("printing...")
+}
+```
+<a href='tests/samples/main.rs' title='Snippet source file'>snippet source</a>
+"#;
+    assert_eq!(main_content_expected, main_content_actual);
+}
+
 
 #[test]
 #[traced_test]
