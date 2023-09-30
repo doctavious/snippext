@@ -84,7 +84,7 @@ fn main() {
 > [!NOTE]
 > Named C# regions will also be picked up, with the name of the region used as the identifier.
 
-### Features {#source-features}
+### Source Features
 
 #### Retain Nested Snippet Comments
 
@@ -101,7 +101,7 @@ Next, we need to identify places in target files where we want to insert snippet
 
 In the example above, the "readme_example" code snippet will be spliced between the comments. Any text inside the comment will be replaced by the code snippet. This allows for a default snippet to be included if for any reason the referenced identifier was not extracted from the source.
 
-### [Features](#target-features)
+### Target Features
 
 To customize how a snippet is rendered add JSON configuration after the identifier of the snippet start line. An example would look like
 
