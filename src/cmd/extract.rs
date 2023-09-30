@@ -281,7 +281,12 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    let result = render_template(snippet, &snippext_settings, None)?;
+                    let result = render_template(
+                        Some(identifier),
+                        snippet,
+                        &snippext_settings,
+                        None
+                    )?;
                     fs::write(output_path, result).unwrap();
                 }
             }
@@ -898,7 +903,7 @@ fn process_target_file(
         let mut found = false;
         if let Some(snippet) = find_snippet(snippets, &key) {
             found = true;
-            let result = render_template(&snippet, &settings, attributes)?;
+            let result = render_template(None, &snippet, &settings, attributes)?;
 
             let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
             new_file_lines.extend(result_lines);

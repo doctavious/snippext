@@ -12,6 +12,7 @@ use crate::unindent::unindent;
 use crate::{files, SnippextResult, unindent};
 
 pub fn render_template(
+    identifier: Option<&String>,
     snippet: &Snippet,
     snippext_settings: &SnippextSettings,
     target_attributes: Option<HashMap<String, Value>>,
@@ -133,7 +134,7 @@ pub fn render_template(
         );
     }
 
-    let template = get_template(&data, snippext_settings)?;
+    let template = get_template(identifier, &data, snippext_settings)?;
     return render(template, &data);
 }
 
@@ -146,10 +147,22 @@ fn render(content: &String, data: &HashMap<String, Value>) -> SnippextResult<Str
     Ok(rendered)
 }
 
+// TODO: clean up
 fn get_template<'a>(
+    identifier: Option<&String>,
     data: &HashMap<String, Value>,
     snippext_settings: &'a SnippextSettings,
 ) -> SnippextResult<&'a String> {
+    if let Some(identifier) = identifier {
+        return if let Some(template) = snippext_settings.templates.get(identifier) {
+            Ok(template)
+        } else {
+            Err(SnippextError::TemplateNotFound(String::from(format!(
+                "{} does not exist",
+                identifier
+            ))))
+        };
+    }
     return if let Some(template_identifier) = data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE) {
         match template_identifier {
             Value::String(identifier) => {

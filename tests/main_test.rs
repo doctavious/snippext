@@ -75,7 +75,7 @@ fn should_successfully_output_snippet_for_each_template() {
         templates: IndexMap::from([
             (
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-                String::from("{{snippet}}"),
+                String::from("```{{lang}}\n{{snippet}}```"),
             ),
             ("another_template".to_string(), String::from("{{snippet}}")),
         ]),
@@ -95,6 +95,29 @@ fn should_successfully_output_snippet_for_each_template() {
         .count();
 
     assert_eq!(4, count);
+
+    let main_default_content_actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md")
+    ).unwrap();
+    let main_default_content_expected = r#"```rust
+fn main() {
+
+    println!("printing...")
+}
+```"#;
+    assert_eq!(main_default_content_expected, main_default_content_actual);
+
+    let main_raw_content_actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/main.rs/main_another_template.md")
+    ).unwrap();
+    let main_raw_content_expected = r#"fn main() {
+
+    println!("printing...")
+}
+"#;
+    assert_eq!(main_raw_content_expected, main_raw_content_actual);
+
+
 }
 
 #[test]
