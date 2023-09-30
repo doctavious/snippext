@@ -22,16 +22,31 @@ templates:
   raw: "{{snippet}}"
 sources:
 # extract from local files
-- files:
+- !Local
+  files:
   - "**"
+
+# extract from remote Git repo
+#- !Git
+#  repository: https://github.com/doctavious/snippext.git
+#  branch: main
+#  cone_patterns:
+#    - ./src/*.rs
+#  files:
+#    - "**"
+
+# extract from URL
+#- !Url http://localhost/hi
+
 output_dir: "./generated-snippets/"
 output_extension: "md"
 # targets
 # link_format
 omit_source_links: false
-missing_snippets_behavior: "Warn" 
+missing_snippets_behavior: Warn
 retain_nested_snippet_comments: false
 enable_autodetect_language: true
+selected_lines_include_ellipses: false
 ```
 <!-- snippext::end -->
 
@@ -77,7 +92,7 @@ Snippets can be nested in other snippets. By default, nested snippet comments ar
 Next, we need to identify places in target files where we want to insert snippets into. Similar to source files, we wrap the location with a comment that references the identifier of the code snippet that will be inserted there:
 
 ```
-<!-- snippet::start readme_example -->
+<!-- snippet::start rust_main -->
 <!-- snippet::end -->
 ```
 
@@ -111,6 +126,11 @@ The `omit_source_link` attribute determines whether source links should be inclu
 
 You can use a source snippet in multiple places, so you may wish to customize which lines are rendered in each location. Add a `selected_lines` configuration to the JSON configuration.
 
+> [!NOTE]
+> Nested comments don't count to line numbers unless you've enabled the flag to retain them in source content
+
+If you would like to include ellipses comments, // ...,  for any gaps when using `selected_lines` you can enable `selected_lines_include_ellipses`
+
 ### Including Snippet From URL
 
 Snippets that start with `http` will be downloaded and the contents rendered. For example:
@@ -126,10 +146,13 @@ URL contents are downloaded to `temp/snippext`
 
 If no snippet is found matching the identifier Snippext will treat it as a file and the contents rendered. For example:
 
-``` 
-<!-- snippet::start LICENSE -->
-<!-- snippet::end -->
+
+<!-- snippext::start LICENSE { "selected_lines": ["1"], "selected_lines_include_ellipses": true } -->
 ```
+MIT License
+...
+```
+<!-- snippext::end -->
 
 ## Advanced
 
