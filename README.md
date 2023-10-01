@@ -159,9 +159,33 @@ MIT License
 
 ## Advanced
 
-#### Custom Template
+#### Custom Templates
 
+Snippext templates are defined as [handlebar](https://handlebarsjs.com/) templates which you can change to your liking. Snippext provides the following as input data which can be used within your template.
+
+- snippet
+- source_path
+- source_link_prefix
+- source_link
+- omit_source_link
+- selected_lines
+- selected_lines_include_ellipses
+
+> [!NOTE]
+> Custom input data can be provided by adding attributes on source and target snippet JSON configuration.
 
 ## Clear Snippets
 
-To remove snippets from target files
+To remove snippet contents, keeping the snippext comment intact, from target files use the `clear` command.
+
+```bash
+snippext clear
+```
+
+This will use configuration from your `snippext.yaml` if present otherwise it will use default configuration shown above. You can also pass in CLI args to configure.
+
+If you prefer to remove the entire snippet, including the snippet comment, provide the `--delete` flag.
+
+```bash
+snippext clear --delete
+```
