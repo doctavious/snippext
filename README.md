@@ -54,10 +54,6 @@ selected_lines_include_ellipses: false
 ```
 <!-- snippext::end -->
 
-TODO:
-- explanation of fields
-
-
 ## Defining Snippets
 
 Use comments that begin with a Snippext prefix to identify code snippets in source files and the locations where they should be merged into target files.
@@ -76,10 +72,7 @@ fn main() {
 ```
 <!-- snippext::end -->
 
-[//]: # (TODO: mentioned id Unique identifiers can contain letters, numbers, hyphens, and underscores.)
-
-[//]: # (TODO: mention The code snippets will do smart trimming of snippet indentation. remove leading spaces from indented code snippets.)
-
+In the snippet above, "rust_main" is the unique identifier for the code snippet. While identifiers can be any string which doesn't contain whitespace characters, which allows us to support including [URL](#including-snippet-from-url) and [file](#including-snippet-from-file), its generallly recommended for identifiers to contain only letters, numbers, hyphens, and underscores.
 
 > [!NOTE]
 > Named C# regions will also be picked up, with the name of the region used as the identifier.
@@ -100,6 +93,8 @@ Next, we need to identify places in target files where we want to insert snippet
 ```
 
 In the example above, the "readme_example" code snippet will be spliced between the comments. Any text inside the comment will be replaced by the code snippet. This allows for a default snippet to be included if for any reason the referenced identifier was not extracted from the source.
+
+When rendering snippet content, Snippext will remove leading spaces from indented code snippets.
 
 ### Target Features
 
@@ -161,7 +156,7 @@ MIT License
 
 #### Custom Templates
 
-Snippext templates are defined as [handlebar](https://handlebarsjs.com/) templates which you can change to your liking. Snippext provides the following as input data which can be used within your template.
+Snippext uses [handlebar](https://handlebarsjs.com/) templates to produce the generated snippets. Default templates are provided. To customize a snippet's content you can provide your own templates.
 
 - snippet
 - source_path
@@ -171,8 +166,7 @@ Snippext templates are defined as [handlebar](https://handlebarsjs.com/) templat
 - selected_lines
 - selected_lines_include_ellipses
 
-> [!NOTE]
-> Custom input data can be provided by adding attributes on source and target snippet JSON configuration.
+You can provide extra information by adding configuration attributes on source and target snippets. Any additional attributes are made available during the template rendering process. Combined with a custom template, this makes it possible to include extra information in a generated snippet.
 
 ## Clear Snippets
 
