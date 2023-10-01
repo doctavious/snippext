@@ -1,5 +1,5 @@
 pub const SNIPPEXT: &'static str = "snippext";
-// TODO: this might not be needed
+
 pub const DEFAULT_SNIPPEXT_CONFIG: &str = include_str!("./default_snippext_config.yaml");
 pub const DEFAULT_START: &'static str = "snippet::start";
 pub const DEFAULT_END: &'static str = "snippet::end";

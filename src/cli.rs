@@ -6,13 +6,16 @@ use crate::cmd::*;
 #[derive(Parser, Debug)]
 #[command(about, version, author)]
 pub struct Args {
+
     #[command(subcommand)]
     pub cmd: Command,
 
-    #[arg(long, help = "")]
+    /// Print debugging information
+    #[arg(long)]
     pub debug: bool,
 }
 
+/// Snippext CLI Commands
 #[remain::sorted]
 #[derive(Subcommand, Debug)]
 pub enum Command {

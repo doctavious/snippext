@@ -3,14 +3,14 @@
 use std::iter::Peekable;
 use std::slice::Split;
 
-pub fn unindent(s: &str) -> String {
+pub(crate) fn unindent(s: &str) -> String {
     let bytes = s.as_bytes();
     let unindented = unindent_bytes(bytes);
     String::from_utf8(unindented).unwrap()
 }
 
 // Compute the maximal number of spaces that can be removed from every line, and remove them.
-pub fn unindent_bytes(s: &[u8]) -> Vec<u8> {
+pub(crate) fn unindent_bytes(s: &[u8]) -> Vec<u8> {
     // Document may start either on the same line as opening quote or on the next line
     let ignore_first_line = s.starts_with(b"\n") || s.starts_with(b"\r\n");
 
@@ -35,7 +35,7 @@ pub fn unindent_bytes(s: &[u8]) -> Vec<u8> {
     result
 }
 
-pub trait Unindent {
+pub(crate) trait Unindent {
     type Output;
 
     fn unindent(&self) -> Self::Output;
@@ -113,11 +113,4 @@ impl<'a> Iterator for Lines<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.split.next()
     }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn remove_unnecessary_indents() {}
 }

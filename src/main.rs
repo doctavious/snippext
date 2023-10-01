@@ -22,6 +22,3 @@ fn init_logger(debug: bool) {
 
     tracing_subscriber::fmt().with_max_level(level).init();
 }
-
-#[cfg(test)]
-mod tests {}

@@ -9,13 +9,19 @@ use serde_json::Value;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
     // The snippet name is sanitized to prevent malicious code to overwrite arbitrary files on your system.
+    /// Snippet identifier
     pub identifier: String,
     /// The path the snippet was read from.
     pub path: PathBuf,
+    /// Snippet content
     pub text: String,
+    /// Per-snippet configuration attributes
     pub attributes: HashMap<String, Value>,
+    /// Line the snippets starts on within the source file
     pub start_line: usize,
+    /// Line the snippet ends on within the source file
     pub end_line: usize,
+    /// Link to the source file the snippet is defined in
     pub source_link: Option<String>,
 }
 
@@ -23,17 +29,25 @@ pub struct Snippet {
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SnippetSource {
+    /// Snippet source that comes from a remote Git repository
     Git {
+        /// Git repository to clone
         repository: String,
+        /// Git branch to clone
         #[serde(skip_serializing_if = "Option::is_none")]
         branch: Option<String>,
+        /// Patterns to use as part of a sparse-checkout
         #[serde(skip_serializing_if = "Option::is_none")]
         cone_patterns: Option<Vec<String>>, // for sparse checkout. cone pattern sets
+        /// Glob patterns used to identify files to extract source snippets from
         files: Vec<String>,
     },
+    /// Snippet source that comes from local files
     Local {
+        /// Glob patterns used to identify files to extract source snippets from
         files: Vec<String>,
     },
+    /// Snippet source that comes from a URL
     Url(String),
 }
 
