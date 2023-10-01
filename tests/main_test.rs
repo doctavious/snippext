@@ -223,7 +223,7 @@ fn should_successfully_extract_from_remote_git_repository() {
         )]),
         sources: vec![SnippetSource::Git {
             repository: String::from("https://github.com/doctavious/snippext.git"),
-            branch: Some(String::from("tests")),
+            branch: Some(String::from("main")),
             cone_patterns: None,
             files: vec![String::from("/tests/samples/*")],
         }],
@@ -244,7 +244,7 @@ fn should_successfully_extract_from_remote_git_repository() {
 
     println!("printing...")
 }
-https://github.com/doctavious/snippext/blob/tests/tests/samples/main.rs#L1-L8"#;
+https://github.com/doctavious/snippext/blob/main/tests/samples/main.rs#L1-L8"#;
     assert_eq!(main_content_expected, main_content_actual);
 }
 
