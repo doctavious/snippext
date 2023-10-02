@@ -158,13 +158,13 @@ MIT License
 
 Snippext uses [handlebar](https://handlebarsjs.com/) templates to produce the generated snippets. Default templates are provided. To customize a snippet's content you can provide your own templates.
 
-- snippet
-- source_path
-- source_link_prefix
-- source_link
-- omit_source_link
-- selected_lines
-- selected_lines_include_ellipses
+- snippet - Content of the source snippet
+- source_path - Path to the source file that contains the snippet
+- source_link_prefix - Source link prefix based on link format if provided
+- source_link - Full source link based on link format
+- omit_source_link - Flag that determines whether source links should be included in rendered output.
+- selected_lines - The selected lines, if present, from the target snippet attributes
+- selected_lines_include_ellipses - Determines whether ellipsis should be added to gaps when `select_lines` attribute is used to render snippets.
 
 You can provide extra information by adding configuration attributes on source and target snippets. Any additional attributes are made available during the template rendering process. Combined with a custom template, this makes it possible to include extra information in a generated snippet.
 
