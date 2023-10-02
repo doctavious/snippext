@@ -240,6 +240,7 @@ impl SourceLink {
     }
 }
 
+/// Entry point for `extract` CLI command
 pub fn execute(extract_opt: Args) -> SnippextResult<()> {
     let settings = build_settings(extract_opt)?;
     extract(settings)

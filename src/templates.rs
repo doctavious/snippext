@@ -11,7 +11,7 @@ use crate::types::Snippet;
 use crate::unindent::unindent;
 use crate::{files, SnippextResult, unindent};
 
-pub fn render_template(
+pub(crate) fn render_template(
     identifier: Option<&String>,
     snippet: &Snippet,
     snippext_settings: &SnippextSettings,

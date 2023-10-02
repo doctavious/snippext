@@ -1,6 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/snippext")]
 #![doc(issue_tracker_base_url = "https://github.com/doctavious/snippext/issues/")]
-#![warn(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
 pub mod cli;

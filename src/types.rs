@@ -25,6 +25,7 @@ pub struct Snippet {
     pub source_link: Option<String>,
 }
 
+/// Where to look for source snippets. Remote sources will be downloaded
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -51,6 +52,7 @@ pub enum SnippetSource {
     Url(String),
 }
 
+/// Defines the format of snippet source links that appear under each snippet.
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Copy, Debug, Deserialize, Parser, Serialize, ValueEnum)]
@@ -65,6 +67,7 @@ pub enum LinkFormat {
 }
 
 impl LinkFormat {
+    /// All possible Link Format variants
     pub const VARIANTS: &'static [LinkFormat] = &[
         Self::AzureRepos,
         Self::BitBucket,
@@ -74,6 +77,7 @@ impl LinkFormat {
         Self::Gitee,
     ];
 
+    /// Determine LinkFormat based on URL domain
     pub fn from_domain(domain: &str) -> Option<Self> {
         match domain.split('.').next()? {
             "azure" => Some(LinkFormat::AzureRepos),
@@ -103,21 +107,30 @@ impl fmt::Display for LinkFormat {
     }
 }
 
+/// Details for missing snippets
 #[derive(Debug)]
 pub struct MissingSnippet {
+    /// The snippet identifier that was not found
     pub key: String,
+    /// The line number in the target file for the snippet that was not found in source
     pub line_number: u32,
+    /// The source file the missing snippet is in.
     pub path: PathBuf,
 }
 
+/// Defines how Snippext should behave when there is snippets in target files that do not match
+/// any source snippet.
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ValueEnum)]
 #[clap(rename_all = "lower")]
 pub enum MissingSnippetsBehavior {
+    /// Cause extract to fail if any missing snippets are found providing details to users about each
     Fail,
+    /// Do nothing if missing snippets are found
     #[default]
     Ignore,
+    /// Log a warning for each missing snippet
     Warn,
 }
 

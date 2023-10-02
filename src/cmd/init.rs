@@ -24,6 +24,7 @@ pub struct Args {
     pub default: bool,
 }
 
+/// Entry point for `init` CLI command
 pub fn execute(init_opt: Args) -> SnippextResult<()> {
     let content = if init_opt.default {
         DEFAULT_SNIPPEXT_CONFIG.to_string()

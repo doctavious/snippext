@@ -19,7 +19,10 @@ pub struct Args {
 #[remain::sorted]
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Clear snippets from target files
     Clear(clear::Args),
+    /// Extract snippets from sources and splice into target files / render to output directory
     Extract(extract::Args),
+    /// Initialize Snippext configuration
     Init(init::Args),
 }

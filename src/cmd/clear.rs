@@ -39,15 +39,21 @@ pub struct Args {
     pub delete: bool,
 }
 
+/// Settings that determine how snippets are cleared from target files
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ClearSettings {
+    /// Prefix that marks the start of a snippet.
     pub start: String,
+    /// Prefix that marks the end of a snippet.
     pub end: String,
+    /// List of glob patters that contain the files to be spliced with the code snippets.
     pub targets: Vec<String>,
+    /// Determines whether the entire snippet should be removed. If false only the snippet content
+    /// will be removed. If true the entire snippet will be removed.
     pub delete: bool,
 }
 
-/// Removes snippets from target files
+/// Entry point for `clear` CLI command
 pub fn execute(args: Args) -> SnippextResult<()> {
     let settings = build_clear_settings(args)?;
     clear(settings)
