@@ -16,6 +16,7 @@ pub struct Args {
 }
 
 /// Snippext CLI Commands
+#[allow(clippy::large_enum_variant)]
 #[remain::sorted]
 #[derive(Subcommand, Debug)]
 pub enum Command {

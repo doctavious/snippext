@@ -421,11 +421,11 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
         failures.push(String::from("output_extension must not be an empty string"));
     }
 
-    return if !failures.is_empty() {
-        Err(SnippextError::ValidationError(failures))
-    } else {
+    if failures.is_empty() {
         Ok(())
-    };
+    } else {
+        Err(SnippextError::ValidationError(failures))
+    }
 }
 
 fn extract_snippets(
@@ -652,7 +652,6 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
     let date_time = DateTime::parse_from_rfc2822(header_value_str).ok()?;
     Some(date_time.into())
 }
-
 
 fn extract_snippets_from_file(
     source_file: SourceFile,

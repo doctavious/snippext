@@ -143,11 +143,11 @@ fn validate_clear_settings(settings: &ClearSettings) -> SnippextResult<()> {
         failures.push("Must specify targets".to_string())
     }
 
-    return if failures.is_empty() {
+    if failures.is_empty() {
         Ok(())
     } else {
         Err(SnippextError::ValidationError(failures))
-    };
+    }
 }
 
 #[cfg(test)]

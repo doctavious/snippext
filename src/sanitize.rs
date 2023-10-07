@@ -20,6 +20,7 @@ struct Options {
     windows: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Options {
     fn default() -> Self {
         Options {
