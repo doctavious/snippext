@@ -167,7 +167,7 @@ impl SourceLink {
         let mut source_link = String::new();
         if let Some(source_link_prefix) = source_link_prefix {
             source_link.push_str(source_link_prefix);
-            if !source_link.ends_with("/") {
+            if !source_link.ends_with('/') {
                 source_link.push('/');
             }
         }
@@ -185,7 +185,7 @@ impl SourceLink {
         link_format: Option<LinkFormat>,
     ) -> Self {
         let mut source_link = repository.trim_end_matches(".git").to_string();
-        if !source_link.ends_with("/") {
+        if !source_link.ends_with('/') {
             source_link.push('/');
         }
 
@@ -266,7 +266,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 
         if let Some(output_dir) = &snippext_settings.output_dir {
             let base_path = Path::new(output_dir.as_str());
-            for (_, snippet) in &extracted_snippets {
+            for snippet in extracted_snippets.values() {
                 for identifier in snippext_settings.templates.keys() {
                     let output_path = base_path
                         .join(
@@ -277,7 +277,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                         )
                         .join(format!(
                             "{}_{}",
-                            sanitize(snippet.identifier.to_owned()),
+                            sanitize(&snippet.identifier),
                             identifier
                         ))
                         .with_extension(extension);
@@ -396,7 +396,7 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
                     files,
                     ..
                 } => {
-                    if url == "" {
+                    if url.is_empty() {
                         failures.push(format!("sources[{}].url must not be empty", i));
                     }
 
@@ -490,7 +490,7 @@ fn extract_snippets(
 
             fs::create_dir_all(&download_dir)?;
             git::checkout_files(
-                &repository,
+                repository,
                 branch.clone(),
                 cone_patterns.clone(),
                 &download_dir,
@@ -566,8 +566,8 @@ const INVALID_DIR_CHARS: [char; 14] = [
     '/', '\\', '?', '*', ':', '|', '"', '<', '>', ',', ';', '=', ' ', '.',
 ];
 
-fn url_to_path(url_string: &String) -> SnippextResult<PathBuf> {
-    let url = Url::from_str(url_string.as_str())?;
+fn url_to_path(url_string: &str) -> SnippextResult<PathBuf> {
+    let url = Url::from_str(url_string)?;
     let path: String = url
         .path()
         .chars()
@@ -639,19 +639,20 @@ fn get_source_file_from_url(url: &String) -> SnippextResult<SourceFile> {
         }
     }
 
-    return Ok(SourceFile {
+    Ok(SourceFile {
         full_path: download_path,
         relative_path: url_file_path,
         source_link: SourceLink::new_url(url.to_string()),
-    });
+    })
 }
 
 // Wed, 16 Aug 2023 22:40:19 GMT
 fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime> {
     let header_value_str = header_value?.to_str().ok()?;
-    let date_time = DateTime::parse_from_rfc2822(&header_value_str).ok()?;
+    let date_time = DateTime::parse_from_rfc2822(header_value_str).ok()?;
     Some(date_time.into())
 }
+
 
 fn extract_snippets_from_file(
     source_file: SourceFile,
@@ -680,7 +681,7 @@ fn extract_snippets_from_file(
     let language = if settings.enable_autodetect_language {
         match hyperpolyglot::detect(&source_file.full_path) {
             Ok(detection) => {
-                detection.and_then(|x| Some(x.language().to_ascii_lowercase()))
+                detection.map(|x| x.language().to_ascii_lowercase())
             }
             Err(_) => {
                 warn!("failed to detect language for file {}", &source_file.full_path.to_string_lossy());
@@ -815,7 +816,7 @@ fn extract_id_and_attributes(
     let regex_close = comment
         .start_close
         .as_ref()
-        .and_then(|s| Some(format!("({}|$)", s)))
+        .map(|s| format!("({}|$)", s))
         .unwrap_or("$".to_string());
 
     let format = format!(
@@ -832,7 +833,7 @@ fn extract_id_and_attributes(
 
         let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
             let attributes_str = match_attributes.as_str().trim();
-            if attributes_str == "" {
+            if attributes_str.is_empty() {
                 None
             } else {
                 Some(serde_json::from_str(attributes_str)?)
@@ -871,10 +872,10 @@ fn process_target_file(
         )),
     };
 
-    let f = File::open(&target)?;
+    let f = File::open(target)?;
     let reader = BufReader::new(f);
     for line in reader.lines() {
-        line_number = line_number + 1;
+        line_number += 1;
         let line = line?;
         let current_line = line.trim();
 
@@ -905,7 +906,7 @@ fn process_target_file(
         let mut found = false;
         if let Some(snippet) = find_snippet(snippets, &key) {
             found = true;
-            let result = render_template(None, &snippet, &settings, attributes)?;
+            let result = render_template(None, &snippet, settings, attributes)?;
 
             let result_lines: Vec<String> = result.lines().map(|s| s.to_string()).collect();
             new_file_lines.extend(result_lines);
@@ -930,7 +931,7 @@ fn process_target_file(
     }
 
     if updated {
-        fs::write(target.to_path_buf(), new_file_lines.join("\n"))?;
+        fs::write(target, new_file_lines.join("\n"))?;
     }
 
     Ok(missing_snippets)
@@ -951,7 +952,7 @@ fn find_snippet(snippets: &HashMap<String, Snippet>, key: &String) -> Option<Sni
                     // TODO: I would like this build source link the same way in all spots
                     return Some(Snippet {
                         identifier: key.to_string(),
-                        path: s.full_path.clone(),
+                        path: s.full_path,
                         text: content,
                         attributes: Default::default(),
                         start_line: 1,
@@ -981,7 +982,7 @@ fn find_snippet(snippets: &HashMap<String, Snippet>, key: &String) -> Option<Sni
         });
     }
 
-    return None;
+    None
 }
 
 fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
@@ -1089,7 +1090,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         };
 
         let source = SnippetSource::Git {
-            repository: repo_url.to_string(),
+            repository: repo_url,
             branch: opt.repository_branch,
             cone_patterns: opt.repository_cone_patterns,
             files: source_files,
@@ -1115,7 +1116,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
 
     let settings: SnippextSettings = builder.build()?.try_deserialize()?;
 
-    return Ok(settings);
+    Ok(settings)
 }
 
 #[cfg(test)]

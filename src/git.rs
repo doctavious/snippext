@@ -29,7 +29,7 @@ pub(crate) fn checkout_files(
     let clone_output = clone_command
         .arg(remote)
         .arg(".")
-        .current_dir(&dir)
+        .current_dir(dir)
         .output()
         .map_err(SnippextError::from)?;
 
@@ -44,7 +44,7 @@ pub(crate) fn checkout_files(
             .arg("sparse-checkout")
             .arg("init")
             .arg("--cone")
-            .current_dir(&dir)
+            .current_dir(dir)
             .output()
             .map_err(SnippextError::from)?;
 
@@ -58,7 +58,7 @@ pub(crate) fn checkout_files(
             .arg("sparse-checkout")
             .arg("set")
             .arg(cone_patterns.unwrap().join(" "))
-            .current_dir(&dir)
+            .current_dir(dir)
             .output()
             .map_err(SnippextError::from)?;
 

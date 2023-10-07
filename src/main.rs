@@ -3,7 +3,6 @@ use snippext::cli::Command;
 use snippext::cmd::{clear, extract, init};
 use snippext::{cli, SnippextResult};
 use tracing::Level;
-use tracing_subscriber;
 
 fn main() -> SnippextResult<()> {
     let opt = cli::Args::parse();

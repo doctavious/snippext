@@ -103,6 +103,7 @@ impl BytesExt for [u8] {
     }
 }
 
+#[allow(clippy::type_complexity)]
 struct Lines<'a> {
     split: Peekable<Split<'a, u8, fn(&u8) -> bool>>,
 }

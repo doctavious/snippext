@@ -43,8 +43,8 @@ pub(crate) fn render_template(
                 "select_lines values must be strings".to_string(),
             ))?;
 
-            let include_lines = if sn.contains("-") {
-                let line_nums: Vec<&str> = sn.split("-").collect();
+            let include_lines = if sn.contains('-') {
+                let line_nums: Vec<&str> = sn.split('-').collect();
                 [
                     line_nums[0].parse::<usize>()? - 1,
                     line_nums[1].parse::<usize>()?,
@@ -89,7 +89,7 @@ pub(crate) fn render_template(
 
             // if we didnt highlight the last line add an ellipsis at the end.
             if sns.last().is_some_and(|sn| sn[1] != snippet_content_lines.len()) {
-                new_lines.push(ellipsis.clone())
+                new_lines.push(ellipsis)
             }
         } else {
             for sn in sns {
@@ -100,7 +100,7 @@ pub(crate) fn render_template(
 
         new_lines.iter().fold(String::new(), |mut a, b| {
             a.push_str(b);
-            a.push_str("\n");
+            a.push('\n');
             a
         })
     } else {
@@ -135,14 +135,14 @@ pub(crate) fn render_template(
     }
 
     let template = get_template(identifier, &data, snippext_settings)?;
-    return render(template, &data);
+    render(template, &data)
 }
 
-fn render(content: &String, data: &HashMap<String, Value>) -> SnippextResult<String> {
+fn render(content: &str, data: &HashMap<String, Value>) -> SnippextResult<String> {
     let mut hbs = Handlebars::new();
     hbs.register_escape_fn(no_escape);
 
-    let rendered = hbs.render_template(content.as_str(), data)?;
+    let rendered = hbs.render_template(content, data)?;
 
     Ok(rendered)
 }
@@ -157,10 +157,10 @@ fn get_template<'a>(
         return if let Some(template) = snippext_settings.templates.get(identifier) {
             Ok(template)
         } else {
-            Err(SnippextError::TemplateNotFound(String::from(format!(
+            Err(SnippextError::TemplateNotFound(format!(
                 "{} does not exist",
                 identifier
-            ))))
+            )))
         };
     }
     return if let Some(template_identifier) = data.get(SNIPPEXT_TEMPLATE_ATTRIBUTE) {
@@ -169,16 +169,16 @@ fn get_template<'a>(
                 if let Some(template) = snippext_settings.templates.get(identifier) {
                     Ok(template)
                 } else {
-                    Err(SnippextError::TemplateNotFound(String::from(format!(
+                    Err(SnippextError::TemplateNotFound(format!(
                         "{} does not exist",
                         identifier
-                    ))))
+                    )))
                 }
             }
-            _ => Err(SnippextError::TemplateNotFound(String::from(format!(
+            _ => Err(SnippextError::TemplateNotFound(format!(
                 "{} has wrong type",
                 template_identifier.to_string()
-            )))),
+            ))),
         }
     } else {
         let default_template = snippext_settings

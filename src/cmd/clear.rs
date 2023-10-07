@@ -77,7 +77,7 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
         .set_override_option("targets", opt.targets)?;
 
     let settings: ClearSettings = builder.build()?.try_deserialize()?;
-    return Ok(settings);
+    Ok(settings)
 }
 
 /// remove snippets from target files

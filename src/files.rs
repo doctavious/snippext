@@ -28,21 +28,11 @@ impl SnippextComments {
     }
 
     pub fn is_line_start_snippet(&self, line: &str) -> Option<&SnippextComment> {
-        for comment in &self.comments {
-            if line.starts_with(comment.start.as_str()) {
-                return Some(comment);
-            }
-        }
-        None
+        self.comments.iter().find(|&comment| line.starts_with(comment.start.as_str()))
     }
 
     pub fn is_line_end_snippet(&self, line: &str) -> Option<&SnippextComment> {
-        for comment in &self.comments {
-            if line.starts_with(comment.end.as_str()) {
-                return Some(comment);
-            }
-        }
-        None
+        self.comments.iter().find(|&comment| line.starts_with(comment.end.as_str()))
     }
 }
 
@@ -78,7 +68,7 @@ pub fn get_snippet_comments(extension: &str, start: &str, end: &str) -> Vec<Snip
         });
     }
 
-    return snippet_comments;
+    snippet_comments
 }
 
 // TODO: given we have hyperpolyglot we an tie this to language instead of just file extension
@@ -130,7 +120,7 @@ pub fn file_comments(extension: &str) -> Vec<CommentLexicalTokens> {
     }
 }
 
-const TEXT_FILES: [&'static str; 4] = ["", "adoc", "md", "txt"];
+const TEXT_FILES: [&str; 4] = ["", "adoc", "md", "txt"];
 pub(crate) fn is_text_file(extension: &str) -> bool {
     TEXT_FILES.contains(&extension)
 }

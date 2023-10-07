@@ -124,11 +124,8 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     )
                     .prompt_skippable()?;
 
-                let cone_patterns = if let Some(cone_patterns) = cone_patterns_prompt {
-                    Some(cone_patterns.split(" ").map(|s| s.to_string()).collect())
-                } else {
-                    None
-                };
+                let cone_patterns = cone_patterns_prompt
+                    .map(|cone_patterns| cone_patterns.split(' ').map(|s| s.to_string()).collect());
 
                 let source_files_prompt = Text::new("Source files:")
                     .with_default(DEFAULT_SOURCE_FILES)
@@ -279,7 +276,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
         templates,
         sources,
         output_dir,
-        targets: Some(targets.split(",").map(|t| t.to_string()).collect()),
+        targets: Some(targets.split(',').map(|t| t.to_string()).collect()),
         link_format,
         source_link_prefix,
         omit_source_links,
