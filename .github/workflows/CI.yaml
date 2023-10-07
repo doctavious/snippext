@@ -32,9 +32,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: rustfmt
-      - run: rustup run stable cargo fmt --all -- --check
+      - run: rustup run nightly cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -44,6 +44,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: clippy
-      - run: rustup run stable cargo clippy
+      - run: rustup run nightly cargo clippy
