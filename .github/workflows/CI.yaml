@@ -29,21 +29,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           profile: minimal
           toolchain: stable
           components: rustfmt
-      - run: cargo fmt --all -- --check
+      - run: rustup run stable cargo fmt --all -- --check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           profile: minimal
           toolchain: stable
           components: clippy
-      - run: cargo clippy
+      - run: rustup run stable cargo clippy
