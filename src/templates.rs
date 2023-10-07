@@ -9,7 +9,7 @@ use crate::error::SnippextError;
 use crate::settings::SnippextSettings;
 use crate::types::Snippet;
 use crate::unindent::unindent;
-use crate::{files, SnippextResult, unindent};
+use crate::{files, unindent, SnippextResult};
 
 pub(crate) fn render_template(
     identifier: Option<&String>,
@@ -57,7 +57,8 @@ pub(crate) fn render_template(
             sns.insert(include_lines);
         }
 
-        let selected_lines_include_ellipses = data.get("selected_lines_include_ellipses")
+        let selected_lines_include_ellipses = data
+            .get("selected_lines_include_ellipses")
             .and_then(|v| v.as_bool())
             .unwrap_or(snippext_settings.selected_lines_include_ellipses);
 
@@ -88,12 +89,18 @@ pub(crate) fn render_template(
             }
 
             // if we didnt highlight the last line add an ellipsis at the end.
-            if sns.last().is_some_and(|sn| sn[1] != snippet_content_lines.len()) {
+            if sns
+                .last()
+                .is_some_and(|sn| sn[1] != snippet_content_lines.len())
+            {
                 new_lines.push(ellipsis)
             }
         } else {
             for sn in sns {
-                let a: Vec<String> = snippet_content_lines[sn[0]..sn[1]].iter().map(|l| l.to_string()).collect();
+                let a: Vec<String> = snippet_content_lines[sn[0]..sn[1]]
+                    .iter()
+                    .map(|l| l.to_string())
+                    .collect();
                 new_lines.extend(a);
             }
         }

@@ -28,11 +28,15 @@ impl SnippextComments {
     }
 
     pub fn is_line_start_snippet(&self, line: &str) -> Option<&SnippextComment> {
-        self.comments.iter().find(|&comment| line.starts_with(comment.start.as_str()))
+        self.comments
+            .iter()
+            .find(|&comment| line.starts_with(comment.start.as_str()))
     }
 
     pub fn is_line_end_snippet(&self, line: &str) -> Option<&SnippextComment> {
-        self.comments.iter().find(|&comment| line.starts_with(comment.end.as_str()))
+        self.comments
+            .iter()
+            .find(|&comment| line.starts_with(comment.end.as_str()))
     }
 }
 

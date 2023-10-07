@@ -6,7 +6,6 @@ use crate::cmd::*;
 #[derive(Parser, Debug)]
 #[command(about, version, author)]
 pub struct Args {
-
     #[command(subcommand)]
     pub cmd: Command,
 

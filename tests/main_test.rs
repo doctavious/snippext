@@ -13,7 +13,8 @@ use walkdir::WalkDir;
 
 #[test]
 fn should_deserialize_default_config_to_snippext_settings() {
-    let settings: Result<SnippextSettings, serde_yaml::Error> = serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG);
+    let settings: Result<SnippextSettings, serde_yaml::Error> =
+        serde_yaml::from_str(DEFAULT_SNIPPEXT_CONFIG);
     assert!(settings.is_ok());
 }
 
@@ -89,7 +90,7 @@ fn should_successfully_extract_from_local_sources_directory_with_default_templat
         output_extension: Some(String::from("md")),
         ..Default::default()
     })
-        .unwrap();
+    .unwrap();
 
     let main_content_actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
@@ -104,7 +105,6 @@ fn main() {
 "#;
     assert_eq!(main_content_expected, main_content_actual);
 }
-
 
 #[test]
 #[traced_test]
@@ -136,9 +136,9 @@ fn should_successfully_output_snippet_for_each_template() {
 
     assert_eq!(4, count);
 
-    let main_default_content_actual = fs::read_to_string(
-        Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md")
-    ).unwrap();
+    let main_default_content_actual =
+        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
+            .unwrap();
     let main_default_content_expected = r#"```rust
 fn main() {
 
@@ -148,16 +148,15 @@ fn main() {
     assert_eq!(main_default_content_expected, main_default_content_actual);
 
     let main_raw_content_actual = fs::read_to_string(
-        Path::new(&dir.path()).join("tests/samples/main.rs/main_another_template.md")
-    ).unwrap();
+        Path::new(&dir.path()).join("tests/samples/main.rs/main_another_template.md"),
+    )
+    .unwrap();
     let main_raw_content_expected = r#"fn main() {
 
     println!("printing...")
 }
 "#;
     assert_eq!(main_raw_content_expected, main_raw_content_actual);
-
-
 }
 
 #[test]
@@ -533,7 +532,11 @@ fn main() {
 fn should_support_selected_lines_with_ellipsis() {
     let dir = tempdir().unwrap();
     let target = Path::new(&dir.path()).join("selected_lines_with_ellipsis.md");
-    fs::copy(Path::new("./tests/targets/selected_lines_with_ellipsis.md"), &target).unwrap();
+    fs::copy(
+        Path::new("./tests/targets/selected_lines_with_ellipsis.md"),
+        &target,
+    )
+    .unwrap();
 
     extract(SnippextSettings {
         templates: IndexMap::from([
@@ -552,7 +555,7 @@ fn should_support_selected_lines_with_ellipsis() {
         targets: Some(vec![target.to_string_lossy().to_string()]),
         ..Default::default()
     })
-        .unwrap();
+    .unwrap();
 
     let actual = fs::read_to_string(target).unwrap();
     let expected = r#"Select Lines
@@ -757,7 +760,7 @@ fn omit_source_links() {
         templates: IndexMap::from([(
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from(
-            "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
+                "```{{snippet}}```{{#unless omit_source_link}}\n{{source_link}}{{/unless}}",
             ),
         )]),
         sources: vec![SnippetSource::Local {
@@ -826,7 +829,8 @@ fn should_retain_nested_snippet_comments() {
         retain_nested_snippet_comments: true,
         output_extension: Some(String::from("md")),
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
 
     let actual =
         fs::read_to_string(Path::new(&dir.path()).join("tests/samples/main.rs/main_default.md"))
@@ -859,11 +863,13 @@ fn should_retain_nested_snippet_comments_for_individual_snippets() {
         retain_nested_snippet_comments: false,
         output_extension: Some(String::from("md")),
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
 
-    let retain_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/retain_default.md"))
-            .unwrap();
+    let retain_actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/retain_default.md"),
+    )
+    .unwrap();
     let retain_expected = r#"```rust
 fn main() {
 
@@ -879,9 +885,10 @@ fn main() {
 "#;
     assert_eq!(retain_expected, retain_actual);
 
-    let loop_actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/loop_default.md"))
-            .unwrap();
+    let loop_actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/retain_nested_comments.rs/loop_default.md"),
+    )
+    .unwrap();
     let loop_expected = r#"```rust
 for n in 1..10 {
     println!("printing...")
@@ -898,18 +905,17 @@ fn should_allow_custom_highlighted_attributes() {
     fs::copy(Path::new("./tests/targets/highlighted_lines.md"), &target).unwrap();
 
     extract(SnippextSettings {
-        templates: IndexMap::from([
-            (
-                DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
-                String::from("```{{lang}} hl_lines=\"{{highlighted_lines}}\"\n{{snippet}}```\n"),
-            ),
-        ]),
+        templates: IndexMap::from([(
+            DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
+            String::from("```{{lang}} hl_lines=\"{{highlighted_lines}}\"\n{{snippet}}```\n"),
+        )]),
         sources: vec![SnippetSource::Local {
             files: vec![String::from("./tests/samples/main.rs")],
         }],
         targets: Some(vec![target.to_string_lossy().to_string()]),
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
 
     let actual = fs::read_to_string(target).unwrap();
     let expected = r#"Highlighted Lines
@@ -940,11 +946,13 @@ fn should_autodetect_language() {
         retain_nested_snippet_comments: true,
         output_extension: Some(String::from("md")),
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
 
-    let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
-            .unwrap();
+    let actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"),
+    )
+    .unwrap();
     let expected = r#"```ruby
 puts "Hello, Ruby!"
 ```
@@ -969,11 +977,13 @@ fn should_support_disabling_autodetect_language() {
         output_extension: Some(String::from("md")),
         enable_autodetect_language: false,
         ..Default::default()
-    }).unwrap();
+    })
+    .unwrap();
 
-    let actual =
-        fs::read_to_string(Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"))
-            .unwrap();
+    let actual = fs::read_to_string(
+        Path::new(&dir.path()).join("tests/samples/custom_prefix.rb/ruby_default.md"),
+    )
+    .unwrap();
     let expected = r#"```
 puts "Hello, Ruby!"
 ```

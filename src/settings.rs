@@ -11,7 +11,9 @@ use crate::constants::{
 use crate::types::{LinkFormat, MissingSnippetsBehavior, SnippetSource};
 use crate::SnippextResult;
 
-const fn _default_true() -> bool { true }
+const fn _default_true() -> bool {
+    true
+}
 
 /// Snippext configuration settings
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -99,7 +99,13 @@ pub struct Args {
     /// Defines the format of snippet source links that appear under each snippet.
     /// Source links for local sources will not be included if not specified.
     /// If not provided For git sources links will attempt to determine based on git repository url.
-    #[arg(short = 'l', long, value_name = "FORMAT", value_enum, ignore_case = true)]
+    #[arg(
+        short = 'l',
+        long,
+        value_name = "FORMAT",
+        value_enum,
+        ignore_case = true
+    )]
     pub link_format: Option<LinkFormat>,
 
     /// String that will prefix all local snippet source links. This is useful when markdown
@@ -127,8 +133,7 @@ pub struct Args {
     /// Flag that determines whether ellipsis should be added to gaps when `select_lines` attribute
     /// is used to render snippets.
     #[arg(long, action = SetTrue)]
-    pub selected_lines_include_ellipses: Option<bool>
-
+    pub selected_lines_include_ellipses: Option<bool>,
 }
 
 struct SnippetExtractionState {
@@ -275,20 +280,12 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
                                 .to_string_lossy()
                                 .trim_start_matches(trim_chars),
                         )
-                        .join(format!(
-                            "{}_{}",
-                            sanitize(&snippet.identifier),
-                            identifier
-                        ))
+                        .join(format!("{}_{}", sanitize(&snippet.identifier), identifier))
                         .with_extension(extension);
 
                     fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-                    let result = render_template(
-                        Some(identifier),
-                        snippet,
-                        &snippext_settings,
-                        None
-                    )?;
+                    let result =
+                        render_template(Some(identifier), snippet, &snippext_settings, None)?;
                     fs::write(output_path, result).unwrap();
                 }
             }
@@ -676,14 +673,14 @@ fn extract_snippets_from_file(
         )),
     };
 
-
     let language = if settings.enable_autodetect_language {
         match hyperpolyglot::detect(&source_file.full_path) {
-            Ok(detection) => {
-                detection.map(|x| x.language().to_ascii_lowercase())
-            }
+            Ok(detection) => detection.map(|x| x.language().to_ascii_lowercase()),
             Err(_) => {
-                warn!("failed to detect language for file {}", &source_file.full_path.to_string_lossy());
+                warn!(
+                    "failed to detect language for file {}",
+                    &source_file.full_path.to_string_lossy()
+                );
                 None
             }
         }
@@ -728,7 +725,8 @@ fn extract_snippets_from_file(
                 attributes.extend(snippet_attributes);
             }
 
-            let retain_nested_comments = attributes.get("retain_nested_snippet_comments")
+            let retain_nested_comments = attributes
+                .get("retain_nested_snippet_comments")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(settings.retain_nested_snippet_comments);
 
@@ -745,7 +743,7 @@ fn extract_snippets_from_file(
                 start_line: current_line_number,
                 lines: String::new(),
                 attributes,
-                retain_nested_comments
+                retain_nested_comments,
             });
 
             continue;
@@ -769,11 +767,10 @@ fn extract_snippets_from_file(
                         attributes: snippet_extraction_state.attributes,
                         start_line: snippet_extraction_state.start_line,
                         end_line: current_line_number,
-                        source_link: Some(
-                            source_file
-                                .source_link
-                                .append_lines(snippet_extraction_state.start_line, current_line_number),
-                        ),
+                        source_link: Some(source_file.source_link.append_lines(
+                            snippet_extraction_state.start_line,
+                            current_line_number,
+                        )),
                     },
                 );
 
@@ -1005,8 +1002,14 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         .set_override_option("output_dir", opt.output_dir)?
         .set_override_option("output_extension", opt.output_extension)?
         .set_override_option("omit_source_links", opt.omit_source_links)?
-        .set_override_option("retain_nested_snippet_comments", opt.retain_nested_snippet_comments)?
-        .set_override_option("selected_lines_include_ellipses", opt.selected_lines_include_ellipses)?;
+        .set_override_option(
+            "retain_nested_snippet_comments",
+            opt.retain_nested_snippet_comments,
+        )?
+        .set_override_option(
+            "selected_lines_include_ellipses",
+            opt.selected_lines_include_ellipses,
+        )?;
 
     if !opt.targets.is_empty() {
         builder = builder.set_override("targets", opt.targets)?;
@@ -1027,10 +1030,12 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
         )?;
     }
 
-    if opt.disable_language_autodetect.is_some_and(|disabled| disabled) {
+    if opt
+        .disable_language_autodetect
+        .is_some_and(|disabled| disabled)
+    {
         builder = builder.set_override("enable_autodetect_language", false)?;
     }
-
 
     if let Some(template) = opt.templates {
         let templates_path = Path::new(template.as_str());
