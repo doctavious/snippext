@@ -716,7 +716,8 @@ fn extract_snippets_from_file(
                 attributes.insert("lang".to_string(), Value::String(language.clone()));
             }
 
-            let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, comment) else {
+            let Ok((key, snippet_attributes)) = extract_id_and_attributes(current_line, comment)
+            else {
                 // TODO: error
                 continue;
             };
@@ -824,7 +825,10 @@ fn extract_id_and_attributes(
     let captures = re.captures(line);
     if let Some(capture_groups) = captures {
         let Some(key) = capture_groups.name("key") else {
-            return Err(SnippextError::GeneralError(format!("could not extract key from {}", line)));
+            return Err(SnippextError::GeneralError(format!(
+                "could not extract key from {}",
+                line
+            )));
         };
 
         let attributes = if let Some(match_attributes) = capture_groups.name("attributes") {
@@ -891,8 +895,11 @@ fn process_target_file(
             continue;
         }
 
-        let Ok((key, attributes)) = extract_id_and_attributes(current_line, snippet_comment.unwrap()) else {
-            warn!("Failed to extract id/attributes from snippet. File {} line number {}",
+        let Ok((key, attributes)) =
+            extract_id_and_attributes(current_line, snippet_comment.unwrap())
+        else {
+            warn!(
+                "Failed to extract id/attributes from snippet. File {} line number {}",
                 target.to_string_lossy(),
                 line_number
             );
