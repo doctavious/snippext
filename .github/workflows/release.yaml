@@ -64,7 +64,6 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-          profile: minimal
           override: true
 
       - name: Build release binary
