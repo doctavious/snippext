@@ -82,17 +82,21 @@ jobs:
 
       # From openssl crate (https://docs.rs/openssl/latest/openssl/#automatic) install dependencies
       - name: Install system dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get install pkg-config libssl-dev
         # export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
-
+        #   run pkg_config fail: pkg-config has not been configured to support cross-compilation.
+        # Install a sysroot for the target platform and configure it via
+        #  PKG_CONFIG_SYSROOT_DIR and PKG_CONFIG_PATH, or install a
+        #  cross-compiling wrapper for pkg-config and set it via
+        #  PKG_CONFIG environment variable.
       - name: Build [Cargo]
-        if: matrix.os != 'ubuntu-latest'
+        if: matrix.os != 'ubuntu-20.04'
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Build [Cross]
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         run: cross build --release --locked --target ${{ matrix.target }}
 
 #      - name: Build release binary
@@ -129,6 +133,7 @@ jobs:
           7z a -ttar archive.tar snippext.exe
           7z a -tgzip ../../../snippext-${{ github.ref_name }}-${{ matrix.target }}.tar.gz archive.tar
           cd -
+
 
       - name: Upload release archive
         uses: softprops/action-gh-release@v1
