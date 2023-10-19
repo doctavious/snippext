@@ -74,7 +74,7 @@ jobs:
       # Install via cargo-binstall which I found faster
       - name: Install Cross
         # if: matrix.command == 'cross'
-        if: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.use-cross || matrix.os == 'ubuntu-20.04' }}
         shell: bash
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
