@@ -64,14 +64,18 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-          override: true
+
+      - name: Setup rust target
+        run: rustup target add ${{ matrix.target }}
 
       - name: Build release binary
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --locked --target ${{ matrix.target }}
-          use-cross: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
+        run: cargo build --release --locked --target ${{ matrix.target }}
+        # TODO: how to install necessary deps for cross?
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: build
+#          args: --verbose --release --locked --target ${{ matrix.target }}
+#          use-cross: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
           # use-cross: ${{ matrix.use-cross }}
 
       - name: Prepare binaries [-linux]
