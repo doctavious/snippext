@@ -54,7 +54,7 @@ jobs:
             os: windows-latest
           - target: i686-pc-windows-gnu
             os: windows-latest
-            use-cross: true
+            # use-cross: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,8 +68,32 @@ jobs:
       - name: Setup rust target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Build release binary
+      # Only install cross if we need it
+      # Install via cargo-binstall which I found faster
+      - name: Install Cross
+        # if: matrix.command == 'cross'
+        if: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cross
+
+      # From openssl crate (https://docs.rs/openssl/latest/openssl/#automatic) install dependencies
+      - name: Install system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          apk add pkg-config libssl-dev
+
+      - name: Build [Cargo]
+        if: matrix.os != 'ubuntu-latest'
         run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Build [Cross]
+        if: matrix.os == 'ubuntu-latest'
+        run: cross build --release --locked --target ${{ matrix.target }}
+
+#      - name: Build release binary
+#        run: cargo build --release --locked --target ${{ matrix.target }}
         # TODO: how to install necessary deps for cross?
 #        uses: actions-rs/cargo@v1
 #        with:
