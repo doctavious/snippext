@@ -19,7 +19,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ github.ref_name }} --draft -t "Version ${{ github.ref_name }}"
+          gh release create ${{ github.ref_name }} --draft -t "${{ github.ref_name }}"
 
   build-release:
     name: Build Release Assets
@@ -49,14 +49,9 @@ jobs:
             os: windows-latest
           - target: i686-pc-windows-msvc
             os: windows-latest
-# TODO: these dont work
-#        - target: arm-unknown-linux-musleabihf
-#          os: ubuntu-latest
           - target: x86_64-pc-windows-gnu
             os: windows-latest
-          - target: i686-pc-windows-gnu
-            os: windows-latest
-            use-cross: true
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -70,8 +65,7 @@ jobs:
       - name: Setup rust target
         run: rustup target add ${{ matrix.target }}
 
-      # Only install cross if we need it
-      # Install via cargo-binstall which I found faster
+      # Only install cross, via cargo-binstall, if we need it
       - name: Install Cross
         # if: matrix.command == 'cross'
         if: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
@@ -85,12 +79,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get install pkg-config libssl-dev
-        # export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
-        #   run pkg_config fail: pkg-config has not been configured to support cross-compilation.
-        # Install a sysroot for the target platform and configure it via
-        #  PKG_CONFIG_SYSROOT_DIR and PKG_CONFIG_PATH, or install a
-        #  cross-compiling wrapper for pkg-config and set it via
-        #  PKG_CONFIG environment variable.
+
       - name: Build [Cargo]
         if: matrix.os != 'ubuntu-latest'
         run: cargo build --release --locked --target ${{ matrix.target }}
@@ -98,16 +87,6 @@ jobs:
       - name: Build [Cross]
         if: matrix.os == 'ubuntu-latest'
         run: cross build --release --locked --target ${{ matrix.target }}
-
-#      - name: Build release binary
-#        run: cargo build --release --locked --target ${{ matrix.target }}
-        # TODO: how to install necessary deps for cross?
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: build
-#          args: --verbose --release --locked --target ${{ matrix.target }}
-#          use-cross: ${{ matrix.use-cross || matrix.os == 'ubuntu-latest' }}
-          # use-cross: ${{ matrix.use-cross }}
 
       - name: Prepare binaries [-linux]
         if: matrix.os != 'windows-latest'
@@ -134,22 +113,15 @@ jobs:
           7z a -tgzip ../../../snippext-${{ github.ref_name }}-${{ matrix.target }}.tar.gz archive.tar
           cd -
 
-
       - name: Upload release archive
-        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          name: Version ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          files: snippext-${{ github.ref_name }}-${{ matrix.target }}*
-
+        run: sh ci/upload.sh ${{ github.ref_name }} ${{ matrix.target }}
 
   # Mark the GitHub Release™ as a non-draft now that everything has succeeded!
   publish-release:
     # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
     needs: [create-release, build-release]
-    # if: ${{ always() && needs.create-release.result == 'success' && needs.build-release.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
