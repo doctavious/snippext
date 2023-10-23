@@ -41,8 +41,6 @@ jobs:
             os: ubuntu-latest
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
-          - target: arm-unknown-linux-musleabihf
-            os: ubuntu-latest
           - target: x86_64-apple-darwin
             os: macOS-latest
           - target: aarch64-apple-darwin
@@ -52,11 +50,13 @@ jobs:
           - target: i686-pc-windows-msvc
             os: windows-latest
 # TODO: these dont work
-#          - target: x86_64-pc-windows-gnu
-#            os: windows-latest
-#          - target: i686-pc-windows-gnu
-#            os: windows-latest
-#             use-cross: true
+#        - target: arm-unknown-linux-musleabihf
+#          os: ubuntu-latest
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+          - target: i686-pc-windows-gnu
+            os: windows-latest
+            use-cross: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
