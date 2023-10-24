@@ -4,9 +4,34 @@
 
 Snippext extracts snippets from source files and merges them into your documentation.
 
+> [!WARNING]
+> Currently still working through kinks and there may be breaking changes in upcoming updates
+
 ## Install
 
-TODO: provide instructions
+Binary downloads of Snippext can be found on the [Releases page](https://github.com/doctavious/snippext/releases/latest).
+
+You can also install Snippext via an installer script that will automatically grab the latest version of Snippext and install it locally.
+
+You can fetch that script, and then execute it locally.
+
+```shell 
+curl -fsSL -o install_snippext.sh https://raw.githubusercontent.com/doctavious/snippext/main/install.sh
+chmod 700 install_snippext.sh
+./install_snippext.sh
+```
+
+You can also do
+
+```bash 
+curl https://raw.githubusercontent.com/doctavious/snippext/main/install.sh | bash
+
+# or  
+bash <(curl -fsSL https://raw.githubusercontent.com/doctavious/snippext/main/install.sh)
+```
+
+If you need to install a specific version for some reason you can pass the version as the first argument to the script.
+
 
 ## Configure
 
@@ -23,6 +48,9 @@ templates:
     {{#unless omit_source_link}}
     <a href='{{source_link}}' title='Snippet source file'>snippet source</a>
     {{/unless}}
+    {{#each callouts}}
+      <{{number}}> {{text}}
+    {{/each}}
   raw: "{{snippet}}"
 sources:
 # extract from local files
