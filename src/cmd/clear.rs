@@ -90,7 +90,7 @@ pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
         let snippet_comments = match cache.entry(extension.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(SnippextComments::new(
-                extension.as_str().clone(),
+                extension.as_str(),
                 settings.start.as_str(),
                 settings.end.as_str(),
             )),
