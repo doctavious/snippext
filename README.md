@@ -25,9 +25,6 @@ You can also do
 
 ```bash 
 curl https://raw.githubusercontent.com/doctavious/snippext/main/install.sh | bash
-
-# or  
-bash <(curl -fsSL https://raw.githubusercontent.com/doctavious/snippext/main/install.sh)
 ```
 
 If you need to install a specific version for some reason you can pass the version as the first argument to the script.
