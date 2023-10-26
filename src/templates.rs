@@ -184,7 +184,7 @@ fn get_template<'a>(
             }
             _ => Err(SnippextError::TemplateNotFound(format!(
                 "{} has wrong type",
-                template_identifier.to_string()
+                template_identifier
             ))),
         }
     } else {

@@ -45,14 +45,14 @@ pub fn get_snippet_comments(extension: &str, start: &str, end: &str) -> Vec<Snip
     for comment in file_comments(extension) {
         let start_close = comment.1.map(str::to_string);
         snippet_comments.push(SnippextComment {
-            start: format!("{}{}", comment.0, start.to_string()),
+            start: format!("{}{}", comment.0, start),
             start_close: start_close.clone(),
-            end: format!("{}{}", comment.0, end.to_string()),
+            end: format!("{}{}", comment.0, end),
         });
         snippet_comments.push(SnippextComment {
-            start: format!("{} {}", comment.0, start.to_string()),
+            start: format!("{} {}", comment.0, start),
             start_close: start_close.clone(),
-            end: format!("{} {}", comment.0, end.to_string()),
+            end: format!("{} {}", comment.0, end),
         });
     }
 
