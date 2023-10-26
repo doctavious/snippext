@@ -32,6 +32,7 @@ pub struct Snippet {
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
 pub enum SnippetSource {
     /// Snippet source that comes from a remote Git repository
     Git {
@@ -52,7 +53,7 @@ pub enum SnippetSource {
         files: Vec<String>,
     },
     /// Snippet source that comes from a URL
-    Url { url: String }
+    Url { url: String },
 }
 
 /// Defines the format of snippet source links that appear under each snippet.

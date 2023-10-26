@@ -292,9 +292,9 @@ fn url_source_link() {
             DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
             String::from("{{snippet}}{{source_link}}"),
         )]),
-        sources: vec![SnippetSource::Url(
-            "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into()
-        )],
+        sources: vec![SnippetSource::Url {
+            url: "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into()
+        }],
         output_dir: Some(format!(
             "{}/generated-snippets/",
             dir.path().to_string_lossy()

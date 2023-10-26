@@ -541,7 +541,7 @@ fn extract_snippets(
                 }
             }
         }
-        SnippetSource::Url(url) => {
+        SnippetSource::Url { url } => {
             let source_file = get_source_file_from_url(url)?;
             let extracted_snippets =
                 extract_snippets_from_file(source_file, settings, cache, snippet_ids)?;
@@ -1101,7 +1101,7 @@ fn build_settings(opt: Args) -> SnippextResult<SnippextSettings> {
     }
 
     for url_source in opt.url_sources {
-        snippet_sources.push(SnippetSource::Url(url_source));
+        snippet_sources.push(SnippetSource::Url { url: url_source });
     }
 
     // might be a better way to do this but works for now
@@ -1528,8 +1528,7 @@ mod tests {
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            ources: vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689
-d2a36b99e77d189/snippext_example.rs".into())
+            sources: vec![SnippetSource::Url { url: "https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into() }],
             targets: Some(vec![target.to_string_lossy().to_string()]),
             ..Default::default()
         };

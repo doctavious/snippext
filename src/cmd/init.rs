@@ -172,7 +172,7 @@ fn init_settings_from_prompt() -> SnippextResult<SnippextSettings> {
                     .with_validator(NotEmptyValidator::default())
                     .with_help_message("URL to content that should be included as snippets")
                     .prompt()?;
-                sources.push(SnippetSource::Url(url));
+                sources.push(SnippetSource::Url { url });
             }
             _ => {
                 warn!("Invalid source type {}", source_type);

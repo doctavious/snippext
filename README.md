@@ -45,18 +45,15 @@ templates:
     {{#unless omit_source_link}}
     <a href='{{source_link}}' title='Snippet source file'>snippet source</a>
     {{/unless}}
-    {{#each callouts}}
-      <{{number}}> {{text}}
-    {{/each}}
   raw: "{{snippet}}"
 sources:
 # extract from local files
-- !Local
+- type: Local
   files:
-  - "**"
+    - "**"
 
 # extract from remote Git repo
-#- !Git
+#- type: Git
 #  repository: https://github.com/doctavious/snippext.git
 #  branch: main
 #  cone_patterns:
@@ -65,7 +62,7 @@ sources:
 #    - "**"
 
 # extract from URL
-#- !Url http://localhost/hi
+#- type:  http://localhost/hi
 
 output_dir: "./generated-snippets/"
 output_extension: "md"  # Extension for generated files written to the output directory
