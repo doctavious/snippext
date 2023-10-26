@@ -1,5 +1,3 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -10,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants::{DEFAULT_SNIPPEXT_CONFIG, SNIPPEXT};
 use crate::error::SnippextError;
-use crate::files::SnippextComments;
+use crate::types::SnippetCommentCache;
 use crate::{files, SnippextResult};
 
 /// Clear snippets in target files
@@ -84,17 +82,10 @@ fn build_clear_settings(opt: Args) -> SnippextResult<ClearSettings> {
 pub fn clear(settings: ClearSettings) -> SnippextResult<()> {
     validate_clear_settings(&settings)?;
 
-    let mut cache = HashMap::new();
+    let cache = SnippetCommentCache::new(settings.start, settings.end);
     for target in settings.targets {
         let extension = files::extension(target.as_str());
-        let snippet_comments = match cache.entry(extension.clone()) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert(SnippextComments::new(
-                extension.as_str(),
-                settings.start.as_str(),
-                settings.end.as_str(),
-            )),
-        };
+        let snippet_comments = cache.get(extension);
 
         let f = fs::File::open(&target)?;
         let reader = BufReader::new(f);

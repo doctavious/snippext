@@ -1,4 +1,3 @@
-use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -26,10 +25,13 @@ use crate::constants::{
     DEFAULT_SOURCE_FILES, DEFAULT_TEMPLATE_IDENTIFIER, SNIPPEXT,
 };
 use crate::error::SnippextError;
-use crate::files::{SnippextComment, SnippextComments};
+use crate::files::SnippextComment;
 use crate::sanitize::sanitize;
 use crate::templates::render_template;
-use crate::types::{LinkFormat, MissingSnippet, MissingSnippetsBehavior, Snippet, SnippetSource};
+use crate::types::{
+    LinkFormat, MissingSnippet, MissingSnippetsBehavior, Snippet, SnippetCommentCache,
+    SnippetSource,
+};
 use crate::{files, git, SnippextResult, SnippextSettings};
 
 /// Extracts snippets from source files and outputs and/or splices them into target files.
@@ -262,12 +264,13 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
 
     let mut snippets = HashMap::new();
     let mut snippet_ids = HashSet::new();
-    // file / snippet prefix cache
-    let mut cache = HashMap::new();
-
+    let cache = SnippetCommentCache::new(
+        snippext_settings.start.clone(),
+        snippext_settings.end.clone(),
+    );
     for source in &snippext_settings.sources {
         let extracted_snippets =
-            extract_snippets(source, &snippext_settings, &mut cache, &mut snippet_ids)?;
+            extract_snippets(source, &snippext_settings, &cache, &mut snippet_ids)?;
 
         if let Some(output_dir) = &snippext_settings.output_dir {
             let base_path = Path::new(output_dir.as_str());
@@ -310,7 +313,7 @@ pub fn extract(snippext_settings: SnippextSettings) -> SnippextResult<()> {
             for entry in globs {
                 let path = entry.unwrap();
                 let target_file_missing_snippets =
-                    process_target_file(path.as_path(), &snippets, &snippext_settings, &mut cache)?;
+                    process_target_file(path.as_path(), &snippets, &snippext_settings, &cache)?;
                 missing_snippets.extend(target_file_missing_snippets);
             }
         }
@@ -428,7 +431,7 @@ fn validate_snippext_settings(settings: &SnippextSettings) -> SnippextResult<()>
 fn extract_snippets(
     source: &SnippetSource,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, SnippextComments>,
+    cache: &SnippetCommentCache,
     snippet_ids: &mut HashSet<String>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
     let mut snippets = HashMap::new();
@@ -653,7 +656,7 @@ fn header_to_systemtime(header_value: Option<&HeaderValue>) -> Option<SystemTime
 fn extract_snippets_from_file(
     source_file: SourceFile,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, SnippextComments>,
+    cache: &SnippetCommentCache,
     snippet_ids: &mut HashSet<String>,
 ) -> SnippextResult<HashMap<String, Snippet>> {
     let f = File::open(&source_file.full_path)?;
@@ -663,15 +666,7 @@ fn extract_snippets_from_file(
     let mut state: Vec<SnippetExtractionState> = Vec::new();
     let mut snippets = HashMap::new();
     let extension = files::extension_from_path(&source_file.full_path);
-
-    let snippet_comments = match cache.entry(extension.clone()) {
-        Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => entry.insert(SnippextComments::new(
-            extension.as_str(),
-            settings.start.as_str(),
-            settings.end.as_str(),
-        )),
-    };
+    let snippet_comments = cache.get(extension);
 
     let language = if settings.enable_autodetect_language {
         match hyperpolyglot::detect(&source_file.full_path) {
@@ -855,7 +850,7 @@ fn process_target_file(
     target: &Path,
     snippets: &HashMap<String, Snippet>,
     settings: &SnippextSettings,
-    cache: &mut HashMap<String, SnippextComments>,
+    cache: &SnippetCommentCache,
 ) -> SnippextResult<Vec<MissingSnippet>> {
     let mut new_file_lines = Vec::new();
     let mut updated = false;
@@ -863,14 +858,7 @@ fn process_target_file(
     let mut line_number = 0;
     let mut missing_snippets = Vec::new();
     let extension = files::extension_from_path(target);
-    let snippet_comments = match cache.entry(extension.clone()) {
-        Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => entry.insert(SnippextComments::new(
-            extension.as_str(),
-            settings.start.as_str(),
-            settings.end.as_str(),
-        )),
-    };
+    let snippet_comments = cache.get(extension);
 
     let f = File::open(target)?;
     let reader = BufReader::new(f);
@@ -1540,7 +1528,8 @@ mod tests {
                 DEFAULT_TEMPLATE_IDENTIFIER.to_string(),
                 String::from("{{snippet}}"),
             )]),
-            sources: vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689d2a36b99e77d189/snippext_example.rs".into())],
+            ources: vec![SnippetSource::Url("https://gist.githubusercontent.com/seancarroll/94629074d8cb36e9f5a0bc47b72ba6a5/raw/2b9d5db6482c7ff90a0cf3689
+d2a36b99e77d189/snippext_example.rs".into())
             targets: Some(vec![target.to_string_lossy().to_string()]),
             ..Default::default()
         };

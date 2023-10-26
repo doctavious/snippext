@@ -1,3 +1,4 @@
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -5,6 +6,8 @@ use std::path::PathBuf;
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::files::SnippextComments;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snippet {
@@ -49,7 +52,7 @@ pub enum SnippetSource {
         files: Vec<String>,
     },
     /// Snippet source that comes from a URL
-    Url(String),
+    Url { url: String }
 }
 
 /// Defines the format of snippet source links that appear under each snippet.
@@ -144,5 +147,33 @@ impl fmt::Display for MissingSnippetsBehavior {
             MissingSnippetsBehavior::Ignore => write!(f, "Ignore"),
             MissingSnippetsBehavior::Warn => write!(f, "Warn"),
         }
+    }
+}
+
+pub(crate) struct SnippetCommentCache {
+    start_prefix: String,
+    end_prefix: String,
+    inner: RefCell<HashMap<String, SnippextComments>>,
+}
+
+impl SnippetCommentCache {
+    pub fn new(start_prefix: String, end_prefix: String) -> Self {
+        Self {
+            start_prefix,
+            end_prefix,
+            inner: Default::default(),
+        }
+    }
+
+    // would prefer to return & or Ref instead of RefMut but doesn't look like that's an option
+    pub fn get(&self, extension: String) -> RefMut<SnippextComments> {
+        RefMut::map(self.inner.borrow_mut(), |map| {
+            map.entry(extension.clone())
+                .or_insert(SnippextComments::new(
+                    extension.clone().as_str(),
+                    self.start_prefix.as_str(),
+                    self.end_prefix.as_str(),
+                ))
+        })
     }
 }
